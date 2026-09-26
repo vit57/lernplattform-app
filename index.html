@@ -307,6 +307,249 @@ html[data-lesefreundlich] #view { line-height: 1.8; }
 .dz-gruppe label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-right: 14px; cursor: pointer; }
 </style>
 <script>
+/* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
+   Geräte-Abgleich. Jedes Speichern eines egl-*-Schlüssels, das den Wert
+   wirklich ändert, bekommt einen Stempel in egl-zeiten — bis in die Teile
+   (je Profil, je Sammlung, je Eigenschaft). Löschen bekommt einen
+   Löschstempel. Die Logik steht in app/kern/abgleich.js (eine Quelle,
+   getestet) und wird beim Bauen hier eingezogen; p60 benutzt sie über
+   window.__ABGLEICH. */
+(function () {
+  // @ts-check
+/**
+ * Geräte-Abgleich ohne Duplikate — reine Funktionen.
+ *
+ * Wunsch des Auftraggebers (2026-09-26): Lernfortschritt und Daten zwischen
+ * iPad und Mac mitnehmen wie in der Bibel-App; übernommen wird nur, was neu
+ * oder geändert ist, nichts wird verdoppelt.
+ *
+ * Grundlage sind Änderungsstempel: Beim Speichern hält `stempeln` fest,
+ * WAS sich WANN geändert hat — je Schlüssel und darunter je Profil, je
+ * Sammlung, je Eigenschaft (Pfad „schlüssel#teil“). Gelöschtes bekommt
+ * einen Löschstempel, damit es beim Abgleich nicht zurückkehrt.
+ *
+ * `abgleichen(lokal, fremd)` führt zwei Stände zusammen:
+ *   - je Teil gewinnt der neuere Stempel; nur Vorhandenes wird übernommen,
+ *   - Lernpfad-Versuche werden vereinigt (derselbe Versuch zählt einmal),
+ *   - gelesene Texte (Textrotation) werden vereinigt,
+ *   - Gelöschtes bleibt gelöscht, wenn der Löschstempel neuer ist,
+ *   - gerätebezogene Schlüssel (aktives Profil, Darstellung …) bleiben lokal.
+ * Das Ergebnis ist idempotent und von der Reihenfolge unabhängig: Gleicht
+ * A mit B ab und B danach mit A, haben beide denselben Stand.
+ *
+ * Grenze: Ein Statistik-Block eines Profils, der auf BEIDEN Geräten seit dem
+ * letzten Abgleich verändert wurde, wird nicht addiert — der neuere gewinnt.
+ * Addieren hieße doppelt zählen; ein echtes Zusammenzählen braucht das
+ * Ereignis-Log (M6).
+ */
+
+/** @typedef {{ t: Record<string, number>, weg: Record<string, number> }} Zeiten */
+/** @typedef {{ daten: Record<string, string> }} Paket */
+
+const ZEITEN = 'egl-zeiten';
+/** Gerätebezogen — wird weder abgeglichen noch überschrieben. */
+const NUR_LOKAL = ['egl-cur', 'egl-tab', 'egl-editmode', 'egl-sync', 'egl-sync-rollback', 'egl-darstellung', ZEITEN];
+const istLokal = (k) => NUR_LOKAL.includes(k);
+/* Geräteunabhängig vergleichen — localeCompare hinge von der Spracheinstellung
+   ab, und zwei verschieden eingestellte Geräte sortierten dann verschieden
+   (vom Normalisierer-Register angestoßen). Kürzeres zuerst, dann Zeichen. */
+const vergleiche = (x, y) => x.length - y.length || (x < y ? -1 : x > y ? 1 : 0);
+
+/** @param {string | null | undefined} s */
+function json(s) {
+  if (s == null) return undefined;
+  try { return JSON.parse(s); } catch { return undefined; }
+}
+const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+const istIdListe = (x) => Array.isArray(x) && x.length > 0 && x.every((e) => istObjekt(e) && typeof e.id === 'string');
+
+/** Teile eines Werts: Eigenschaften eines Objekts bzw. Einträge einer id-Liste. */
+function teile(x) {
+  if (istObjekt(x)) return x;
+  if (istIdListe(x)) return Object.fromEntries(x.map((e) => [e.id, e]));
+  return null;
+}
+
+/**
+ * Stempelt eine Änderung. Liefert neue Zeiten; verändert die alten nicht.
+ * Nur tatsächlich veränderte Teile bekommen einen Stempel.
+ * @param {Zeiten | null | undefined} zeiten
+ * @param {string} schluessel
+ * @param {string | null} alt vorheriger gespeicherter Wert (null = gab es nicht)
+ * @param {string | null} neu neuer Wert (null = gelöscht)
+ * @param {number} jetzt
+ * @returns {Zeiten}
+ */
+function stempeln(zeiten, schluessel, alt, neu, jetzt) {
+  const z = { t: { ...(zeiten?.t || {}) }, weg: { ...(zeiten?.weg || {}) } };
+  if (alt === neu) return z;
+  if (neu == null) { z.weg[schluessel] = jetzt; return z; }
+  z.t[schluessel] = jetzt;
+  delete z.weg[schluessel];
+  const a = teile(json(alt)), b = teile(json(neu));
+  if (b) {
+    const va = a || {};
+    for (const k of Object.keys(b)) {
+      if (JSON.stringify(va[k]) !== JSON.stringify(b[k])) { z.t[schluessel + '#' + k] = jetzt; delete z.weg[schluessel + '#' + k]; }
+    }
+    for (const k of Object.keys(va)) if (!(k in b)) z.weg[schluessel + '#' + k] = jetzt;
+  }
+  return z;
+}
+
+/** Deterministischer Gewinner bei gleichem Stempel: der größere Text. */
+function wahl(a, ta, b, tb) {
+  if (ta !== tb) return ta > tb ? a : b;
+  return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
+}
+
+function lernpfadVereinen(a, b) {
+  const out = { m: {}, d: { ...(a.d || {}) }, diag: { ...(a.diag || {}) } };
+  for (const [k, t] of Object.entries(b.d || {})) out.d[k] = Math.max(out.d[k] || 0, t);
+  for (const [k, t] of Object.entries(b.diag || {})) out.diag[k] = Math.max(out.diag[k] || 0, t);
+  const skills = new Set([...Object.keys(a.m || {}), ...Object.keys(b.m || {})]);
+  for (const s of skills) {
+    const ea = (a.m || {})[s] || { v: [], h: 0 }, eb = (b.m || {})[s] || { v: [], h: 0 };
+    const gesehen = new Map();
+    for (const v of [...(ea.v || []), ...(eb.v || [])]) gesehen.set(v.join('|'), v);
+    const v = [...gesehen.values()].sort((x, y) => x[0] - y[0] || vergleiche(String(x), String(y))).slice(-40);
+    out.m[s] = { v, h: Math.max(ea.h || 0, eb.h || 0) };
+  }
+  return out;
+}
+
+function rotationVereinen(a, b) {
+  const out = {};
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    const x = a[k], y = b[k];
+    if (!x || !y) { out[k] = x || y; continue; }
+    if ((x.runde || 1) !== (y.runde || 1)) { out[k] = (x.runde || 1) > (y.runde || 1) ? x : y; continue; }
+    const g = [...(x.gesehen || [])];
+    for (const id of y.gesehen || []) if (!g.includes(id)) g.push(id);
+    out[k] = { runde: x.runde || 1, gesehen: g };
+  }
+  return out;
+}
+
+/**
+ * @param {Paket} lokal
+ * @param {Paket} fremd
+ * @returns {{ daten: Record<string, string>, bericht: { neu: string[], aktualisiert: string[], geloescht: string[], unveraendert: number } }}
+ */
+function abgleichen(lokal, fremd) {
+  const dl = lokal.daten || {}, df = fremd.daten || {};
+  const zl = json(dl[ZEITEN]) || { t: {}, weg: {} }, zf = json(df[ZEITEN]) || { t: {}, weg: {} };
+  const T = (z, p) => (z.t && z.t[p]) || 0, W = (z, p) => (z.weg && z.weg[p]) || 0;
+  const daten = {};
+  const bericht = { neu: [], aktualisiert: [], geloescht: [], unveraendert: 0 };
+
+  for (const k of Object.keys(dl)) if (istLokal(k)) daten[k] = dl[k];
+
+  const schluessel = new Set([...Object.keys(dl), ...Object.keys(df)].filter((k) => !istLokal(k)));
+  for (const k of [...schluessel].sort()) {
+    const a = dl[k], b = df[k];
+    let ergebnis;
+    if (a == null || b == null) {
+      /* Nur auf einer Seite: übernehmen — außer die andere hat es später gelöscht. */
+      const da = a != null ? a : b, seite = a != null ? zl : zf, andere = a != null ? zf : zl;
+      ergebnis = W(andere, k) > T(seite, k) ? undefined : da;
+    } else if (a === b) {
+      ergebnis = a;
+    } else {
+      const ja = json(a), jb = json(b);
+      if (k.startsWith('egl-lernpfad-') && istObjekt(ja) && istObjekt(jb)) ergebnis = JSON.stringify(lernpfadVereinen(ja, jb));
+      else if (k.startsWith('egl-textrotation-') && istObjekt(ja) && istObjekt(jb)) ergebnis = JSON.stringify(rotationVereinen(ja, jb));
+      else if (teile(ja) && teile(jb) && Array.isArray(ja) === Array.isArray(jb)) {
+        const pa = teile(ja), pb = teile(jb), out = {};
+        for (const s of new Set([...Object.keys(pa), ...Object.keys(pb)])) {
+          const p = k + '#' + s;
+          const xa = pa[s], xb = pb[s];
+          if (xa === undefined || xb === undefined) {
+            const da = xa !== undefined ? xa : xb, seite = xa !== undefined ? zl : zf, andere = xa !== undefined ? zf : zl;
+            if (!(W(andere, p) > (T(seite, p) || T(seite, k)))) out[s] = da;
+          } else {
+            out[s] = wahl(xa, T(zl, p) || T(zl, k), xb, T(zf, p) || T(zf, k));
+          }
+        }
+        /* id-Listen fest nach Kennung ordnen (Profil-Kennungen tragen den
+           Anlegezeitpunkt) — nach der lokalen Reihenfolge hinge das Ergebnis
+           davon ab, auf welchem Gerät abgeglichen wird (vom Konvergenztest
+           gefunden). */
+        ergebnis = JSON.stringify(Array.isArray(ja)
+          ? Object.keys(out).sort(vergleiche).map((s) => out[s])
+          : Object.fromEntries(Object.keys(out).sort().map((s) => [s, out[s]])));
+        /* Unverändert gebliebene Objekte nicht umformatieren. */
+        if (JSON.stringify(json(ergebnis)) === JSON.stringify(ja)) ergebnis = a;
+        else if (JSON.stringify(json(ergebnis)) === JSON.stringify(jb)) ergebnis = b;
+      } else {
+        ergebnis = wahl(a, T(zl, k), b, T(zf, k));
+      }
+    }
+
+    if (ergebnis === undefined) { if (a != null) bericht.geloescht.push(k); continue; }
+    daten[k] = ergebnis;
+    if (a == null) bericht.neu.push(k);
+    else if (ergebnis !== a) bericht.aktualisiert.push(k);
+    else bericht.unveraendert++;
+  }
+
+  /* Zeiten vereinigen: je Pfad der spätere Stempel. */
+  const z = { t: { ...(zl.t || {}) }, weg: { ...(zl.weg || {}) } };
+  for (const [p, t] of Object.entries(zf.t || {})) z.t[p] = Math.max(z.t[p] || 0, t);
+  for (const [p, t] of Object.entries(zf.weg || {})) z.weg[p] = Math.max(z.weg[p] || 0, t);
+  daten[ZEITEN] = JSON.stringify(z);
+  return { daten, bericht };
+}
+
+  try {
+    var proto = window.Storage && window.Storage.prototype;
+    if (!proto || !window.localStorage) return;
+    var setzenRoh = proto.setItem, loeschenRoh = proto.removeItem;
+    function gemeint(speicher, k) {
+      return speicher === window.localStorage && typeof k === "string" && k.indexOf("egl-") === 0 && NUR_LOKAL.indexOf(k) < 0;
+    }
+    function zeiten(speicher) { try { return JSON.parse(speicher.getItem(ZEITEN) || "null"); } catch (e) { return null; } }
+    proto.setItem = function (k, v) {
+      if (gemeint(this, k)) {
+        var alt = this.getItem(k), neu = String(v);
+        if (alt === neu) return;
+        var z = stempeln(zeiten(this), k, alt, neu, Date.now());
+        setzenRoh.call(this, k, neu);
+        setzenRoh.call(this, ZEITEN, JSON.stringify(z));
+        return;
+      }
+      return setzenRoh.apply(this, arguments);
+    };
+    proto.removeItem = function (k) {
+      if (gemeint(this, k)) {
+        var alt = this.getItem(k);
+        if (alt == null) return;
+        loeschenRoh.call(this, k);
+        setzenRoh.call(this, ZEITEN, JSON.stringify(stempeln(zeiten(this), k, alt, null, Date.now())));
+        return;
+      }
+      return loeschenRoh.apply(this, arguments);
+    };
+    window.__ABGLEICH = {
+      abgleichen: abgleichen, stempeln: stempeln, ZEITEN: ZEITEN, NUR_LOKAL: NUR_LOKAL,
+      /* Ergebnis eines Abgleichs schreiben — OHNE neue Stempel (sonst wären
+         die übernommenen Stände jünger als die Wahrheit) und mit den
+         vereinigten Zeiten. Lokale, gerätebezogene Schlüssel bleiben. */
+      schreibeRoh: function (daten) {
+        var ls = window.localStorage, weg = [];
+        for (var i = 0; i < ls.length; i++) {
+          var k = ls.key(i);
+          if (k && k.indexOf("egl-") === 0 && NUR_LOKAL.indexOf(k) < 0 && !(k in daten)) weg.push(k);
+        }
+        weg.forEach(function (k) { loeschenRoh.call(ls, k); });
+        Object.keys(daten).forEach(function (k) {
+          if (k === ZEITEN || NUR_LOKAL.indexOf(k) < 0) setzenRoh.call(ls, k, daten[k]);
+        });
+      }
+    };
+  } catch (e) {}
+})();
+
 /* Läuft im <head>, vor jedem Zeichnen: Theme, Schriftgröße und
    lesefreundliche Schrift aus egl-darstellung setzen — so blitzt beim
    Laden nichts hell auf. Die Auswahl selbst steht in p71-darstellung.js. */
@@ -39243,6 +39486,7 @@ var PRAEFIX="egl-";
 var CFG="egl-sync";
 var ROLLBACK="egl-sync-rollback";
 var TAB="m127sync";
+var ABGLEICH_BERICHT="lp-abgleich-bericht";   /* sessionStorage — überlebt nur das Neuladen danach */
 
 /* ---------- Speicher-Helfer ---------- */
 function cfg(){
@@ -39322,6 +39566,48 @@ function dateiSpeichern(){
     setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},2000);
     melden("Sicherung gespeichert: "+name+" ("+Object.keys(p.daten).length+" Einträge).");
   }catch(e){melden("Speichern nicht möglich: "+e.message,true)}
+}
+
+/* ---------- Abgleich mit einem anderen Gerät (ohne Server) ----------
+   Die Logik steht in app/kern/abgleich.js und wird im <head> eingezogen
+   (app/design/speicher-kopf.js → window.__ABGLEICH), weil die
+   Änderungsstempel von der ersten Speicherung an gesetzt werden müssen. */
+function abgleichDateiSpeichern(){
+  var p=sammeln();
+  var name="lernplattform-abgleich-"+geraetName().replace(/[^A-Za-z0-9äöüÄÖÜß]+/g,"-")+".json";
+  var text=JSON.stringify(p);
+  try{
+    var datei=new File([text],name,{type:"application/json"});
+    if(navigator.canShare&&navigator.share&&navigator.canShare({files:[datei]})&&/iPad|iPhone|Macintosh/.test(navigator.userAgent)&&"ontouchend" in document){
+      navigator.share({files:[datei],title:name}).catch(function(){});
+      return melden("Im Teilen-Menü „In Dateien sichern“ wählen (am besten iCloud Drive).");
+    }
+  }catch(e){}
+  try{
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([text],{type:"application/json"}));a.download=name;
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},2000);
+    melden("Abgleich-Datei gespeichert: "+name+". Jetzt auf dem anderen Gerät wählen.");
+  }catch(e){melden("Speichern nicht möglich: "+e.message,true)}
+}
+function abgleichEinlesen(p){
+  var fehler=pruefePaket(p);
+  if(fehler)return melden(fehler,true);
+  var ab=window.__ABGLEICH;
+  if(!ab||typeof ab.abgleichen!=="function")return melden("Der Abgleich ist in dieser Fassung nicht verfügbar.",true);
+  try{
+    var lokal=sammeln();
+    localStorage.setItem(ROLLBACK,JSON.stringify(lokal));
+    var r=ab.abgleichen(lokal,p);
+    ab.schreibeRoh(r.daten);
+    var c=cfg();c.lastSync=new Date().toISOString();cfgSet(c);
+    sessionStorage.setItem(ABGLEICH_BERICHT,JSON.stringify({neu:r.bericht.neu.length,aktualisiert:r.bericht.aktualisiert.length,
+      unveraendert:r.bericht.unveraendert,geloescht:r.bericht.geloescht.length}));
+  }catch(e){return melden("Abgleich fehlgeschlagen: "+e.message,true)}
+  /* Neu laden, damit kein alter Stand aus dem Arbeitsspeicher den
+     abgeglichenen überschreibt. Danach öffnet sich diese Seite mit Bericht. */
+  window.location.reload();
 }
 
 /* ---------- Abgleich über einen eigenen Dienst ---------- */
@@ -39458,18 +39744,39 @@ function seite(){
 
   if(hinweis)s+='<div class="sy-msg '+(hinweis.schlecht?"no":"ok")+'">'+E(hinweis.text)+'</div>';
 
+  var ab=null;try{ab=JSON.parse(sessionStorage.getItem(ABGLEICH_BERICHT)||"null")}catch(e){}
+  s+='<div class="sy-card" data-testid="sy-abgleich"><h3>🔄 Mit anderem Gerät abgleichen (iPad ↔ Mac)</h3>'
+   +'<p>Übernommen wird nur, was auf dem anderen Gerät <b>neu oder geändert</b> ist — nichts wird verdoppelt, '
+   +'Gelöschtes kommt nicht zurück. Zweimal abgleichen ändert nichts mehr.</p>'
+   +(ab?'<div class="sy-msg ok" data-testid="sy-abgleich-bericht">Abgeglichen: <b>'+ab.neu+'</b> neu, <b>'+ab.aktualisiert+'</b> aktualisiert, '
+       +'<b>'+ab.unveraendert+'</b> unverändert'+(ab.geloescht?', <b>'+ab.geloescht+'</b> gelöscht':'')+'. '
+       +'Jetzt die abgeglichene Datei speichern und auf dem anderen Gerät ebenfalls hier wählen — dann haben beide denselben Stand.</div>':'')
+   +'<ol style="margin:6px 0 10px 20px;line-height:1.7;font-size:14.5px">'
+   +'<li>Auf dem einen Gerät <b>Abgleich-Datei speichern</b> (iPad: Teilen → „In Dateien sichern“ → iCloud Drive).</li>'
+   +'<li>Auf dem anderen Gerät <b>Datei vom anderen Gerät wählen</b>.</li>'
+   +'<li>Die dann gespeicherte, abgeglichene Datei auf dem ersten Gerät wählen.</li></ol>'
+   +'<div class="sy-row">'
+   +'<button class="btn btn-primary" data-sy="ab-save">'+(ab?'Abgeglichene Datei speichern':'Abgleich-Datei speichern')+'</button>'
+   +'<button class="btn btn-ghost" data-sy="ab-load">Datei vom anderen Gerät wählen …</button>'
+   +'<input type="file" id="sy-abfile" data-testid="sy-abfile" accept="application/json,.json" style="display:none">'
+   +'</div>'
+   +'<div class="sy-meta">Zuletzt abgeglichen: <b>'+wann(c.lastSync)+'</b> · Gerät: <b>'+E(geraetName())+'</b><br>'
+   +'Nicht übertragen werden gerätebezogene Einstellungen (aktives Profil, Darstellung). '
+   +'Wurde dasselbe Profil auf beiden Geräten seit dem letzten Abgleich benutzt, gilt je Bereich der neuere Stand.</div>'
+   +'</div>';
+
   s+='<div class="sy-card"><h3>📁 Sicherung als Datei</h3>'
    +'<p>Funktioniert immer und braucht nichts weiter. Die Datei kannst du aufheben, '
    +'per Mail schicken oder auf einem anderen Gerät wieder einspielen.</p>'
    +'<div class="sy-row">'
    +'<button class="btn btn-primary" data-sy="save">Sicherung speichern</button>'
-   +'<button class="btn btn-ghost" data-sy="load">Sicherung einspielen …</button>'
+   +'<button class="btn btn-ghost" data-sy="load">Sicherung einspielen (ersetzt alles) …</button>'
    +'<input type="file" id="sy-file" accept="application/json,.json" style="display:none">'
    +'</div>'
    +'<div class="sy-meta">Aktuell gespeichert: <b>'+n+' Einträge</b> · Gerätename: <b>'+E(geraetName())+'</b></div>'
    +'</div>';
 
-  s+='<div class="sy-card"><h3>🔄 Abgleich zwischen Geräten</h3>'
+  s+='<div class="sy-card"><h3>🌐 Abgleich über einen eigenen Dienst</h3>'
    +'<p>Optional. Dafür braucht es einen kleinen eigenen Dienst — die Vorlagen dazu liegen im Ordner '
    +'<b>app/sync</b>. Ohne Eintrag hier bleibt alles rein lokal.</p>'
    +'<label class="sy-feld"><span>Adresse des Dienstes</span>'
@@ -39526,6 +39833,8 @@ document.addEventListener("click",function(e){
   e.preventDefault();e.stopPropagation();
   var a=b.getAttribute("data-sy");
   if(a==="save")return dateiSpeichern();
+  if(a==="ab-save")return abgleichDateiSpeichern();
+  if(a==="ab-load"){var af=document.getElementById("sy-abfile");if(af)af.click();return}
   if(a==="load"){var f=document.getElementById("sy-file");if(f)f.click();return}
   if(a==="cfg"){
     var c=cfg();
@@ -39552,6 +39861,20 @@ document.addEventListener("change",function(e){
   if(e.target&&e.target.id==="sy-auto"){
     var c=cfg();c.auto=!!e.target.checked;cfgSet(c);
     return melden(c.auto?"Automatisches Hochladen ist eingeschaltet.":"Automatisches Hochladen ist aus.");
+  }
+  if(e.target&&e.target.id==="sy-abfile"){
+    var ad=e.target.files&&e.target.files[0];
+    e.target.value="";
+    if(!ad)return;
+    var al=new FileReader();
+    al.onload=function(){
+      var p=null;
+      try{p=JSON.parse(String(al.result))}catch(err){return melden("Die Datei ist kein gültiges JSON.",true)}
+      abgleichEinlesen(p);
+    };
+    al.onerror=function(){melden("Die Datei ließ sich nicht lesen.",true)};
+    al.readAsText(ad);
+    return;
   }
   if(!e.target||e.target.id!=="sy-file")return;
   var datei=e.target.files&&e.target.files[0];
@@ -39602,7 +39925,11 @@ render=window.render=function(){
   return renderSync60.apply(this,arguments);
 };
 
-try{window.__SYNC={sammeln:sammeln,einspielen:einspielen,pruefePaket:pruefePaket,cfg:cfg}}catch(e){}
+try{window.__SYNC={sammeln:sammeln,einspielen:einspielen,pruefePaket:pruefePaket,cfg:cfg,abgleichEinlesen:abgleichEinlesen}}catch(e){}
+
+/* Nach einem Abgleich (Neuladen) direkt wieder auf dieser Seite landen,
+   damit Bericht und „Abgeglichene Datei speichern“ sichtbar sind. */
+try{if(sessionStorage.getItem(ABGLEICH_BERICHT)&&typeof kstate!=="undefined")kstate.tab=TAB}catch(e){}
 })();
 
 /* =====================================================================
@@ -43120,7 +43447,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 26.09.2026 22:16")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 26.09.2026 22:26")}}catch(e){}
 })();
 
 </script>
