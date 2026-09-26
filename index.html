@@ -299,6 +299,24 @@ html[data-lesefreundlich] body, html[data-lesefreundlich] button, html[data-lese
 }
 html[data-lesefreundlich] #view { line-height: 1.8; }
 
+/* ---------- Dialoge (PIN, Darstellung, Klasse) ----------
+   Früher setzte p70 diese Stile erst beim ersten PIN-Dialog ein; andere
+   Dialoge erschienen davor ungestylt unten auf der Seite (Fehlerbericht
+   des Auftraggebers, 2026-09-26). Jetzt von Anfang an im <head>. */
+.ps-hinter{position:fixed;inset:0;background:rgba(20,20,40,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
+.ps-box{background:var(--paper,#fff);color:var(--ink,#1d1d2b);border-radius:16px;max-width:480px;width:100%;padding:22px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.25);max-height:90vh;overflow:auto}
+.ps-box h3{margin:0 0 8px;font-size:19px}
+.ps-text{font-size:14.5px;line-height:1.55;margin:0 0 12px;color:var(--ink2,#444)}
+.ps-pin{width:100%;box-sizing:border-box;font-size:26px;letter-spacing:10px;text-align:center;padding:10px;border-radius:12px;border:2px solid var(--line,#ccd);margin:4px 0}
+.ps-meldung{min-height:22px;font-size:14px;color:var(--bad,#a8372d);margin:6px 0}
+.ps-meldung.gut{color:var(--good,#237447)}
+.ps-knoepfe{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
+.ps-zeile{display:flex;align-items:center;gap:8px;justify-content:space-between;border-top:1px solid var(--line,#e3e3ee);padding:10px 0;flex-wrap:wrap}
+.ps-zeile .ps-name{font-weight:650}
+.ps-klein{font-size:12.5px;color:var(--ink3,#666)}
+.ps-leiste{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.ps-schloss{position:absolute;left:10px;top:8px;font-size:15px}
+
 /* Darstellungs-Knopf in der Kopfzeile */
 .dz-knopf { min-height: 44px; min-width: 44px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--line, #ddd);
   background: var(--paper, #fff); color: var(--ink, #111); font-weight: 650; font-size: 14px; }
@@ -42022,23 +42040,11 @@ function neuerRuecksetzCode() {
   }
 
   /* ---------------- Oberfläche: Dialog ---------------- */
-  var STIL = ".ps-hinter{position:fixed;inset:0;background:rgba(20,20,40,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}"
-    + ".ps-box{background:var(--paper,#fff);color:var(--ink,#1d1d2b);border-radius:16px;max-width:480px;width:100%;padding:22px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.25);max-height:90vh;overflow:auto}"
-    + ".ps-box h3{margin:0 0 8px;font-size:19px}.ps-text{font-size:14.5px;line-height:1.55;margin:0 0 12px;color:var(--ink2,#444)}"
-    + ".ps-pin{width:100%;box-sizing:border-box;font-size:26px;letter-spacing:10px;text-align:center;padding:10px;border-radius:12px;border:2px solid var(--line,#ccd);margin:4px 0}"
-    + ".ps-meldung{min-height:22px;font-size:14px;color:#b3261e;margin:6px 0}.ps-meldung.gut{color:#1b7a3a}"
-    + ".ps-knoepfe{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}"
-    + ".ps-zeile{display:flex;align-items:center;gap:8px;justify-content:space-between;border-top:1px solid var(--line,#e3e3ee);padding:10px 0;flex-wrap:wrap}"
-    + ".ps-zeile .ps-name{font-weight:650}.ps-klein{font-size:12.5px;color:var(--ink3,#666)}"
-    + ".ps-leiste{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}"
-    + ".ps-schloss{position:absolute;left:10px;top:8px;font-size:15px}";
-  function stilEinmal() {
-    try {
-      if (document.getElementById("ps-stil")) return;
-      var st = document.createElement("style"); st.id = "ps-stil"; st.textContent = STIL;
-      document.head.appendChild(st);
-    } catch (e) {}
-  }
+  /* Die Dialog-Stile (.ps-hinter, .ps-box …) stehen seit dem Fix vom
+     2026-09-26 in app/design/thema.css im <head>: Hier wurden sie erst beim
+     ersten PIN-Dialog eingesetzt — der Darstellungs- und der Klassendialog
+     erschienen davor ungestylt unten auf der Seite. */
+  function stilEinmal() {}
 
   var dialogZaehler = 0;
   function dialog(inhalt, testid) {
@@ -42613,6 +42619,10 @@ function neuerRuecksetzCode() {
     return '<label><input type="radio" name="' + name + '" value="' + wert + '"' + (aktiv ? " checked" : "") + "> " + text + "</label>";
   }
   function oeffneDialog() {
+    /* Nur ein Dialog: ein weiterer Klick holt den offenen nach vorn, statt
+       eine zweite Kopie anzuhängen (Fehlerbericht 2026-09-26). */
+    var offen = document.querySelector('[data-testid="dz-dialog"]');
+    if (offen) { try { (offen.querySelector("input:checked") || offen.querySelector("input")).focus(); } catch (e) {} return; }
     var d = lade(), t = d.theme || "system", s = d.schrift || "normal";
     var hinter = document.createElement("div");
     hinter.className = "ps-hinter";
@@ -43447,7 +43457,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 26.09.2026 22:26")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 26.09.2026 22:32")}}catch(e){}
 })();
 
 </script>
