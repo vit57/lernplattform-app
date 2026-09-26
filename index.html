@@ -39149,6 +39149,10 @@ try{
    Inhalt ein zweites Mal ins Erzeugnis zu schreiben. */
 try{ window.__AUFGABEN_KENNUNGEN=INHALT.AUFGABEN_KENNUNGEN||null }catch(e){}
 try{ window.__WORTSCHATZ_KENNUNGEN=INHALT.WORTSCHATZ_KENNUNGEN||null }catch(e){}
+/* M8: Der Lernpfad (p72) baut Lektionen aus Themen, Regeln und Aufgaben
+   und braucht dafür den Skill-Graph und die Themen. Weitergereicht wird
+   eine Referenz, keine Kopie — das Erzeugnis wächst dadurch nicht. */
+try{ window.__INHALT_DATEN=INHALT }catch(e){}
 })();
 
 /* =====================================================================
@@ -39413,6 +39417,7 @@ function nameFuer(k){
   if(k.indexOf("egl-textrotation-")===0)return "Textfortschritt (Lesen, Diktat, Hören)";
   if(k==="egl-schutz")return "PIN-Schutz (nur Hashes, keine PINs)";
   if(k==="egl-darstellung")return "Darstellung (Theme, Schriftgröße)";
+  if(k.indexOf("egl-lernpfad-")===0)return "Lernpfad (Mastery, Einstufung)";
   return k;
 }
 function wann(iso){
@@ -42090,7 +42095,8 @@ function neuerRuecksetzCode() {
     if (kopf && kopf.innerHTML) kopf.innerHTML = kopf.innerHTML.replace(/Kinder- (&amp;|&) Babybereich/, "Kinderbereich");
   } catch (e) {}
 
-  window.__PROFILSCHUTZ = { lade: lade, pinFormatOk: pinFormatOk, pinPasst: pinPasst, SPERRE: SPERRE };
+  /* elternOk: für p72 (Klasse ändern, Stufen freigeben — §7.1/§10.1). */
+  window.__PROFILSCHUTZ = { lade: lade, pinFormatOk: pinFormatOk, pinPasst: pinPasst, SPERRE: SPERRE, elternOk: elternOk, hinweis: hinweisDialog };
 })();
 
 /* =====================================================================
@@ -42439,12 +42445,682 @@ function neuerRuecksetzCode() {
   window.__DARSTELLUNG = { lade: lade, anwenden: anwenden, sage: sage };
 })();
 
+/* =====================================================================
+   M8 — Lernpfad, Lektion in fünf Stufen, Klassenbindung, Einstufungstest.
+   AUFTRAG-v2.md §6.1, §6.2, §7.
+
+   * Neuer Eintrag „🧭 Lernpfad“ in der Kinder-Seitenleiste (Deutsch,
+     Englisch, Mathematik). Der Pfad kommt aus app/kern/lernpfad.js, die
+     Mastery aus app/kern/mastery.js — beide beim Bauen eingezogen.
+   * Jede Station ist eine Lektion in fünf Stufen: Entdecken → Erklären →
+     Geführt üben (mit Hinweisen) → Frei üben → Nachweis. Nur der Nachweis
+     (und der Einstufungstest) zählt für die Mastery; ab 75 ist die Station
+     gemeistert und die Folgestationen werden frei.
+   * Klassenbindung: Die Klasse ist Eigenschaft des Profils (p.klasse).
+     Beim ersten Öffnen wählt das Kind sie; danach ändern nur die Eltern
+     (Eltern-PIN, p70), ebenso die Freigabe höherer Stufen (p.freigabeBis).
+     Höhere Stufen sind auch in „Sprachthemen“ und bei Mathe gesperrt.
+   * Einstufungstest je Fach: Skills, deren Fragen alle richtig sind,
+     gelten als sicher (Mastery 80) — jederzeit wiederholbar, überspringbar.
+   * Gespeichert je Profil in egl-lernpfad-<Profil>.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/**
+ * Mastery je Skill (AUFTRAG-v2.md §6.2) — reine Funktion.
+ *
+ * - Gleitender, zeitgewichteter Anteil richtiger Erstversuche über die
+ *   letzten N Bearbeitungen (N = masteryItems des Skills, Vorgabe 8).
+ *   Jüngere Ergebnisse wiegen mehr (Gewicht 1 … N).
+ * - Genutzte Hinweise mindern den Beitrag anteilig (je Hinweis 25 %), sind
+ *   aber kein Fehler.
+ * - Mastery braucht Belege: Mit weniger als N Bearbeitungen wird der Wert
+ *   anteilig gedämpft (2 von 2 richtig bei N = 8 → 25). Ohne diese Regel
+ *   schaltete ein abgebrochener Nachweis nach zwei richtigen Antworten frei
+ *   (gefunden von der Gegenprobe im E2E-Test, M8).
+ * - Verfall ohne Aktivität: 1 Punkt je 3 Tage, nie unter 40 % des
+ *   Höchststands.
+ * - Stufen: neu < 20 ≤ angefangen < 50 ≤ geübt < 75 ≤ sicher < 90 ≤ gefestigt.
+ *   `sicher` (≥ 75) schaltet Folgeskills frei.
+ * - Ein bestandener Einstufungstest (§7.3) zählt als 80, solange keine
+ *   eigenen Bearbeitungen vorliegen.
+ */
+
+/** @typedef {{ t: number, richtig: boolean, hinweise?: number }} Versuch */
+/** @typedef {'neu'|'angefangen'|'geuebt'|'sicher'|'gefestigt'} Stufe */
+
+const FREI_AB = 75;
+const TAG = 86400000;
+
+/** @param {number} score @returns {Stufe} */
+function stufeVon(score) {
+  if (score >= 90) return 'gefestigt';
+  if (score >= 75) return 'sicher';
+  if (score >= 50) return 'geuebt';
+  if (score >= 20) return 'angefangen';
+  return 'neu';
+}
+
+/**
+ * @param {readonly Versuch[]} versuche chronologisch
+ * @param {{ n?: number, jetzt?: number, hoechst?: number, diagnose?: number | null }} [wahl]
+ *   `diagnose`: Zeitpunkt eines bestandenen Einstufungstests.
+ * @returns {{ score: number, stufe: Stufe, hoechst: number, gesehen: number }}
+ */
+function berechneMastery(versuche, wahl = {}) {
+  const n = wahl.n && wahl.n > 0 ? wahl.n : 8;
+  const jetzt = wahl.jetzt ?? Date.now();
+  const liste = (versuche || []).filter((v) => v && Number.isFinite(v.t));
+  let roh = 0, letzte = 0, aktiv = false;
+
+  if (liste.length) {
+    const teil = liste.slice(-n);
+    let summe = 0, gewichte = 0;
+    teil.forEach((v, i) => {
+      const w = i + 1;
+      const hinweise = Math.max(0, Math.min(4, v.hinweise || 0));
+      summe += w * (v.richtig ? 1 - 0.25 * hinweise : 0);
+      gewichte += w;
+    });
+    roh = Math.round(((100 * summe) / gewichte) * Math.min(1, teil.length / n));
+    letzte = teil[teil.length - 1].t;
+    aktiv = true;
+  } else if (wahl.diagnose) {
+    roh = 80;
+    letzte = wahl.diagnose;
+    aktiv = true;
+  }
+
+  const hoechst = Math.max(wahl.hoechst || 0, roh);
+  /* `aktiv` statt `letzte`: ein Zeitstempel 0 ist gültig (Fehler beim ersten Testlauf). */
+  const tage = aktiv ? Math.max(0, (jetzt - letzte) / TAG) : 0;
+  const untergrenze = Math.round(0.4 * hoechst);
+  const score = Math.max(Math.min(roh, roh - Math.floor(tage / 3)), Math.min(roh, untergrenze));
+  return { score, stufe: stufeVon(score), hoechst, gesehen: liste.length };
+}
+
+
+  // @ts-check
+/**
+ * Der Lernpfad je Fach (AUFTRAG-v2.md §7) — reine Funktion.
+ *
+ * Aus dem Skill-Graph (app/inhalt/skills.json) wird je Fach eine Abfolge
+ * von Stationen: nach Klassenstufe aufsteigend, innerhalb einer Stufe in
+ * der Reihenfolge der Voraussetzungen. Jede Station hat einen Zustand —
+ * gesperrt · verfuegbar · begonnen · gemeistert · wiederholung-faellig —
+ * und, wenn gesperrt, einen Grund. Genau eine Station ist „jetzt dran“.
+ *
+ * Klassenbindung (§7.1): Stufen bis zur eigenen Klasse sind offen
+ * (rückwärts immer), höhere nur mit ausdrücklicher Freigabe. Ohne
+ * bekannte Klasse ist alles offen.
+ *
+ * Voraussetzungen zählen nur innerhalb desselben Fachs; eine Station wird
+ * frei, wenn alle Voraussetzungen einmal `sicher` waren (Höchststand
+ * ≥ 75). Ein späterer Verfall sperrt nichts wieder, sondern macht die
+ * Station „wiederholung-faellig“.
+ */
+
+/** @typedef {{ skill: string, warum?: string } | string} Kante */
+/** @typedef {{ titel: string, fach: string, stufe?: string, klassenstufen?: string[], voraussetzungen?: Kante[] }} Skill */
+/** @typedef {{ score: number, hoechst: number, gesehen: number }} MasteryStand */
+/** @typedef {'gesperrt'|'verfuegbar'|'begonnen'|'gemeistert'|'wiederholung-faellig'} Zustand */
+/** @typedef {{ skill: string, titel: string, stufe: string, klasse: number, zustand: Zustand, grund: string, jetzt: boolean, score: number }} Station */
+
+/* Eigener Name: mastery.js deklariert FREI_AB, beide landen beim Bauen im selben Baustein. */
+const PFAD_FREI_AB = 75;
+
+/** Kleinste Klasse eines Skills; "910" → 9, "alle" → 0. @param {Skill} s */
+function klasseVon(s) {
+  const k = (s.klassenstufen || []).map((x) => (x === 'alle' ? 0 : x === '910' ? 9 : parseInt(x, 10)))
+    .filter((x) => Number.isFinite(x));
+  return k.length ? Math.min(...k) : 0;
+}
+
+/** @param {Kante} k */
+const kanteZu = (k) => (typeof k === 'string' ? { skill: k } : k);
+
+/**
+ * @param {Record<string, Skill>} skills
+ * @param {{ fach: string, klasse?: number | null, freigaben?: string[], mastery?: Record<string, MasteryStand> }} wahl
+ * @returns {Station[]}
+ */
+function stationen(skills, wahl) {
+  const mastery = wahl.mastery || {};
+  const freigaben = wahl.freigaben || [];
+  const ids = Object.keys(skills).filter((id) => skills[id].fach === wahl.fach);
+  const imFach = new Set(ids);
+  const reihe = new Map(ids.map((id, i) => [id, i]));
+
+  /* Innerhalb derselben Klassenstufe topologisch, sonst nach Klasse. */
+  const geordnet = [];
+  const erledigt = new Set();
+  const nachKlasse = ids.slice().sort((a, b) => klasseVon(skills[a]) - klasseVon(skills[b]) || reihe.get(a) - reihe.get(b));
+  const besuche = (id, weg) => {
+    if (erledigt.has(id) || weg.has(id)) return;
+    weg.add(id);
+    for (const k of skills[id].voraussetzungen || []) {
+      const v = kanteZu(k).skill;
+      if (imFach.has(v) && klasseVon(skills[v]) === klasseVon(skills[id])) besuche(v, weg);
+    }
+    weg.delete(id);
+    erledigt.add(id);
+    geordnet.push(id);
+  };
+  nachKlasse.forEach((id) => besuche(id, new Set()));
+
+  const m = (id) => mastery[id] || { score: 0, hoechst: 0, gesehen: 0 };
+  const warSicher = (id) => m(id).hoechst >= PFAD_FREI_AB;
+
+  const liste = geordnet.map((id) => {
+    const s = skills[id], klasse = klasseVon(s), stufe = s.stufe || '';
+    const stand = m(id);
+    let zustand = /** @type {Zustand} */ ('verfuegbar'), grund = '';
+    const stufeOffen = wahl.klasse == null || klasse <= wahl.klasse || freigaben.includes(stufe);
+    const fehlend = (s.voraussetzungen || []).map(kanteZu).filter((k) => imFach.has(k.skill) && !warSicher(k.skill));
+    if (!stufeOffen) {
+      zustand = 'gesperrt';
+      grund = stufe + ' ist noch nicht freigegeben — das können die Eltern tun.';
+    } else if (fehlend.length) {
+      zustand = 'gesperrt';
+      grund = 'Erst „' + fehlend.map((k) => skills[k.skill].titel).join('“ und „') + '“ meistern.'
+        + (fehlend[0].warum ? ' ' + fehlend[0].warum : '');
+    } else if (stand.score >= PFAD_FREI_AB) zustand = 'gemeistert';
+    else if (stand.hoechst >= PFAD_FREI_AB) zustand = 'wiederholung-faellig';
+    else if (stand.gesehen > 0) zustand = 'begonnen';
+    return { skill: id, titel: s.titel, stufe, klasse, zustand, grund, jetzt: false, score: stand.score };
+  });
+
+  const dran = liste.find((x) => x.zustand === 'wiederholung-faellig')
+    || liste.find((x) => x.zustand === 'begonnen' || x.zustand === 'verfuegbar');
+  if (dran) dran.jetzt = true;
+  return liste;
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function" || typeof PROFILES === "undefined") return;
+  var INHALT = window.__INHALT_DATEN;
+  if (!INHALT || !INHALT.skills) return;
+  /* p50 legt die Skill-Liste schon ausgepackt ab (INHALT.skills = die
+     Skills selbst); die Datei skills.json hätte sie unter .skills. */
+  var SKILLS = INHALT.skills.skills || INHALT.skills;
+  var FACH = { de: "Deutsch", en: "Englisch", math: "Mathematik" };
+  var TYPEN = { mc: 1, multi: 1, txt: 1, num: 1 };   /* diese Aufgabentypen kann die Lektion zeigen */
+
+  /* ---------- Themen je Skill ---------- */
+  var THEMEN = {};
+  ["DEU", "ENG", "MATH"].forEach(function (k) {
+    (function geh(o, tiefe) {
+      if (!o || typeof o !== "object" || tiefe > 5) return;
+      if (Array.isArray(o)) { o.forEach(function (x) { geh(x, tiefe + 1); }); return; }
+      if (o.id && Array.isArray(o.ex)) { THEMEN[o.id] = o; return; }
+      Object.keys(o).forEach(function (s) { geh(o[s], tiefe + 1); });
+    })(INHALT[k], 0);
+  });
+  function themenVon(skill) {
+    return ((SKILLS[skill] || {}).themen || []).map(function (id) { return THEMEN[id]; }).filter(Boolean);
+  }
+  function aufgabenVon(skill) {
+    var out = [];
+    themenVon(skill).forEach(function (t) {
+      t.ex.forEach(function (e) { if (TYPEN[e.t] && e.skill === skill && e.q) out.push(e); });
+    });
+    return out;
+  }
+  function mischen(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+
+  /* ---------- Speicher ---------- */
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function schluessel() { var p = profil(); return "egl-lernpfad-" + (p ? p.id : "anon"); }
+  function lade() {
+    try { var v = JSON.parse(localStorage.getItem(schluessel()) || "{}") || {}; v.m = v.m || {}; v.d = v.d || {}; v.diag = v.diag || {}; return v; }
+    catch (e) { return { m: {}, d: {}, diag: {} }; }
+  }
+  function speichere(v) { try { localStorage.setItem(schluessel(), JSON.stringify(v)); } catch (e) {} }
+  function stand(v, skill) {
+    var e = v.m[skill] || { v: [], h: 0 };
+    var r = berechneMastery((e.v || []).map(function (x) { return { t: x[0], richtig: !!x[1], hinweise: x[2] || 0 }; }),
+      { n: (SKILLS[skill] || {}).masteryItems || 8, hoechst: e.h || 0, diagnose: v.d[skill] || null });
+    return r;
+  }
+  function vermerke(skill, richtig, hinweise) {
+    var v = lade(), e = v.m[skill] || { v: [], h: 0 };
+    e.v.push([Date.now(), richtig ? 1 : 0, hinweise || 0]);
+    if (e.v.length > 40) e.v = e.v.slice(-40);
+    v.m[skill] = e;
+    e.h = Math.max(e.h || 0, stand(v, skill).score);
+    speichere(v);
+  }
+
+  /* ---------- Klasse und Freigabe ---------- */
+  function klasse() { var p = profil(); return p && p.klasse ? +p.klasse : null; }
+  function freigabeBis() { var p = profil(); return p && p.freigabeBis ? +p.freigabeBis : 0; }
+  function offeneStufen(fach) {
+    var bis = Math.max(klasse() || 0, freigabeBis());
+    var labels = {};
+    Object.keys(SKILLS).forEach(function (id) { var s = SKILLS[id]; if (s.fach === fach && klasseVon(s) <= bis) labels[s.stufe] = 1; });
+    return Object.keys(labels);
+  }
+  function pfad(fach) {
+    var v = lade(), m = {};
+    Object.keys(SKILLS).forEach(function (id) { if (SKILLS[id].fach === fach) m[id] = stand(v, id); });
+    return stationen(SKILLS, { fach: fach, klasse: klasse(), freigaben: offeneStufen(fach), mastery: m });
+  }
+  /* subjOf liegt in einem abgekapselten Bereich der Engine. Das Fach steht
+     aber sichtbar in der Seitenleiste (markierter Fach-Knopf) und im
+     gespeicherten Profilstand egl-m127-<Profil>. */
+  function fachJetzt() {
+    var su = null;
+    try { var on = document.querySelector("#tabs [data-m132subj].on"); if (on) su = on.getAttribute("data-m132subj"); } catch (e) {}
+    if (!su) try { var p = profil(); su = JSON.parse(localStorage.getItem("egl-m127-" + (p ? p.id : "")) || "{}").subject || null; } catch (e) {}
+    if (!su && kstate && (kstate.fach === "de" || kstate.fach === "en")) su = kstate.fach;
+    return FACH[su] ? su : null;
+  }
+
+  /* ---------- HTML ---------- */
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s); }
+  var ZUSTAND = {
+    "gesperrt": ["🔒", "gesperrt"], "verfuegbar": ["●", "verfügbar"], "begonnen": ["◐", "begonnen"],
+    "gemeistert": ["✔", "gemeistert"], "wiederholung-faellig": ["↻", "Wiederholung fällig"]
+  };
+  var STIL = ".lp-kopf{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}.lp-kopf h2{margin:0}"
+    + ".lp-klasse{margin-left:auto;font-size:14px;color:var(--ink2)}"
+    + ".lp-hero{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:2px solid var(--brand);background:var(--brand-soft);border-radius:18px;padding:16px 18px;margin:14px 0 18px;cursor:pointer;font:inherit;color:inherit;min-height:64px}"
+    + ".lp-hero .k{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--brand)}.lp-hero .t{font-size:18px;font-weight:750}"
+    + ".lp-stufe{font-size:12.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);margin:18px 0 8px}"
+    + ".lp-st{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:14px;padding:12px 14px;margin:0 0 8px;font:inherit;color:inherit;min-height:52px;cursor:pointer}"
+    + ".lp-st[disabled]{cursor:default;opacity:.85;background:var(--paper2)}.lp-st.jetzt{border:2px solid var(--brand)}"
+    + ".lp-st .ic{font-size:18px;width:24px;text-align:center;flex:none}.lp-st .ti{font-weight:700}.lp-st .me{font-size:13px;color:var(--ink2);display:block;margin-top:2px}"
+    + ".lp-st .zu{margin-left:auto;font-size:12.5px;font-weight:700;white-space:nowrap;color:var(--ink2)}"
+    + ".lp-box{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:20px;margin:12px 0}"
+    + ".lp-box ul{margin:8px 0 0 20px}.lp-box li{margin:6px 0;line-height:1.55}"
+    + ".lp-fort{display:flex;gap:6px;margin:6px 0 14px}.lp-fort i{flex:1;height:6px;border-radius:9px;background:var(--line)}.lp-fort i.an{background:var(--brand)}"
+    + ".lp-opt{display:block;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--paper);border-radius:12px;padding:12px 14px;margin:8px 0;font:inherit;color:inherit;min-height:48px;cursor:pointer}"
+    + ".lp-opt.an{border-color:var(--brand);background:var(--brand-soft)}.lp-opt.richtig{border-color:var(--good);background:var(--good-soft)}.lp-opt.falsch{border-color:var(--bad);background:var(--bad-soft)}"
+    + ".lp-ein{width:100%;box-sizing:border-box;font-size:18px;padding:12px;border-radius:12px;border:2px solid var(--line);background:var(--paper);color:var(--ink)}"
+    + ".lp-fb{border-radius:12px;padding:12px 14px;margin:12px 0;line-height:1.55}.lp-fb.gut{background:var(--good-soft)}.lp-fb.schlecht{background:var(--bad-soft)}"
+    + ".lp-knoepfe{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.lp-knoepfe .btn{min-height:44px}";
+  function stil() {
+    try { if (!document.getElementById("lp-stil")) { var s = document.createElement("style"); s.id = "lp-stil"; s.textContent = STIL; document.head.appendChild(s); } } catch (e) {}
+  }
+
+  function htmlPfad(su) {
+    var fach = FACH[su];
+    if (!klasse()) {
+      return '<div class="lp-kopf"><h2>🧭 Lernpfad · ' + h(fach) + "</h2></div>"
+        + '<div class="lp-box"><h3 style="margin:0 0 8px">In welche Klasse gehst du?</h3>'
+        + '<p style="margin:0 0 12px;color:var(--ink2)">Danach zeigt dir der Lernpfad, was für deine Klasse dran ist. Ändern können es später deine Eltern.</p>'
+        + '<div class="lp-knoepfe">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (k) {
+          return '<button class="btn" data-lp-klasse="' + k + '">Klasse ' + k + "</button>";
+        }).join("") + "</div></div>";
+    }
+    var liste = pfad(fach), v = lade();
+    var dran = liste.filter(function (s) { return s.jetzt; })[0];
+    var out = '<div class="lp-kopf"><h2>🧭 Lernpfad · ' + h(fach) + "</h2>"
+      + '<span class="lp-klasse">Klasse ' + klasse() + (freigabeBis() > klasse() ? " · freigegeben bis " + freigabeBis() : "")
+      + ' · <button class="btn" data-lp="klasse-aendern" style="min-height:36px;padding:4px 10px">ändern (Eltern)</button></span></div>';
+    if (dran) {
+      out += '<button class="lp-hero" data-lp-start="' + h(dran.skill) + '" data-testid="lp-weiter"><span style="font-size:28px">▶</span><span>'
+        + '<span class="k">Weiter geht’s' + (dran.zustand === "wiederholung-faellig" ? " — Wiederholung" : "") + '</span><br><span class="t">' + h(dran.titel)
+        + "</span></span></button>";
+    } else {
+      out += '<div class="lp-box">🎉 Alles, was für dich offen ist, hast du gemeistert.</div>';
+    }
+    out += '<div class="lp-knoepfe" style="margin:-4px 0 6px"><button class="btn" data-lp="diagnose">🔎 Einstufungstest'
+      + (v.diag[fach] ? " wiederholen" : " (10–15 Fragen)") + "</button></div>";
+    var stufe = null;
+    liste.forEach(function (s) {
+      if (s.stufe !== stufe) { stufe = s.stufe; out += '<div class="lp-stufe">' + h(stufe) + "</div>"; }
+      var z = ZUSTAND[s.zustand], gesperrt = s.zustand === "gesperrt";
+      out += '<button class="lp-st' + (s.jetzt ? " jetzt" : "") + '" data-lp-start="' + h(s.skill) + '" data-lp-zustand="' + s.zustand + '"'
+        + (gesperrt ? ' disabled aria-disabled="true"' : "") + ">"
+        + '<span class="ic" aria-hidden="true">' + (s.jetzt ? "▶" : z[0]) + '</span><span><span class="ti">' + h(s.titel) + "</span>"
+        + (gesperrt ? '<span class="me">' + h(s.grund) + "</span>" : "")
+        + '</span><span class="zu">' + (s.jetzt ? "jetzt dran" : z[1]) + (s.score && !gesperrt ? " · " + s.score + " %" : "") + "</span></button>";
+    });
+    return out;
+  }
+
+  /* ---------- Lektion ---------- */
+  var STUFEN = ["Entdecken", "Erklären", "Geführt üben", "Frei üben", "Nachweis"];
+  function lektionStarten(skill) {
+    var pool = mischen(aufgabenVon(skill));
+    kstate.lp = { art: "lektion", skill: skill, stufe: 1, pool: pool, pos: 0, liste: [], i: 0, auswahl: [], fb: null, hinweise: 0, regel: false, richtig: 0, aufgeloest: false };
+  }
+  function stufeSetzen(l, stufe) {
+    var n = stufe === 3 ? 4 : stufe === 4 ? 6 : stufe === 5 ? ((SKILLS[l.skill] || {}).masteryItems || 8) : 0;
+    l.stufe = stufe;
+    if (n) {
+      if (l.pos + n > l.pool.length) { l.pool = l.pool.concat(mischen(aufgabenVon(l.skill))); }
+      l.liste = l.pool.slice(l.pos, l.pos + n); l.pos += n;
+    } else l.liste = [];
+    l.i = 0; l.auswahl = []; l.fb = null; l.hinweise = 0; l.regel = false; l.richtig = 0;
+  }
+  function fortschritt(stufe) {
+    return '<div class="lp-fort" aria-hidden="true">' + [1, 2, 3, 4, 5].map(function (k) { return "<i" + (k <= stufe ? ' class="an"' : "") + "></i>"; }).join("") + "</div>";
+  }
+  function regelnHtml(skill, anzahl) {
+    var rs = [];
+    themenVon(skill).forEach(function (t) { (t.rules || []).forEach(function (r) { if (rs.length < (anzahl || 8)) rs.push(r); }); });
+    return "<ul>" + rs.map(function (r) { return "<li>" + r + "</li>"; }).join("") + "</ul>";
+  }
+  function beispiel(skill, nr) {
+    var b = [];
+    themenVon(skill).forEach(function (t) { (t.examples || []).forEach(function (e) { b.push(e); }); });
+    return b[nr] || null;
+  }
+  function beispielHtml(e, mitAufloesung) {
+    if (!e) return "";
+    return '<div class="lp-box" style="background:var(--paper2)"><b>' + e.q + "</b>"
+      + (mitAufloesung ? (e.steps && e.steps.length ? "<ul>" + e.steps.map(function (s) { return "<li>" + s + "</li>"; }).join("") + "</ul>" : "")
+        + (e.a ? '<p style="margin:8px 0 0">→ <b>' + e.a + "</b></p>" : "") : "") + "</div>";
+  }
+
+  function loesungText(q) {
+    if (q.t === "mc") return q.o[q.c];
+    if (q.t === "multi") return (q.c || []).map(function (i) { return q.o[i]; }).join(", ");
+    if (q.t === "txt") return Array.isArray(q.a) ? q.a[0] : q.a;
+    if (q.t === "num") return String(q.a).replace(".", ",") + (q.unit ? " " + q.unit : "");
+    return "";
+  }
+  function bewerte(q, antwort) {
+    if (q.t === "mc") return +antwort === q.c;
+    if (q.t === "multi") {
+      var a = (antwort || []).slice().sort().join(","), c = (q.c || []).slice().sort().join(",");
+      return a === c;
+    }
+    if (q.t === "txt") {
+      /* Keine eigene Normalisierung (das Normalisierer-Register wacht darüber):
+         Freitext urteilt der Kern — answersMatch aus app/kern/bewerten.js,
+         bereitgestellt von p63. */
+      var kern = window.__M3BEWERTUNG;
+      if (!kern || typeof kern.trifft !== "function") return false;
+      return kern.trifft(String(antwort), Array.isArray(q.a) ? q.a : [q.a], !!q.caseSensitive);
+    }
+    if (q.t === "num") {
+      var zahl = parseFloat(String(antwort).replace(/\s/g, "").replace(",", "."));
+      return Number.isFinite(zahl) && Math.abs(zahl - Number(q.a)) <= (Number(q.tol) || 0) + 1e-9;
+    }
+    return false;
+  }
+
+  function frageHtml(l) {
+    var q = l.liste[l.i], fertig = !!l.fb, s = "";
+    s += '<div class="lp-box"><div style="font-size:13px;color:var(--ink3);margin-bottom:6px">Aufgabe ' + (l.i + 1) + " von " + l.liste.length + "</div>"
+      + '<div style="font-size:18px;font-weight:700;margin-bottom:6px" data-testid="lp-frage">' + q.q + "</div>";
+    if (q.t === "mc" || q.t === "multi") {
+      q.o.forEach(function (o, i) {
+        var cls = "lp-opt";
+        if (fertig) { if (q.t === "mc" ? i === q.c : (q.c || []).indexOf(i) >= 0) cls += " richtig"; else if (l.auswahl.indexOf(i) >= 0) cls += " falsch"; }
+        else if (l.auswahl.indexOf(i) >= 0) cls += " an";
+        s += '<button class="' + cls + '" data-lp-opt="' + i + '"' + (fertig ? " disabled" : "") + ' aria-pressed="' + (l.auswahl.indexOf(i) >= 0) + '">' + h(o) + "</button>";
+      });
+      if (q.t === "multi" && !fertig) s += '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="pruefen">Prüfen</button></div>';
+    } else {
+      s += '<input class="lp-ein" data-lp-ein="1" aria-label="Deine Antwort" autocomplete="off"' + (q.t === "num" ? ' inputmode="decimal"' : "")
+        + (fertig ? " disabled" : "") + ' value="' + h(l.eingabe || "") + '">'
+        + (fertig ? "" : '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="pruefen">Prüfen</button></div>');
+    }
+    if (fertig) {
+      s += '<div class="lp-fb ' + (l.fb.ok ? "gut" : "schlecht") + '" role="status">'
+        + (l.fb.ok ? "✅ <b>Richtig!</b>" : "❌ <b>Noch nicht.</b> Richtig ist: <b>" + h(loesungText(q)) + "</b>")
+        + (q.why ? "<br>" + q.why : "") + "</div>"
+        + '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="weiter" data-testid="lp-weiter-aufgabe">Weiter →</button></div>';
+    } else if (l.stufe === 3) {
+      var hs = Array.isArray(q.hints) ? q.hints : [];
+      s += '<div class="lp-knoepfe">'
+        + (l.hinweise < hs.length ? '<button class="btn" data-lp="hinweis">💡 Hinweis ' + (l.hinweise + 1) + " von " + hs.length + "</button>" : "")
+        + '<button class="btn" data-lp="regel">📖 ' + (l.regel ? "Regel ausblenden" : "Regel einblenden") + "</button></div>";
+      for (var k = 0; k < l.hinweise && k < hs.length; k++) s += '<div class="lp-fb" style="background:var(--warn-soft)">💡 ' + hs[k] + "</div>";
+      if (l.regel) s += '<div class="lp-box" style="background:var(--paper2)">' + regelnHtml(l.skill) + "</div>";
+    }
+    return s + "</div>";
+  }
+
+  function htmlLektion(l) {
+    var sk = SKILLS[l.skill] || {}, s = '<button class="back" data-lp="zurueck">← Lernpfad</button>'
+      + '<div class="lp-kopf"><h2>' + h(sk.titel || l.skill) + "</h2></div>"
+      + '<div style="font-size:14px;color:var(--ink2)" data-testid="lp-stufe">Stufe ' + l.stufe + " von 5 · " + STUFEN[l.stufe - 1] + "</div>" + fortschritt(l.stufe);
+    if (l.stufe === 1) {
+      var b = beispiel(l.skill, 0);
+      s += '<div class="lp-box"><p style="margin:0 0 8px">Schau dir das an. Was fällt dir auf?</p>' + beispielHtml(b, l.aufgeloest)
+        + '<div class="lp-knoepfe">' + (b && !l.aufgeloest ? '<button class="btn" data-lp="aufloesen">Auflösung zeigen</button>' : "")
+        + '<button class="btn btn-primary" data-lp="stufe">Weiter: die Regel →</button></div></div>';
+    } else if (l.stufe === 2) {
+      s += '<div class="lp-box"><h3 style="margin:0">Das musst du wissen</h3>' + regelnHtml(l.skill) + "</div>"
+        + beispielHtml(beispiel(l.skill, 1), true)
+        + '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="stufe">Jetzt üben →</button></div>';
+    } else if (l.liste.length && l.i < l.liste.length) {
+      if (l.stufe === 3 && l.i === 0 && !l.fb) s += '<p style="color:var(--ink2)">Hier kosten Fehler nichts — nimm Hinweise, wenn du willst.</p>';
+      if (l.stufe === 5 && l.i === 0 && !l.fb) s += '<p style="color:var(--ink2)">Jetzt zeigst du, was du kannst — ohne Hilfe. Ab 75 % ist die Station gemeistert.</p>';
+      s += frageHtml(l);
+    } else if (l.stufe < 5) {
+      s += '<div class="lp-box">' + (l.stufe === 3 ? "Gut geübt! Jetzt ohne Hilfe." : "Stark! Zum Schluss der Nachweis.")
+        + '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="stufe">Weiter →</button></div></div>';
+    } else {
+      var st = stand(lade(), l.skill), ok = st.score >= FREI_AB;
+      s += '<div class="lp-box" data-testid="lp-ergebnis" role="status"><h3 style="margin:0 0 8px">' + (ok ? "✔ Geschafft — Station gemeistert!" : "Noch nicht ganz")
+        + "</h3><p>Im Nachweis " + l.richtig + " von " + l.liste.length + " richtig · Mastery " + st.score + " %.</p>"
+        + (ok ? "<p>Die nächsten Stationen sind jetzt frei.</p>" : "<p>Übe noch einmal — ab 75 % geht es weiter.</p>")
+        + '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="zurueck">Zum Lernpfad</button>'
+        + (ok ? "" : '<button class="btn" data-lp="nochmal">Noch einmal üben</button>') + "</div></div>";
+    }
+    return s;
+  }
+
+  /* ---------- Einstufungstest ---------- */
+  function diagnoseStarten(fach) {
+    var offen = pfad(fach).filter(function (s) { return !(s.zustand === "gesperrt" && /freigegeben/.test(s.grund)); });
+    var jeSkill = offen.length > 7 ? 1 : 2, liste = [];
+    offen.forEach(function (s) { mischen(aufgabenVon(s.skill)).slice(0, jeSkill).forEach(function (q) { liste.push({ q: q, skill: s.skill }); }); });
+    liste = liste.slice(0, 15);
+    kstate.lp = { art: "diagnose", fach: fach, liste: liste, i: 0, auswahl: [], ergebnis: {}, fb: null };
+  }
+  function htmlDiagnose(d) {
+    var s = '<button class="back" data-lp="zurueck">← Lernpfad</button><div class="lp-kopf"><h2>🔎 Einstufungstest · ' + h(d.fach) + "</h2></div>";
+    if (d.i < d.liste.length) {
+      var l = { liste: d.liste.map(function (x) { return x.q; }), i: d.i, auswahl: d.auswahl, fb: d.fb, stufe: 5, eingabe: d.eingabe };
+      s += '<p style="color:var(--ink2)">Was du schon sicher kannst, überspringst du im Lernpfad. <button class="btn" data-lp="zurueck" style="min-height:36px">Test überspringen</button></p>' + frageHtml(l);
+      return s;
+    }
+    var geschafft = Object.keys(d.ergebnis).filter(function (k) { return d.ergebnis[k].ok === d.ergebnis[k].n; });
+    return s + '<div class="lp-box" data-testid="lp-diagnose-ergebnis" role="status"><h3 style="margin:0 0 8px">Fertig!</h3>'
+      + (geschafft.length ? "<p>Das kannst du schon — diese Stationen gelten als gemeistert:</p><ul>" + geschafft.map(function (k) { return "<li>" + h(SKILLS[k].titel) + "</li>"; }).join("") + "</ul>"
+        : "<p>Du beginnst am Anfang des Pfads — so lernst du alles Schritt für Schritt.</p>")
+      + '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="zurueck">Zum Lernpfad</button></div></div>';
+  }
+
+  /* ---------- Klasse ändern (Eltern) ---------- */
+  function klasseAendern() {
+    var schutz = window.__PROFILSCHUTZ, p = profil();
+    if (!p) return;
+    (schutz && schutz.elternOk ? schutz.elternOk("Die Klasse und die Freigaben ändern die Eltern.") : Promise.resolve(true)).then(function (ok) {
+      if (!ok) return;
+      var hinter = document.createElement("div");
+      hinter.className = "ps-hinter"; hinter.setAttribute("role", "dialog"); hinter.setAttribute("aria-modal", "true");
+      hinter.setAttribute("aria-labelledby", "lp-kl-titel"); hinter.setAttribute("data-testid", "lp-klassendialog");
+      var opt = function (von, wahl) { var s = ""; for (var k = von; k <= 10; k++) s += '<option value="' + k + '"' + (k === wahl ? " selected" : "") + ">Klasse " + k + "</option>"; return s; };
+      hinter.innerHTML = '<div class="ps-box"><h3 id="lp-kl-titel">Klasse und Freigabe</h3>'
+        + '<p class="ps-text">Sichtbar ist der Stoff bis zur eigenen Klasse. Höhere Stufen werden erst frei, wenn sie hier freigegeben sind.</p>'
+        + '<label style="display:block;margin:8px 0">Klasse von ' + h(p.name) + ' <select data-lp-wahl="klasse">' + opt(1, +p.klasse || 1) + "</select></label>"
+        + '<label style="display:block;margin:8px 0">Freigegeben bis <select data-lp-wahl="bis">' + opt(1, Math.max(+p.freigabeBis || 0, +p.klasse || 1)) + "</select></label>"
+        + '<div class="ps-knoepfe"><button class="btn" data-lp-dlg="nein">Abbrechen</button><button class="btn btn-primary" data-lp-dlg="ja">Speichern</button></div></div>';
+      document.body.appendChild(hinter);
+      hinter.addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest("[data-lp-dlg]") : null;
+        if (!b) return;
+        e.stopPropagation();
+        if (b.getAttribute("data-lp-dlg") === "ja") {
+          p.klasse = +hinter.querySelector('[data-lp-wahl="klasse"]').value;
+          p.freigabeBis = Math.max(p.klasse, +hinter.querySelector('[data-lp-wahl="bis"]').value);
+          save("egl-profiles", PROFILES);
+        }
+        hinter.remove(); rerenderLp();
+      });
+    });
+  }
+
+  function rerenderLp() { try { render(); } catch (e) {} }
+
+  /* ---------- Routing ---------- */
+  var renderVorher = render;
+  var renderNeu = function () {
+    var p = profil();
+    if (p && p.type === "kid" && !(typeof showProfiles !== "undefined" && showProfiles) && kstate.tab === "lernpfad") {
+      stil();
+      try { renderTabs(); } catch (e) {}
+      var su = fachJetzt(), view = document.getElementById("view");
+      if (!su) { kstate.tab = null; return renderVorher.apply(this, arguments); }
+      var l = kstate.lp;
+      if (l && l.art === "lektion") view.innerHTML = htmlLektion(l);
+      else if (l && l.art === "diagnose") view.innerHTML = htmlDiagnose(l);
+      else view.innerHTML = htmlPfad(su);
+      try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
+      return;
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+
+  /* Seitenleiste: „🧭 Lernpfad“ als erster Eintrag unter „Lernen“.
+     navModel liegt in einem abgekapselten Bereich der Engine und ist von
+     hier nicht erreichbar; renderTabs ist global. Der Eintrag wird deshalb
+     nach dem Zeichnen der Leiste eingesetzt — mit derselben Markierung
+     (data-m132nav), die der Klick-Behandler der Engine schon kennt. */
+  if (typeof renderTabs === "function") {
+    var tabsVorher = renderTabs;
+    var tabsNeu = function () {
+      var r = tabsVorher.apply(this, arguments);
+      try {
+        var p = profil(), tabs = document.getElementById("tabs");
+        if (p && p.type === "kid" && tabs && fachJetzt() && !tabs.querySelector('[data-m132nav="lernpfad"]')) {
+          var secs = tabs.querySelectorAll(".knav-sec"), ziel = null;
+          for (var i = 0; i < secs.length; i++) if (/lernen/i.test(secs[i].textContent)) { ziel = secs[i]; break; }
+          if (ziel) {
+            var b = document.createElement("button");
+            b.className = "knav-item" + (kstate.tab === "lernpfad" ? " active" : "");
+            b.setAttribute("data-m132nav", "lernpfad");
+            b.innerHTML = '<span class="ic">🧭</span>Lernpfad';
+            ziel.parentNode.insertBefore(b, ziel.nextSibling);
+          }
+        }
+      } catch (e) {}
+      return r;
+    };
+    renderTabs = tabsNeu;
+    try { window.renderTabs = tabsNeu; } catch (e) {}
+  }
+
+  /* ---------- Klicks ---------- */
+  function antwortGeben(l, antwort, istDiagnose) {
+    var q = istDiagnose ? l.liste[l.i].q : l.liste[l.i];
+    var ok = bewerte(q, antwort);
+    l.fb = { ok: ok };
+    if (istDiagnose) {
+      var sk = l.liste[l.i].skill, e = l.ergebnis[sk] || (l.ergebnis[sk] = { ok: 0, n: 0 });
+      e.n++; if (ok) e.ok++;
+    } else {
+      if (ok) l.richtig++;
+      /* Nur der Nachweis zählt für die Mastery (§6.1: „Erst hier zählt es für
+         die Freischaltung“). Vorher zählte auch „Frei üben“ — die Gegenprobe
+         im E2E-Test hat gezeigt, dass dann Üben allein freischaltet. */
+      if (l.stufe === 5) vermerke(l.skill, ok, l.hinweise);
+    }
+    rerenderLp();
+  }
+  function diagnoseAbschliessen(d) {
+    var v = lade(), jetzt = Date.now();
+    Object.keys(d.ergebnis).forEach(function (k) { var e = d.ergebnis[k]; if (e.n && e.ok === e.n) v.d[k] = jetzt; });
+    v.diag[d.fach] = jetzt;
+    speichere(v);
+  }
+
+  document.addEventListener("click", function (e) {
+    if (!kstate || kstate.tab !== "lernpfad") return;
+    var t = e.target && e.target.closest ? e.target.closest("[data-lp],[data-lp-start],[data-lp-opt],[data-lp-klasse]") : null;
+    if (!t || t.closest(".ps-hinter")) return;
+    e.stopPropagation();
+    var l = kstate.lp, a;
+    if ((a = t.getAttribute("data-lp-klasse")) != null) {
+      var p = profil(); if (p && !p.klasse) { p.klasse = +a; save("egl-profiles", PROFILES); }
+      return rerenderLp();
+    }
+    if ((a = t.getAttribute("data-lp-start")) != null) {
+      if (t.disabled) return;
+      lektionStarten(a); return rerenderLp();
+    }
+    if ((a = t.getAttribute("data-lp-opt")) != null) {
+      if (!l || l.fb) return;
+      var i = +a, q = l.art === "diagnose" ? l.liste[l.i].q : l.liste[l.i];
+      if (q.t === "mc") { l.auswahl = [i]; return antwortGeben(l, i, l.art === "diagnose"); }
+      var k = l.auswahl.indexOf(i); if (k >= 0) l.auswahl.splice(k, 1); else l.auswahl.push(i);
+      return rerenderLp();
+    }
+    a = t.getAttribute("data-lp");
+    if (a === "zurueck") { kstate.lp = null; return rerenderLp(); }
+    if (a === "klasse-aendern") return klasseAendern();
+    if (a === "diagnose") { diagnoseStarten(FACH[fachJetzt()]); return rerenderLp(); }
+    if (!l) return;
+    if (a === "aufloesen") { l.aufgeloest = true; return rerenderLp(); }
+    if (a === "stufe") { stufeSetzen(l, l.stufe + 1); return rerenderLp(); }
+    if (a === "nochmal") { stufeSetzen(l, 3); return rerenderLp(); }
+    if (a === "hinweis") { l.hinweise++; return rerenderLp(); }
+    if (a === "regel") { l.regel = !l.regel; return rerenderLp(); }
+    if (a === "pruefen") {
+      var q2 = l.art === "diagnose" ? l.liste[l.i].q : l.liste[l.i];
+      if (q2.t === "multi") return antwortGeben(l, l.auswahl, l.art === "diagnose");
+      var feld = document.querySelector("#view [data-lp-ein]");
+      l.eingabe = feld ? feld.value : "";
+      if (!l.eingabe.trim()) return;
+      return antwortGeben(l, l.eingabe, l.art === "diagnose");
+    }
+    if (a === "weiter") {
+      l.i++; l.auswahl = []; l.fb = null; l.hinweise = 0; l.regel = false; l.eingabe = "";
+      if (l.art === "diagnose" && l.i >= l.liste.length) diagnoseAbschliessen(l);
+      return rerenderLp();
+    }
+  }, true);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || !kstate || kstate.tab !== "lernpfad") return;
+    var t = e.target;
+    if (t && t.getAttribute && t.getAttribute("data-lp-ein") != null) {
+      e.preventDefault();
+      var b = document.querySelector('#view [data-lp="pruefen"]'); if (b) b.click();
+    }
+  }, true);
+
+  /* ---------- Klassenbindung auch in den Themenlisten ----------
+     Auf window in der Capture-Phase: Ein Behandler der Engine sitzt schon
+     auf document und käme sonst vor dieser Sperre dran. */
+  if (typeof window.addEventListener === "function") window.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest("[data-m127bgrade],[data-m127grade]") : null;
+    if (!t) return;
+    var p = profil();
+    if (!p || p.type !== "kid" || !p.klasse) return;
+    var code = t.getAttribute("data-m127bgrade") || t.getAttribute("data-m127grade");
+    var stufe = code === "910" ? 9 : parseInt(code, 10);
+    if (!Number.isFinite(stufe) || stufe <= Math.max(+p.klasse, +p.freigabeBis || 0)) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var schutz = window.__PROFILSCHUTZ;
+    if (schutz && schutz.hinweis) schutz.hinweis("🔒 Noch nicht freigegeben", "Diese Stufe liegt über deiner Klasse (" + p.klasse + "). Deine Eltern können sie im Lernpfad unter „ändern (Eltern)“ freigeben.");
+  }, true);
+
+  window.__LERNPFAD = { pfad: pfad, aufgabenVon: aufgabenVon, bewerte: bewerte, lade: lade, stand: stand };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 26.09.2026 21:48")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 26.09.2026 22:16")}}catch(e){}
 })();
 
 </script>
