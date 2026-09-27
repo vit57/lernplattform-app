@@ -43319,7 +43319,8 @@ function stationen(skills, wahl) {
     + ".lp-opt.an{border-color:var(--brand);background:var(--brand-soft)}.lp-opt.richtig{border-color:var(--good);background:var(--good-soft)}.lp-opt.falsch{border-color:var(--bad);background:var(--bad-soft)}"
     + ".lp-ein{width:100%;box-sizing:border-box;font-size:18px;padding:12px;border-radius:12px;border:2px solid var(--line);background:var(--paper);color:var(--ink)}"
     + ".lp-fb{border-radius:12px;padding:12px 14px;margin:12px 0;line-height:1.55}.lp-fb.gut{background:var(--good-soft)}.lp-fb.schlecht{background:var(--bad-soft)}"
-    + ".lp-knoepfe{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.lp-knoepfe .btn{min-height:44px}";
+    + ".lp-knoepfe{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.lp-knoepfe .btn{min-height:44px}"
+    + ".lp-meldung{border-radius:12px;padding:12px 14px;margin:12px 0;line-height:1.55;background:var(--brand-soft);color:var(--ink)}.lp-meldung.lp-hinweis{background:var(--warn-soft)}";
   function stil() {
     try { if (!document.getElementById("lp-stil")) { var s = document.createElement("style"); s.id = "lp-stil"; s.textContent = STIL; document.head.appendChild(s); } } catch (e) {}
   }
@@ -43389,10 +43390,26 @@ function stationen(skills, wahl) {
     l.stufe = stufe;
     if (n) {
       if (l.pos + n > l.pool.length) { l.pool = l.pool.concat(mischen(aufgabenVon(l.skill))); }
+      /* M7 (§6.4): Geführt und frei üben zuerst auf der aktuellen Stufe;
+         der Nachweis bleibt gemischt. */
+      if (stufe === 3 || stufe === 4) l.pool = l.pool.slice(0, l.pos).concat(nachLevel(l.pool.slice(l.pos), levelJetzt(l.skill)));
       l.liste = l.pool.slice(l.pos, l.pos + n); l.pos += n;
     } else l.liste = [];
     l.i = 0; l.auswahl = []; l.fb = null; l.hinweise = 0; l.regel = false; l.richtig = 0;
   }
+  /* ---------- M7: adaptive Schwierigkeit (Kern: app/kern/lernmodell.js über p78) ---------- */
+  function levelJetzt(skill) {
+    var LM = window.__LERNMODELL;
+    return LM ? LM.levelVon(skill, klasse()).level : 0;
+  }
+  function nachLevel(liste, level) {
+    var LM = window.__LERNMODELL;
+    if (!LM || !level) return liste;
+    return liste.map(function (q, i) { return { q: q, i: i, d: Math.abs(LM.aufgabenLevel(q) - level) }; })
+      .sort(function (a, b) { return a.d - b.d || a.i - b.i; }).map(function (x) { return x.q; });
+  }
+  var LEVEL_TEXT = { "1": "🚀 Stark! Ab jetzt bekommst du schwierigere Aufgaben.", "-1": "🐢 Wir machen es etwas leichter — erst das sicher, dann geht’s weiter." };
+
   function fortschritt(stufe) {
     return '<div class="lp-fort" aria-hidden="true">' + [1, 2, 3, 4, 5].map(function (k) { return "<i" + (k <= stufe ? ' class="an"' : "") + "></i>"; }).join("") + "</div>";
   }
@@ -43462,14 +43479,18 @@ function stationen(skills, wahl) {
       s += '<div class="lp-fb ' + (l.fb.ok ? "gut" : "schlecht") + '" role="status">'
         + (l.fb.ok ? "✅ <b>Richtig!</b>" : "❌ <b>Noch nicht.</b> Richtig ist: <b>" + h(loesungText(q)) + "</b>")
         + (q.why ? "<br>" + q.why : "") + "</div>"
+        + (l.levelMeldung ? '<div class="lp-meldung" data-testid="lp-level" role="status">' + h(l.levelMeldung) + "</div>" : "")
         + '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="weiter" data-testid="lp-weiter-aufgabe">Weiter →</button></div>';
-    } else if (l.stufe === 3) {
-      var hs = Array.isArray(q.hints) ? q.hints : [];
+    } else if (l.stufe === 3 || l.hilfe) {
+      /* M7 (§6.5): drei Stufen, einzeln abrufbar — Denkanstoß → Regel → Fast-Lösung. */
+      var LM = window.__LERNMODELL;
+      var hs = LM ? LM.hinweise(q, q.skill || l.skill) : (Array.isArray(q.hints) ? q.hints : []);
+      var NAMEN = ["💡 Denkanstoß", "📏 Regel", "🔑 Fast-Lösung"];
       s += '<div class="lp-knoepfe">'
-        + (l.hinweise < hs.length ? '<button class="btn" data-lp="hinweis">💡 Hinweis ' + (l.hinweise + 1) + " von " + hs.length + "</button>" : "")
-        + '<button class="btn" data-lp="regel">📖 ' + (l.regel ? "Regel ausblenden" : "Regel einblenden") + "</button></div>";
-      for (var k = 0; k < l.hinweise && k < hs.length; k++) s += '<div class="lp-fb" style="background:var(--warn-soft)">💡 ' + hs[k] + "</div>";
-      if (l.regel) s += '<div class="lp-box" style="background:var(--paper2)">' + regelnHtml(l.skill) + "</div>";
+        + (l.hinweise < hs.length ? '<button class="btn" data-lp="hinweis" data-testid="lp-hinweis">' + (l.hinweise ? "Nächster Hinweis" : "💡 Hinweis") + " (" + (l.hinweise + 1) + " von " + hs.length + ")</button>" : "")
+        + (l.skill ? '<button class="btn" data-lp="regel">📖 ' + (l.regel ? "Regel ausblenden" : "Regel einblenden") + "</button>" : "") + "</div>";
+      for (var k = 0; k < l.hinweise && k < hs.length; k++) s += '<div class="lp-meldung lp-hinweis"><b>' + (NAMEN[k] || "💡") + ":</b> " + h(hs[k]) + "</div>";
+      if (l.regel && l.skill) s += '<div class="lp-box" style="background:var(--paper2)">' + regelnHtml(l.skill) + "</div>";
     }
     return s + "</div>";
   }
@@ -43563,7 +43584,9 @@ function stationen(skills, wahl) {
   var renderVorher = render;
   var renderNeu = function () {
     var p = profil();
-    if (p && p.type === "kid" && !(typeof showProfiles !== "undefined" && showProfiles) && kstate.tab === "lernpfad") {
+    /* Runden (Aufwärmen, M7-Wiederholung) gibt es auch für Erwachsene. */
+    var runde = kstate.lp && kstate.lp.art === "runde";
+    if (p && (p.type === "kid" || runde) && !(typeof showProfiles !== "undefined" && showProfiles) && kstate.tab === "lernpfad") {
       stil();
       try { renderTabs(); } catch (e) {}
       var su = fachJetzt(), view = document.getElementById("view");
@@ -43622,8 +43645,20 @@ function stationen(skills, wahl) {
        richtiger Antwort und Bearbeitungszeit. */
     try {
       var gegeben = q.t === "mc" ? q.o[antwort] : q.t === "multi" ? (antwort || []).map(function (i) { return q.o[i]; }).join(", ") : String(antwort);
-      melde("lp:antwort", { skill: q.skill || l.skill, fach: (SKILLS[q.skill || l.skill] || {}).fach || "", ok: ok,
-        frage: String(q.q || "").replace(/<[^>]+>/g, ""), gegeben: gegeben, richtig: loesungText(q), dauer: l.qStart ? Date.now() - l.qStart : 0 });
+      var LM = window.__LERNMODELL, skillQ = q.skill || l.skill;
+      var vorher = LM && skillQ && (l.stufe === 3 || l.stufe === 4) && !istDiagnose && l.art === "lektion" ? LM.levelVon(skillQ, klasse()).level : 0;
+      melde("lp:antwort", { skill: skillQ, fach: (SKILLS[skillQ] || {}).fach || "", ok: ok,
+        frage: String(q.q || "").replace(/<[^>]+>/g, ""), gegeben: gegeben, richtig: loesungText(q), dauer: l.qStart ? Date.now() - l.qStart : 0,
+        aufgabe: q.id || null, hinweise: l.hinweise || 0, level: LM ? LM.aufgabenLevel(q) : 0 });
+      /* M7 (§6.4): Stufenwechsel sichtbar und freundlich; die restlichen
+         Aufgaben der Runde rücken nach der neuen Stufe. */
+      if (vorher) {
+        var nachher = LM.levelVon(skillQ, klasse());
+        if (nachher.schritt) {
+          l.levelMeldung = LEVEL_TEXT[String(nachher.schritt)];
+          l.liste = l.liste.slice(0, l.i + 1).concat(nachLevel(l.liste.slice(l.i + 1), nachher.level));
+        }
+      }
     } catch (e) {}
     l.qStart = 0;
     if (istDiagnose) {
@@ -43691,7 +43726,7 @@ function stationen(skills, wahl) {
       return antwortGeben(l, l.eingabe, l.art === "diagnose");
     }
     if (a === "weiter") {
-      l.i++; l.auswahl = []; l.fb = null; l.hinweise = 0; l.regel = false; l.eingabe = "";
+      l.i++; l.auswahl = []; l.fb = null; l.hinweise = 0; l.regel = false; l.eingabe = ""; l.levelMeldung = "";
       if (l.i >= l.liste.length) {
         if (l.art === "diagnose") { diagnoseAbschliessen(l); melde("lp:diagnose-fertig", { fach: l.fach }); }
         else if (l.art === "runde") melde("lp:runde-fertig", { titel: l.titel });
@@ -43728,6 +43763,13 @@ function stationen(skills, wahl) {
 
   /* M9: Einstiege für den Tagesplan (p73). */
   function starte(ziel) {
+    /* M7: fällige Wiederholungen (p78); sind inzwischen keine mehr fällig,
+       wird es ein Aufwärmen aus schon Geübtem. */
+    if (ziel.typ === "wiederholung") {
+      var LM = window.__LERNMODELL;
+      if (LM && LM.starteWiederholung(ziel.anzahl || 8, ziel.ruecksprung || null)) return;
+      ziel = { typ: "runde", titel: "🔁 Aufwärmen", skills: ziel.skills || [], anzahl: 5, ruecksprung: ziel.ruecksprung };
+    }
     if (ziel.typ === "runde") rundeStarten(ziel.titel || "🔁 Aufwärmen", ziel.skills || [], ziel.anzahl || 5);
     else lektionStarten(ziel.skill, ziel.stufe || 1);
     kstate.lp.ruecksprung = ziel.ruecksprung || null;
@@ -43762,7 +43804,8 @@ function stationen(skills, wahl) {
  * Tagesplan — „Was mache ich heute?“ (AUFTRAG-v2.md §8) — reine Funktion.
  *
  * Drei bis fünf Blöcke in fester Reihenfolge:
- *   1 Aufwärmen     — 5 Wiederholungen aus schon Geübtem
+ *   1 Aufwärmen     — fällige Wiederholungen (M7, höchstens 8), sonst
+ *                     5 Aufgaben aus schon Geübtem
  *   2 Neu lernen    — die aktuelle Station des Lernpfads
  *   3 Festigen      — Übung zum zuletzt Gelernten (frei üben)
  *   4 Schwachstelle — die schwächste begonnene Station (geführt üben)
@@ -43788,8 +43831,11 @@ function saat(s) {
   return h >>> 0;
 }
 
+const WIEDERHOLUNG_JE_TAG = 8;
+
 /**
- * @param {{ datum: string, profil: string, faecher: FachLage[] }} lage
+ * @param {{ datum: string, profil: string, faecher: FachLage[], wiederholung?: number }} lage
+ *   `wiederholung`: Anzahl fälliger Wiederholungen (app/kern/lernmodell.js)
  * @returns {{ datum: string, bloecke: Block[] }}
  */
 function tagesplan(lage) {
@@ -43801,10 +43847,15 @@ function tagesplan(lage) {
   const vergeben = new Set();
   const titelVon = (f, skill) => (f.stationen.find((s) => s.skill === skill) || {}).titel || skill;
 
-  /* 1 Aufwärmen: alles, was schon Bearbeitungen hat. */
+  /* 1 Aufwärmen: fällige Wiederholungen (M7) — nie als endlose Warteschlange,
+     höchstens WIEDERHOLUNG_JE_TAG; sonst alles, was schon Bearbeitungen hat. */
   const geuebt = [];
   for (const f of reihe) for (const s of f.stationen) if (s.score > 0 || s.zustand === 'gemeistert' || s.zustand === 'wiederholung-faellig') geuebt.push(s.skill);
-  if (geuebt.length) bloecke.push({ id: 'aufwaermen', art: 'aufwaermen', titel: 'Aufwärmen', text: '5 Aufgaben aus dem, was du schon geübt hast', minuten: 5,
+  const faellig = Math.min(lage.wiederholung || 0, WIEDERHOLUNG_JE_TAG);
+  if (faellig) bloecke.push({ id: 'aufwaermen', art: 'aufwaermen', titel: 'Aufwärmen',
+    text: faellig + (faellig === 1 ? ' Aufgabe, die' : ' Aufgaben, die') + ' du noch einmal üben solltest', minuten: 5,
+    ziel: { typ: 'wiederholung', titel: '🔁 Wiederholen', anzahl: faellig, skills: geuebt } });
+  else if (geuebt.length) bloecke.push({ id: 'aufwaermen', art: 'aufwaermen', titel: 'Aufwärmen', text: '5 Aufgaben aus dem, was du schon geübt hast', minuten: 5,
     ziel: { typ: 'runde', titel: '🔁 Aufwärmen', skills: geuebt, anzahl: 5 } });
 
   /* 2 Neu lernen: die Station „jetzt dran“ im ersten Fach der Reihe. */
@@ -43891,7 +43942,10 @@ function tagVon(d) {
   function planFuerHeute() {
     var st = lade(), tag = heute(), p = profil();
     if (st.datum === tag && Array.isArray(st.bloecke)) return st;
-    var plan = tagesplan({ datum: tag, profil: p ? p.id : "anon", faecher: lageErheben() });
+    /* M7: fällige Wiederholungen (p78) werden das Aufwärmen. */
+    var wdh = 0;
+    try { wdh = window.__LERNMODELL ? window.__LERNMODELL.faellig().length : 0; } catch (e) {}
+    var plan = tagesplan({ datum: tag, profil: p ? p.id : "anon", faecher: lageErheben(), wiederholung: wdh });
     var neu = { datum: tag, bloecke: plan.bloecke, erledigt: {}, sek: st.datum === tag ? st.sek || 0 : 0 };
     speichere(neu);
     return neu;
@@ -44695,7 +44749,7 @@ function minutenJeFach(sitz) {
 function tag(ev, tag) {
   const heute = ev.filter((e) => datum(e.t) === tag);
   const sitz = sitzungen(heute);
-  const fehler = sortiert(heute).filter((e) => !e.ok).map((e) => ({ t: e.t, f: e.f, s: e.s || null, q: e.q || '', g: e.g || '', r: e.r || '' }));
+  const fehler = sortiert(heute).filter((e) => !e.ok).map((e) => ({ i: e.i, t: e.t, f: e.f, s: e.s || null, q: e.q || '', g: e.g || '', r: e.r || '' }));
   const minuten = sitz.reduce((a, s) => a + s.minuten, 0);
   return { tag, sitzungen: sitz, fehler, minuten, minutenJeFach: minutenJeFach(sitz), n: heute.length, quote: quote(heute.filter((e) => e.ok).length, heute.length) };
 }
@@ -44883,6 +44937,94 @@ function berechneMastery(versuche, wahl = {}) {
 }
 
 
+  // @ts-check
+/**
+ * Fehlertypologie (AUFTRAG-v2.md §6.6) — reine Funktionen über dem
+ * Ereignis-Log. Grundlage dafür, dass das Eltern-Dashboard sagen kann,
+ * WORAN es hakt, nicht nur DASS es hakt.
+ *
+ * Reihenfolge der Prüfung (die erste passende Art gilt):
+ *   zeitueberschreitung — keine Antwort nach 60 s oder als Zeitablauf markiert
+ *   fluechtigkeit       — dieselbe Aufgabe gleich danach (≤ 10 Min.) in < 5 s richtig
+ *   gross-klein         — nur die Schreibung unterscheidet sich
+ *   rechtschreibung     — fast das richtige Wort (≤ 1 Abweichung je 5 Buchstaben)
+ *   nicht-verstanden    — dieselbe Aufgabe war schon einmal falsch, oder der
+ *                         dritte Fehler in Folge im selben Skill
+ *   regel-falsch-angewandt — alles Übrige
+ *
+ * Berechnet statt gespeichert: So gilt die Einordnung auch für alte
+ * Ereignisse und bleibt nach dem Geräte-Abgleich dieselbe.
+ */
+
+const FEHLERARTEN = {
+  'gross-klein': 'Groß-/Kleinschreibung',
+  rechtschreibung: 'Rechtschreibung',
+  'regel-falsch-angewandt': 'Regel falsch angewandt',
+  fluechtigkeit: 'Flüchtigkeit',
+  'nicht-verstanden': 'Nicht verstanden',
+  zeitueberschreitung: 'Zeit überschritten',
+};
+const ZEIT_MS = 60000, FLUECHTIG_MS = 5000, ZWEIT_FENSTER_MS = 10 * 60000;
+
+/** Editierabstand (Levenshtein). @param {string} a @param {string} b */
+function abstand(a, b) {
+  const m = a.length, n = b.length;
+  let vor = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const neu = [i];
+    for (let j = 1; j <= n; j++) neu[j] = Math.min(vor[j] + 1, neu[j - 1] + 1, vor[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    vor = neu;
+  }
+  return vor[n];
+}
+const text = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+const istWort = (s) => s.length >= 3 && /^[\p{L} '-]+$/u.test(s);
+const aufgabe = (e) => (e.a ? 'id:' + e.a : 'q:' + text(e.q).toLowerCase());
+const vergleiche = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * @param {readonly any[]} ereignisse
+ * @returns {{ typ: Record<string,string>, zaehlung: Record<string,number>, jeSkill: Record<string,Record<string,number>> }}
+ */
+function fehlerarten(ereignisse) {
+  const ev = (ereignisse || []).filter((e) => e && Number.isFinite(e.t)).slice()
+    .sort((a, b) => a.t - b.t || vergleiche(String(a.i), String(b.i)));
+  const typ = {}, zaehlung = {}, jeSkill = {};
+  const schonFalsch = new Set(), inFolge = {};
+  ev.forEach((e, idx) => {
+    const k = aufgabe(e), s = e.s || '';
+    if (e.ok) { if (s) inFolge[s] = 0; return; }
+    if (s) inFolge[s] = (inFolge[s] || 0) + 1;
+    const g = text(e.g), r = text(e.r);
+    let t;
+    const zweit = ev.slice(idx + 1).find((x) => aufgabe(x) === k && x.t - e.t <= ZWEIT_FENSTER_MS);
+    if (e.zeit || (!g && (e.d || 0) >= ZEIT_MS)) t = 'zeitueberschreitung';
+    else if (zweit && zweit.ok && (zweit.d ?? Infinity) < FLUECHTIG_MS) t = 'fluechtigkeit';
+    else if (g && r && g !== r && g.toLowerCase() === r.toLowerCase()) t = 'gross-klein';
+    else if (istWort(g) && istWort(r) && abstand(g.toLowerCase(), r.toLowerCase()) <= Math.max(1, Math.floor(r.length / 5))) t = 'rechtschreibung';
+    else if (schonFalsch.has(k) || (s && inFolge[s] >= 3)) t = 'nicht-verstanden';
+    else t = 'regel-falsch-angewandt';
+    schonFalsch.add(k);
+    typ[e.i] = t;
+    zaehlung[t] = (zaehlung[t] || 0) + 1;
+    if (s) { const js = jeSkill[s] || (jeSkill[s] = {}); js[t] = (js[t] || 0) + 1; }
+  });
+  return { typ, zaehlung, jeSkill };
+}
+
+/**
+ * Häufigste Fehlerarten zuerst, mit den betroffenen Skills.
+ * @param {readonly any[]} ereignisse
+ */
+function woranEsHakt(ereignisse) {
+  const r = fehlerarten(ereignisse);
+  return Object.keys(r.zaehlung).map((t) => ({
+    typ: t, name: FEHLERARTEN[t], n: r.zaehlung[t],
+    skills: Object.keys(r.jeSkill).filter((s) => r.jeSkill[s][t]).sort((a, b) => r.jeSkill[b][t] - r.jeSkill[a][t] || vergleiche(a, b)),
+  })).sort((a, b) => b.n - a.n || vergleiche(a.typ, b.typ));
+}
+
+
   if (typeof kstate === "undefined" || typeof render !== "function") return;
 
   function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
@@ -44917,7 +45059,9 @@ function berechneMastery(versuche, wahl = {}) {
   document.addEventListener("lp:antwort", function (ev) {
     var d = ev.detail || {};
     hinzufuegen({ i: kennung(), t: Date.now(), f: d.fach || fachVon(d.skill), s: d.skill || null, ok: d.ok ? 1 : 0,
-      q: kurz(d.frage, 160), g: kurz(d.gegeben, 80), r: kurz(d.richtig, 80), d: Math.min(d.dauer || 0, 600000), w: "lp" });
+      q: kurz(d.frage, 160), g: kurz(d.gegeben, 80), r: kurz(d.richtig, 80), d: Math.min(d.dauer || 0, 600000), w: "lp",
+      /* M7: Aufgaben-Kennung (Wiederholung), genutzte Hinweise, Aufgabenstufe (Adaptivität) */
+      a: d.aufgabe || undefined, h: d.hinweise || undefined, lv: d.level || undefined });
   });
 
   /* ---------- Erfassung: Übungen der Engine ---------- */
@@ -45016,6 +45160,25 @@ function berechneMastery(versuche, wahl = {}) {
   function trendText(x) { return x == null ? "noch zu wenig Daten" : (x > 0 ? "+" : "") + x + " Pkt."; }
   function zellKlasse(z) { return !z.n ? "el-z0" : z.quote >= 80 ? "el-zg" : z.quote >= 55 ? "el-zm" : "el-zs"; }
 
+  /* M7 (§6.6): Woran es hakt — Fehlerarten mit einem Satz für Eltern. */
+  var RAT = {
+    "gross-klein": "Die Wörter sind richtig, nur groß und klein verwechselt — die Regeln zu Nomen und Satzanfang üben.",
+    rechtschreibung: "Fast richtig geschrieben — Wörter langsam mitsprechen und die Lernwörter üben.",
+    "regel-falsch-angewandt": "Die Regel ist bekannt, wird aber falsch angewandt — „Geführt üben“ mit Hinweisen hilft.",
+    fluechtigkeit: "Gleich danach richtig — eher Eile als Nichtwissen. In Ruhe lesen lassen.",
+    "nicht-verstanden": "Derselbe Fehler kommt wieder — hier fehlt das Verständnis. Die Lektion noch einmal ab „Erklären“.",
+    zeitueberschreitung: "Keine Antwort in der Zeit — lieber kleinere Schritte ohne Zeitdruck."
+  };
+  function htmlHakt(ev, tage) {
+    var ab = Date.now() - tage * 86400000;
+    var w = woranEsHakt(ev.filter(function (e) { return e.t >= ab; }));
+    return '<div class="el-box" data-testid="el-hakt"><h3>🔍 Woran es hakt <span style="font-weight:400;color:var(--ink2);font-size:14px">(letzte ' + tage + " Tage)</span></h3>"
+      + (w.length ? '<ul style="margin:0;padding-left:18px;line-height:1.6">' + w.slice(0, 4).map(function (x) {
+        return "<li><b>" + h(x.name) + "</b> · " + x.n + (x.n === 1 ? " Fehler" : " Fehler") + (x.skills.length ? ' <span style="color:var(--ink2)">(' + h(x.skills.slice(0, 3).map(titelVon).join(", ")) + ")</span>" : "")
+          + '<br><span style="color:var(--ink2);font-size:14px">' + h(RAT[x.typ] || "") + "</span></li>";
+      }).join("") + "</ul>" : '<p style="margin:0;color:var(--ink2)">Keine Fehler in diesem Zeitraum.</p>') + "</div>";
+  }
+
   function htmlUebersicht(ev, name) {
     var jetzt = Date.now(), heute = tag(ev, datum(jetzt)), w = woche(ev, montag(jetzt));
     var tr = trends(ev, jetzt), l = listen(tr, masteryJetzt());
@@ -45030,6 +45193,7 @@ function berechneMastery(versuche, wahl = {}) {
           : '<p style="margin:0;color:var(--ink2)">Noch nichts.</p>') + "</div>";
     };
     s += '<div class="el-listen">' + liste("🎯 Braucht Übung", "uebung", l.brauchtUebung) + liste("🛠️ In Arbeit", "arbeit", l.inArbeit) + liste("✅ Sitzt", "sitzt", l.sitzt) + "</div>";
+    s += htmlHakt(ev, 30);
     var faecher = Array.from(new Set(tr.map(function (x) { return x.fach; }))).sort();
     var zeilen = tr.filter(function (x) { return !zustand.fach || x.fach === zustand.fach; }).slice();
     if (zustand.sort === "zuletzt") zeilen.sort(function (a, b) { return b.letzte - a.letzte; });
@@ -45055,8 +45219,9 @@ function berechneMastery(versuche, wahl = {}) {
     s += '<div class="el-box" data-testid="el-sitzungen"><h3>Lernsitzungen</h3>' + (t.sitzungen.length ? '<table class="el-tab"><thead><tr><th>Uhrzeit</th><th>Dauer</th><th>Fach</th><th>Skills</th><th>Aufgaben</th><th>Richtig</th></tr></thead><tbody>'
       + t.sitzungen.map(function (x) { return "<tr><td>" + uhr(x.start) + "–" + uhr(x.ende) + "</td><td>" + x.minuten + " Min.</td><td>" + h(x.faecher.join(", ")) + "</td><td>" + h(x.skills.map(titelVon).join(", ") || "—") + "</td><td>" + x.n + "</td><td>" + quoteText(x.quote) + "</td></tr>"; }).join("")
       + "</tbody></table>" : '<p style="margin:0;color:var(--ink2)">An diesem Tag wurde nicht gelernt.</p>') + "</div>";
-    s += '<div class="el-box" data-testid="el-fehler"><h3>Fehler (' + t.fehler.length + ")</h3>" + (t.fehler.length ? '<table class="el-tab"><thead><tr><th>Zeit</th><th>Aufgabe</th><th>Gegeben</th><th>Richtig</th><th>Skill</th></tr></thead><tbody>'
-      + t.fehler.map(function (x) { return "<tr><td>" + uhr(x.t) + "</td><td>" + h(x.q || "—") + "</td><td>" + h(x.g || "—") + "</td><td>" + h(x.r || "—") + "</td><td>" + h(x.s ? titelVon(x.s) : x.f) + "</td></tr>"; }).join("")
+    var art = fehlerarten(ev).typ;
+    s += '<div class="el-box" data-testid="el-fehler"><h3>Fehler (' + t.fehler.length + ")</h3>" + (t.fehler.length ? '<table class="el-tab"><thead><tr><th>Zeit</th><th>Aufgabe</th><th>Gegeben</th><th>Richtig</th><th>Art</th><th>Skill</th></tr></thead><tbody>'
+      + t.fehler.map(function (x) { return "<tr><td>" + uhr(x.t) + "</td><td>" + h(x.q || "—") + "</td><td>" + h(x.g || "—") + "</td><td>" + h(x.r || "—") + "</td><td>" + h(FEHLERARTEN[art[x.i]] || "—") + "</td><td>" + h(x.s ? titelVon(x.s) : x.f) + "</td></tr>"; }).join("")
       + "</tbody></table>" : '<p style="margin:0;color:var(--ink2)">Keine Fehler.</p>') + "</div>";
     return s;
   }
@@ -45111,6 +45276,7 @@ function berechneMastery(versuche, wahl = {}) {
     var wmin = w.summeTag.reduce(function (a, b) { return a + b; }, 0), n = w.raster.reduce(function (a, r) { return a + r.tage.reduce(function (b, z) { return b + z.n; }, 0); }, 0);
     var besser = tr.filter(function (x) { return x.zeichen === "↑"; }).slice(0, 3), schlechter = tr.filter(function (x) { return x.zeichen === "↓"; }).slice(0, 3);
     var baustellen = l.brauchtUebung.slice(0, 3);
+    var hakt = woranEsHakt(ev.filter(function (e) { return e.t >= jetzt - 7 * 86400000; }))[0];
     var empfehlung = baustellen.length ? "Übt diese Woche vor allem „" + titelVon(baustellen[0].skill) + "“ — im Lernpfad die passende Station mit „Geführt üben“, jeden Tag ein paar Minuten."
       : "Weiter so: jeden Tag der Plan unter „Heute“ reicht.";
     return { titel: "Wochenbericht für " + name + " · Woche ab " + tagText(montag(jetzt)),
@@ -45119,6 +45285,7 @@ function berechneMastery(versuche, wahl = {}) {
         "Verbessert: " + (besser.length ? besser.map(function (x) { return titelVon(x.skill); }).join(", ") : "—"),
         "Verschlechtert: " + (schlechter.length ? schlechter.map(function (x) { return titelVon(x.skill); }).join(", ") : "—"),
         "Größte Baustellen: " + (baustellen.length ? baustellen.map(function (x) { return titelVon(x.skill) + " (" + quoteText(x.quote) + ")"; }).join(", ") : "—"),
+        "Häufigste Fehlerart: " + (hakt ? hakt.name + " (" + hakt.n + ") — " + RAT[hakt.typ] : "—"),
         "Empfehlung: " + empfehlung
       ] };
   }
@@ -45226,7 +45393,9 @@ function berechneMastery(versuche, wahl = {}) {
     neu();
   }, true);
 
-  window.__ELTERN = { oeffnen: oeffnen, ereignisse: ereignisse, hinzufuegen: hinzufuegen, serie: function () { return serie(ereignisse(), Date.now()); } };
+  window.__ELTERN = { oeffnen: oeffnen, ereignisse: ereignisse, hinzufuegen: hinzufuegen, serie: function () { return serie(ereignisse(), Date.now()); },
+    /* für pruefen.js: die eingebettete Fehlertypologie (M7) */
+    fehlerarten: fehlerarten, woranEsHakt: woranEsHakt };
 })();
 
 /* =====================================================================
@@ -45331,12 +45500,478 @@ function berechneMastery(versuche, wahl = {}) {
   try { window.__SEITEN = { ordnen: ordnen }; } catch (e) {}
 })();
 
+/* =====================================================================
+   M7 — Lernmodell in der App (AUFTRAG-v2.md §6.3–6.6).
+
+   * Wiederholung: Aus dem Ereignis-Log (p76) berechnet app/kern/lernmodell.js,
+     welche falsch beantworteten Aufgaben fällig sind — Kinder nach Leitner,
+     Erwachsene nach SM-2. Fällige erscheinen
+       – im Tagesplan als „Aufwärmen“ (p73 gibt die Anzahl an den Plan),
+       – unter „Üben“ als große Karte „🔁 Fehler wiederholen“.
+     Gespielt wird die Runde mit der Aufgabenansicht des Lernpfads (p72);
+     jede Antwort landet wieder im Log, dadurch rückt die Aufgabe weiter
+     oder ist nach zweimal richtig ausgebügelt.
+   * Aufgabe wiederfinden: über die Aufgaben-Kennung (Lernpfad) oder den
+     Fragetext (Übungen der Engine). Zeigen kann die Runde die Typen
+     mc/multi/txt/num; anderes bleibt in der Liste, kommt aber nicht in
+     die Runde.
+   * Hinweise und adaptive Schwierigkeit nutzt p72 über window.__LERNMODELL.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/**
+ * Spaced Repetition (SM-2-angelehnt) für den Erwachsenen-Vokabeltrainer.
+ * Active Recall: Karte zeigen → erinnern → selbst bewerten.
+ *
+ * Übernommen aus sprachlernplattform/src/lib/srs.ts (Strang B), 1:1;
+ * geändert wurden nur die Typannotationen (TypeScript → JSDoc). Der Typ
+ * SrsCard und die Konstante DAY_MS wurden mitgezogen.
+ *
+ * Siehe AUFTRAG-v2.md §6.3. Wichtig für später: die Fälligkeitsliste
+ * wird **nicht gekappt** — in Strang B war sie bei 60 Einträgen
+ * abgeschnitten.
+ */
+
+/** @typedef {import('./typen.js').SrsCard} SrsCard */
+
+/** Ein Tag in Millisekunden. */
+const DAY_MS = 86_400_000;
+
+/**
+ * Legt eine neue Karte an — sofort fällig, Ease 2.5, kein Intervall.
+ * @param {Partial<SrsCard> & Pick<SrsCard,'id'|'front'|'back'|'lang'>} init
+ *        Mindestens id, front, back und lang; alles Weitere überschreibt
+ *        die Vorgabewerte.
+ * @param {number} [now] Bezugszeitpunkt in Unix-ms, Vorgabe: jetzt.
+ * @returns {SrsCard} Die fertige Karte.
+ */
+function newSrsCard(init, now = Date.now()) {
+  return {
+    example: undefined,
+    due: now,
+    interval: 0,
+    ease: 2.5,
+    reps: 0,
+    lapses: 0,
+    history: [],
+    ...init,
+  };
+}
+
+/**
+ * Bewertet eine Karte und berechnet die nächste Fälligkeit.
+ * Intervalle: 0 → 1 Tag → 3 Tage → interval × ease (SM-2).
+ * Bei einem Fehler: Intervall zurück auf 0 (in 10 Minuten wieder),
+ * Ease sinkt um 0,2, Untergrenze 1,3.
+ * @param {SrsCard} card Die bisherige Karte; bleibt unverändert.
+ * @param {boolean} quality true = gewusst, false = nicht gewusst.
+ * @param {number} [now] Bezugszeitpunkt in Unix-ms, Vorgabe: jetzt.
+ * @returns {SrsCard} Eine neue Karte mit fortgeschriebenem Stand.
+ */
+function reviewSrsCard(card, quality, now = Date.now()) {
+  const history = /** @type {(0|1)[]} */ ([...card.history, quality ? 1 : 0].slice(-20));
+  if (!quality) {
+    return {
+      ...card,
+      history,
+      reps: 0,
+      lapses: card.lapses + 1,
+      ease: Math.max(1.3, card.ease - 0.2),
+      interval: 0,
+      due: now + 10 * 60_000,
+    };
+  }
+  const reps = card.reps + 1;
+  let interval;
+  if (reps === 1) interval = 1;
+  else if (reps === 2) interval = 3;
+  else interval = Math.round(card.interval * card.ease);
+  const ease = Math.min(2.8, card.ease + 0.05);
+  return {
+    ...card,
+    history,
+    reps,
+    ease,
+    interval,
+    due: now + interval * DAY_MS,
+  };
+}
+
+/**
+ * Die derzeit fälligen Karten, älteste Fälligkeit zuerst.
+ * @param {SrsCard[]} cards Alle Karten.
+ * @param {number} [now] Bezugszeitpunkt in Unix-ms, Vorgabe: jetzt.
+ * @returns {SrsCard[]} Nur die fälligen, sortiert. Ungekappt.
+ */
+function dueSrsCards(cards, now = Date.now()) {
+  return cards.filter((c) => c.due <= now).sort((a, b) => a.due - b.due);
+}
+
+/**
+ * Anteil richtiger Antworten in der jüngeren Historie (für die Anzeige).
+ * @param {SrsCard} card Die Karte.
+ * @returns {number | null} Anteil 0..1, oder null ohne Historie.
+ */
+function cardAccuracy(card) {
+  if (card.history.length === 0) return null;
+  const ok = card.history.reduce((s, h) => s + h, 0);
+  return ok / card.history.length;
+}
+
+
+  // @ts-check
+/**
+ * Leitner-System für die Kinder-Karteikarten: fünf Fächer, falsche
+ * Karten wandern zurück in Fach 1 und kommen dadurch deutlich häufiger
+ * dran. Fach-Intervalle: sofort / 1 / 2 / 4 / 7 Tage.
+ *
+ * Übernommen aus sprachlernplattform/src/lib/leitner.ts (Strang B), 1:1;
+ * geändert wurden nur die Typannotationen (TypeScript → JSDoc). Der Typ
+ * LeitnerCard und die Konstante BOX_INTERVALS_DAYS wurden mitgezogen.
+ *
+ * Siehe AUFTRAG-v2.md §6.3.
+ */
+
+/** @typedef {import('./typen.js').LeitnerCard} LeitnerCard */
+
+
+/** Wartezeit in Tagen je Fach, Index 0 = Fach 1. */
+const BOX_INTERVALS_DAYS = /** @type {const} */ ([0, 1, 2, 4, 7]);
+
+/**
+ * Legt eine neue Karte an — Fach 1, sofort fällig.
+ * @param {Partial<LeitnerCard> & Pick<LeitnerCard,'id'|'front'|'back'|'lang'>} init
+ *        Mindestens id, front, back und lang.
+ * @param {number} [now] Bezugszeitpunkt in Unix-ms, Vorgabe: jetzt.
+ * @returns {LeitnerCard} Die fertige Karte.
+ */
+function newLeitnerCard(init, now = Date.now()) {
+  return { emoji: undefined, box: 1, due: now, correct: 0, wrong: 0, ...init };
+}
+
+/**
+ * Bewertet eine Karte: richtig → ein Fach weiter (höchstens 5),
+ * falsch → zurück in Fach 1.
+ * @param {LeitnerCard} card Die bisherige Karte; bleibt unverändert.
+ * @param {boolean} ok true = gewusst.
+ * @param {number} [now] Bezugszeitpunkt in Unix-ms, Vorgabe: jetzt.
+ * @returns {LeitnerCard} Eine neue Karte mit fortgeschriebenem Stand.
+ */
+function reviewLeitnerCard(card, ok, now = Date.now()) {
+  const box = /** @type {LeitnerCard['box']} */ (ok ? Math.min(5, card.box + 1) : 1);
+  return {
+    ...card,
+    box,
+    correct: card.correct + (ok ? 1 : 0),
+    wrong: card.wrong + (ok ? 0 : 1),
+    due: now + BOX_INTERVALS_DAYS[box - 1] * DAY_MS,
+  };
+}
+
+/**
+ * Die derzeit fälligen Karten: schwächste zuerst (niedriges Fach),
+ * bei gleichem Fach die ältere Fälligkeit zuerst.
+ * @param {LeitnerCard[]} cards Alle Karten.
+ * @param {number} [now] Bezugszeitpunkt in Unix-ms, Vorgabe: jetzt.
+ * @returns {LeitnerCard[]} Nur die fälligen, sortiert. Ungekappt.
+ */
+function dueLeitnerCards(cards, now = Date.now()) {
+  return cards.filter((c) => c.due <= now).sort((a, b) => a.box - b.box || a.due - b.due);
+}
+
+
+  // @ts-check
+/**
+ * Lernmodell (AUFTRAG-v2.md §6.3–6.5) — reine Funktionen.
+ *
+ * Wiederholung (§6.3): Grundlage ist das Ereignis-Log (egl-ereignisse, M10),
+ * nicht ein eigener Speicher. Das Log wird beim Geräte-Abgleich über die
+ * Kennung vereinigt; daraus berechnet ergibt jedes Gerät dieselbe
+ * Wiederholungsliste, ohne dass Karten doppelt oder widersprüchlich
+ * entstehen. Nur falsch Beantwortetes kommt hinein; Kinder nach Leitner
+ * (leitner.js, Fach 1 = sofort), Erwachsene nach SM-2 (srs.js, in 10 Minuten
+ * wieder). Nach zweimal richtig in Folge ist eine Aufgabe ausgebügelt. Die
+ * Liste wird nicht gekappt — wie viel davon an einem Tag drankommt,
+ * entscheidet der Tagesplan.
+ *
+ * Adaptive Schwierigkeit (§6.4): Der Inhalt kennt keine Schwierigkeitsstufe
+ * je Aufgabe. Als Stufe gilt deshalb die Art der Leistung: wiedererkennen
+ * aus wenigen Antworten (1) < auswählen aus vielen (2) < selbst hervorbringen
+ * (3). Basis aus der Klasse; ab 10 Bearbeitungen seit dem letzten Wechsel
+ * hebt ≥ 85 % richtig die Stufe, < 55 % senkt sie, immer um eine.
+ *
+ * Hinweise (§6.5): drei Stufen — Denkanstoß, Regelhinweis, Fast-Lösung.
+ * Eigene Hinweise einer Aufgabe haben Vorrang; sonst werden sie aus
+ * Aufgabentyp, Regeln des Themas und Antwortmöglichkeiten gebildet. Keine
+ * Stufe nennt die Lösung.
+ */
+
+
+
+const AUSGEBUEGELT_NACH = 2;
+const LEVEL_AB = 10;
+const HOCH_AB = 85;
+const RUNTER_UNTER = 55;
+
+const ohneTags = (s) => String(s == null ? '' : s).replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** Nachschlage-Schlüssel eines Fragetexts — gleich für gekürzte (…) und volle Fassung. @param {string} s */
+function textSchluessel(s) {
+  return ohneTags(s).replace(/…$/, '').trim().toLowerCase().slice(0, 150);
+}
+/** @param {{ a?: string|null, q?: string }} e */
+function schluessel(e) {
+  return e.a ? 'id:' + e.a : 'q:' + textSchluessel(e.q || '');
+}
+/** Kleiner Kennungsvergleich ohne Gebietsschema (wie im Abgleich). */
+const vergleiche = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * @param {readonly any[]} ereignisse
+ * @param {{ art: 'kind'|'erwachsen', jetzt?: number }} wahl
+ */
+function wiederholung(ereignisse, wahl) {
+  const kind = wahl.art === 'kind';
+  const jetzt = wahl.jetzt ?? Date.now();
+  const ev = (ereignisse || []).filter((e) => e && Number.isFinite(e.t) && (e.a || e.q))
+    .slice().sort((a, b) => a.t - b.t || vergleiche(String(a.i), String(b.i)));
+  const karten = new Map();
+  for (const e of ev) {
+    const k = schluessel(e);
+    const c = karten.get(k);
+    if (!e.ok) {
+      const init = { id: k, front: String(e.q || ''), back: String(e.r || ''), lang: /** @type {any} */ ('de') };
+      const basis = c ? c.karte : kind ? newLeitnerCard(init, e.t) : newSrsCard(init, e.t);
+      const karte = kind ? reviewLeitnerCard(basis, false, e.t) : reviewSrsCard(basis, false, e.t);
+      karten.set(k, { k, a: e.a || null, q: e.q || '', r: e.r || '', s: e.s || null, f: e.f || '', karte, inFolge: 0, fehler: (c ? c.fehler : 0) + 1, offen: true });
+    } else if (c && c.offen) {
+      const karte = kind ? reviewLeitnerCard(c.karte, true, e.t) : reviewSrsCard(c.karte, true, e.t);
+      const inFolge = c.inFolge + 1;
+      karten.set(k, { ...c, karte, inFolge, offen: inFolge < AUSGEBUEGELT_NACH });
+    }
+  }
+  const alle = [...karten.values()];
+  const offen = alle.filter((c) => c.offen).map((c) => ({
+    k: c.k, a: c.a, q: c.q, r: c.r, s: c.s, f: c.f, due: c.karte.due, fach: kind ? c.karte.box : null, inFolge: c.inFolge, fehler: c.fehler,
+  }));
+  const faellig = offen.filter((c) => c.due <= jetzt)
+    .sort((a, b) => (kind ? a.fach - b.fach : 0) || a.due - b.due || vergleiche(a.k, b.k));
+  return { offen, faellig, ausgebuegelt: alle.length - offen.length };
+}
+
+/** Stufe einer Aufgabe nach der Art der Leistung. @param {{ t: string, o?: any[] }} q @returns {1|2|3} */
+function aufgabenLevel(q) {
+  if (q.t === 'txt' || q.t === 'num') return 3;
+  if (q.t === 'multi' || (Array.isArray(q.o) && q.o.length >= 4)) return 2;
+  return 1;
+}
+/** Basisstufe aus der Klasse. @param {number|null|undefined} klasse @returns {1|2|3} */
+function basisLevel(klasse) {
+  if (!klasse) return 2;
+  return klasse <= 2 ? 1 : klasse <= 6 ? 2 : 3;
+}
+/**
+ * @param {readonly { ok: number|boolean }[]} versuche chronologisch, ein Skill
+ * @param {number} basis
+ * @returns {{ level: number, schritt: -1|0|1 }} `schritt`: Wechsel mit dem letzten Versuch
+ */
+function adaptivesLevel(versuche, basis) {
+  let level = basis, fenster = [], schritt = /** @type {-1|0|1} */ (0);
+  for (const v of versuche || []) {
+    schritt = 0;
+    fenster.push(v.ok ? 1 : 0);
+    if (fenster.length > LEVEL_AB) fenster.shift();
+    if (fenster.length < LEVEL_AB) continue;
+    const quote = (100 * fenster.reduce((a, x) => a + x, 0)) / fenster.length;
+    if (quote >= HOCH_AB && level < 3) { level++; schritt = 1; fenster = []; }
+    else if (quote < RUNTER_UNTER && level > 1) { level--; schritt = -1; fenster = []; }
+  }
+  return { level, schritt };
+}
+
+const DENKANSTOSS = {
+  mc: 'Lies alle Antworten genau. Welche passen sicher nicht?',
+  multi: 'Prüfe jede Antwort einzeln: Stimmt sie — ja oder nein?',
+  txt: 'Sprich die Frage leise nach. Was genau ist gesucht?',
+  num: 'Schätze zuerst: Wie groß ist das Ergebnis ungefähr?',
+};
+const zahl = (x) => String(Math.round(x * 1000) / 1000).replace('.', ',');
+
+/** @param {any} q */
+function fastLoesung(q) {
+  if (q.t === 'mc' && Array.isArray(q.o)) {
+    const falsch = q.o.filter((_, i) => i !== q.c);
+    const weg = falsch.slice(0, Math.max(1, Math.floor(falsch.length / 2))).map((o) => '„' + ohneTags(o) + '“');
+    return weg.length === 1 ? 'Es ist nicht ' + weg[0] + '.' : 'Es ist weder ' + weg.slice(0, -1).join(', ') + ' noch ' + weg[weg.length - 1] + '.';
+  }
+  if (q.t === 'multi' && Array.isArray(q.o)) {
+    const c = Array.isArray(q.c) ? q.c : [];
+    return 'Es sind ' + c.length + ' richtige Antworten.' + (c.length ? ' Eine davon: „' + ohneTags(q.o[c[0]]) + '“.' : '');
+  }
+  if (q.t === 'txt') {
+    const a = ohneTags(Array.isArray(q.a) ? q.a[0] : q.a);
+    const woerter = a.split(' ').filter(Boolean).length;
+    return 'Die Antwort beginnt mit „' + a.charAt(0) + '“ und hat ' + (woerter > 1 ? woerter + ' Wörter' : a.length + ' Buchstaben') + '.';
+  }
+  if (q.t === 'num') {
+    const a = Number(q.a);
+    if (!Number.isFinite(a)) return '';
+    const betrag = Math.abs(a);
+    const breite = betrag < 10 ? 5 : Math.pow(10, Math.floor(Math.log10(betrag)));
+    const unten = Math.floor(a / breite) * breite;
+    return 'Das Ergebnis liegt zwischen ' + zahl(unten) + ' und ' + zahl(unten + breite) + '.';
+  }
+  return '';
+}
+
+const woerter = (s) => ohneTags(s).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+/** Die Lösungswörter einer Aufgabe — eine Regel, die sie enthält, würde vorsagen. @param {any} q */
+function loesungsWoerter(q) {
+  const l = q.t === 'mc' && Array.isArray(q.o) ? [q.o[q.c]]
+    : q.t === 'multi' && Array.isArray(q.o) ? (q.c || []).map((i) => q.o[i])
+      : q.t === 'txt' ? [Array.isArray(q.a) ? q.a[0] : q.a] : q.t === 'num' ? [q.a] : [];
+  return l.flatMap(woerter).filter((w) => w.length > 1);
+}
+/**
+ * Die Regel, die zur Frage passt: meiste gemeinsame Wortanfänge (5 Zeichen,
+ * Wörter ab 4 Buchstaben) — „Verb“ in der Frage findet „Verben …“. Regeln,
+ * die ein Lösungswort enthalten, fallen weg. Ohne Treffer die erste übrige.
+ * @param {any} q @param {readonly string[]} regeln
+ */
+function passendeRegel(q, regeln) {
+  const loesung = new Set(loesungsWoerter(q));
+  const kandidaten = (regeln || []).map(ohneTags).filter(Boolean).filter((r) => !woerter(r).some((w) => loesung.has(w)));
+  const staemme = [...new Set(woerter(q.q).filter((w) => w.length >= 4).map((w) => w.slice(0, 5)))];
+  let beste = null, punkte = 0;
+  for (const r of kandidaten) {
+    const rw = woerter(r);
+    const n = staemme.filter((st) => rw.some((w) => w.startsWith(st))).length;
+    if (n > punkte) { beste = r; punkte = n; }
+  }
+  return beste || kandidaten[0] || '';
+}
+
+/**
+ * @param {any} q Aufgabe (t, q, o, c, a, hints)
+ * @param {readonly string[]} [regeln] Regeln des Themas
+ * @returns {string[]} [Denkanstoß, Regelhinweis, Fast-Lösung]
+ */
+function hinweisStufen(q, regeln = []) {
+  const eigene = Array.isArray(q.hints) ? q.hints.map(ohneTags).filter(Boolean) : [];
+  const regel = passendeRegel(q, regeln);
+  return [
+    eigene[0] || DENKANSTOSS[q.t] || DENKANSTOSS.mc,
+    eigene[1] || regel || 'Denk an die Regel, die du im Thema gelernt hast.',
+    eigene[2] || fastLoesung(q) || 'Schau dir die Frage noch einmal Wort für Wort an.',
+  ];
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+  var INHALT = window.__INHALT_DATEN;
+  if (!INHALT) return;
+
+  /* ---------- Aufgaben-Verzeichnis ---------- */
+  var NACH_ID = {}, NACH_TEXT = {};
+  function zeigbar(o) {
+    if (o.t === "mc") return Array.isArray(o.o) && typeof o.c === "number";
+    if (o.t === "multi") return Array.isArray(o.o) && Array.isArray(o.c);
+    if (o.t === "txt") return o.a != null && o.a !== "";
+    if (o.t === "num") return o.a != null && isFinite(Number(o.a));
+    return false;
+  }
+  (function geh(o, tiefe) {
+    if (!o || typeof o !== "object" || tiefe > 8) return;
+    if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) geh(o[i], tiefe + 1); return; }
+    if (typeof o.q === "string" && zeigbar(o)) {
+      if (o.id && !NACH_ID[o.id]) NACH_ID[o.id] = o;
+      var k = textSchluessel(o.q);
+      if (k && !NACH_TEXT[k]) NACH_TEXT[k] = o;
+      return;
+    }
+    for (var s in o) if (Object.prototype.hasOwnProperty.call(o, s)) geh(o[s], tiefe + 1);
+  })(INHALT, 0);
+
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function art() { var p = profil(); return p && p.type === "kid" ? "kind" : "erwachsen"; }
+  function ereignisse() { try { return window.__ELTERN ? window.__ELTERN.ereignisse() : []; } catch (e) { return []; } }
+  function aufgabeVon(x) { return (x.a && NACH_ID[x.a]) || NACH_TEXT[textSchluessel(x.q)] || null; }
+
+  function liste() { return wiederholung(ereignisse(), { art: art() }); }
+  function faellig() {
+    return liste().faellig.map(function (x) { return aufgabeVon(x); }).filter(Boolean);
+  }
+  function starteWiederholung(anzahl, ruecksprung) {
+    var aufgaben = faellig().slice(0, anzahl || 8);
+    if (!aufgaben.length) return false;
+    kstate.lp = { art: "runde", titel: "🔁 Wiederholen", liste: aufgaben, i: 0, auswahl: [], fb: null, stufe: 4, richtig: 0, hinweise: 0,
+      hilfe: true, wiederholung: true, ruecksprung: ruecksprung || null };
+    kstate.tab = "lernpfad";
+    try { render(); } catch (e) {}
+    return true;
+  }
+
+  /* ---------- Hinweise und Schwierigkeit für p72 ---------- */
+  function regelnVon(skill) {
+    var LP = window.__LERNPFAD, r = [];
+    try { (LP && skill ? LP.themenVon(skill) : []).forEach(function (t) { (t.rules || []).forEach(function (x) { r.push(x); }); }); } catch (e) {}
+    return r;
+  }
+  function hinweise(q, skill) { return hinweisStufen(q, regelnVon(skill || q.skill)); }
+  function levelVon(skill, klasse) {
+    var v = ereignisse().filter(function (e) { return e.s === skill && e.w === "lp" && e.lv; }).sort(function (a, b) { return a.t - b.t; });
+    return adaptivesLevel(v, basisLevel(klasse));
+  }
+
+  /* ---------- Karte unter „Üben“ ---------- */
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s); }
+  function karteEinsetzen() {
+    if (kstate.tab !== "hub-ueben" || typeof document.getElementById !== "function") return;
+    var view = document.getElementById("view");
+    if (!view || view.querySelector("[data-lm]")) return;
+    var n = faellig().length;
+    if (!n) return;
+    var raster = view.querySelector(".hb-raster");
+    if (!raster || !raster.parentNode) return;
+    var div = document.createElement("div");
+    div.className = "hb-raster";
+    div.innerHTML = '<button class="hb-karte gross" data-lm="wiederholen" data-testid="lm-wiederholen"><span class="hb-ic" aria-hidden="true">🔁</span>'
+      + '<span class="hb-tx"><span class="hb-ti">Fehler wiederholen</span><span class="hb-me">' + h(n === 1 ? "1 Aufgabe ist" : n + " Aufgaben sind")
+      + " fällig — was du falsch hattest, kommt wieder, bis es zweimal sitzt.</span></span></button>";
+    raster.parentNode.insertBefore(div, raster);
+  }
+  var renderVorher = render;
+  var renderNeu = function () {
+    var r = renderVorher.apply(this, arguments);
+    try { karteEinsetzen(); } catch (e) {}
+    return r;
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-lm="wiederholen"]') : null;
+    if (!t) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    starteWiederholung(8, "hub-ueben");
+  }, true);
+
+  window.__LERNMODELL = { liste: liste, faellig: faellig, starteWiederholung: starteWiederholung, hinweise: hinweise,
+    levelVon: levelVon, aufgabenLevel: aufgabenLevel,
+    /* für pruefen.js: die eingebetteten Kernfunktionen und das Verzeichnis */
+    kern: { wiederholung: wiederholung, adaptivesLevel: adaptivesLevel, hinweisStufen: hinweisStufen, basisLevel: basisLevel },
+    findbar: function (q) { return aufgabeVon({ a: q.id, q: q.q }) === q; } };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 09:07")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 09:28")}}catch(e){}
 })();
 
 </script>
