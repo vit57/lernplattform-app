@@ -461,6 +461,72 @@ html[data-theme="dunkel"][data-farbe="kontrast"] {
 
 /* Nur für Screenreader sichtbar */
 .nur-vorlesen { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* =====================================================================
+   Alte Seiten im neuen Stil (2026-09-27). Die Engine-Seiten hatten je
+   Familie (m127, kid, v17, m132, m133, m136) eigene Köpfe, Größen und
+   festverdrahtete Farben. Hier: ein Kopf, eine Kartenform, Farben nur aus
+   Tokens. Den Text-Teil (Sterne, Versionsnummern) macht app/teile/p77.
+   `!important` nur gegen Engine-Regeln, die selbst `!important` setzen
+   oder später im Dokument stehen.
+   ===================================================================== */
+/* Sterne an einer festen Stelle: in der Profilkarte der Seitenleiste */
+.nv-sterne { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--warn-soft); color: var(--warn);
+  font-size: 12.5px; font-weight: 750; vertical-align: 2px; }
+
+/* Ein Seitenkopf für alle Familien */
+html[data-theme] .m127-hd, html[data-theme] .kid-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px !important; }
+html[data-theme] .m127-hd h2, html[data-theme] .kid-head h2, html[data-theme] .m132-head h1, html[data-theme] .m133-hero h1,
+html[data-theme] #view > h2, html[data-theme] .m140-hero h2 {
+  font-size: 28px !important; font-weight: 800 !important; letter-spacing: -.02em !important; line-height: 1.2; margin: 0 !important; color: var(--ink); }
+html[data-theme] #view > h2 { margin: 4px 0 8px !important; }
+html[data-theme] #view > h2 > span { display: block; margin-top: 4px; letter-spacing: 0; }
+html[data-theme] .m127-sub, html[data-theme] .v17-lead, html[data-theme] #view > .m137-lead, html[data-theme] .kid-head + p { color: var(--ink2); font-size: 15.5px; line-height: 1.55; max-width: 70ch; margin: 0 0 16px; }
+html[data-theme] .kid-head .sx-fortschritt, html[data-theme] .m127-hd .sx-fortschritt { margin-left: auto; background: var(--brand-soft) !important; color: var(--brand) !important;
+  border: 1px solid var(--brand-line) !important; border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 750; }
+html[data-theme] #view .back { color: var(--ink2); font-weight: 650; }
+
+/* Aufgaben: Frage links wie die Antworten darunter */
+html[data-theme] .gex-q { text-align: left !important; font-size: 19px !important; font-weight: 750; margin: 10px 0 14px; color: var(--ink); }
+html[data-theme] .v17-qtag { background: var(--brand-soft); color: var(--brand); }
+
+/* Lautstärke in der Übungswelt: Markenfarbe statt Browser-Blau */
+html[data-theme] .v17-volume { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 8px 14px; margin: 0 0 14px; color: var(--ink2); }
+html[data-theme] .v17-volume input[type="range"] { accent-color: var(--brand); }
+
+/* Stufenwahl Diktat / Lesen: Karten mit Farbstreifen statt Ampel-Emojis */
+html[data-theme] .sx-stufen { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important; gap: 12px; }
+html[data-theme] .sx-stufen .sx-stufe { text-align: left !important; background: var(--paper) !important; border: 1px solid var(--line) !important; border-left-width: 6px !important;
+  border-radius: 18px !important; padding: 16px 18px !important; box-shadow: var(--shadow); color: var(--ink); min-height: 88px; }
+html[data-theme] .sx-stufe .ki { display: none; }
+html[data-theme] .sx-stufe .kt { font-size: 17px; font-weight: 750; }
+html[data-theme] .sx-stufen .sx-leicht { border-left-color: var(--good) !important; }
+html[data-theme] .sx-stufen .sx-mittel { border-left-color: var(--warn) !important; }
+html[data-theme] .sx-stufen .sx-schwer { border-left-color: var(--bad) !important; }
+html[data-theme] .sx-stufen .sx-stufe:hover { border-top-color: var(--brand-line) !important; border-right-color: var(--brand-line) !important; border-bottom-color: var(--brand-line) !important; transform: translateY(-1px); }
+
+/* Karten-Training: Serie in der Markenfarbe statt Orange */
+html[data-theme] .m136-streak { background: var(--brand-soft) !important; border: 1px solid var(--brand-line) !important; border-radius: 18px !important; }
+html[data-theme] .m136-streak .n1 { color: var(--ink) !important; }
+html[data-theme] .m136-streak .n2 { color: var(--ink2) !important; }
+html[data-theme] .m136-days i { background: var(--paper) !important; border-color: var(--brand-line) !important; color: var(--ink2) !important; }
+html[data-theme] .m136-days i.on { background: var(--brand) !important; border-color: var(--brand) !important; color: var(--auf-brand) !important; }
+html[data-theme] .m136-days i.today { box-shadow: 0 0 0 2px var(--brand-line) !important; }
+html[data-theme] .fc-stat .n[style*="#c0392b"] { color: var(--bad) !important; }
+html[data-theme] .fc-stat .n[style*="#1e7e46"] { color: var(--good) !important; }
+
+/* Kartenform überall gleich: Fläche, Rand, Radius, Schatten */
+html[data-theme] .m127-card, html[data-theme] .m127-excard, html[data-theme] .m132-card, html[data-theme] .v17-type, html[data-theme] .kid-topic,
+html[data-theme] .fc-stat, html[data-theme] .m127-box, html[data-theme] .m135-kpi > div, html[data-theme] .cat-card {
+  background: var(--paper) !important; border: 1px solid var(--line) !important; border-radius: 18px !important; box-shadow: var(--shadow); }
+html[data-theme] .m127-card:hover, html[data-theme] .m127-excard:hover, html[data-theme] .m132-card:hover, html[data-theme] .v17-type:hover, html[data-theme] .kid-topic:hover {
+  border-color: var(--brand-line) !important; }
+/* Kennzahl-Kacheln der Erwachsenen (.stat): Zahl über der Beschriftung wie bei .fc-stat */
+html[data-theme] #view .stat .n { display: block; font-size: 24px; font-weight: 800; color: var(--ink); }
+html[data-theme] #view .stat .l { display: block; font-size: 13px; color: var(--ink2); margin-top: 2px; }
+/* Moduswahl (Kategorien / Nachschlagen / Meine Wörter): gewählter Knopf in der
+   Markenfarbe mit passender Schrift — im Dunkeln war es Weiß auf Hellviolett. */
+html[data-theme] .m137-modes button.on, html[data-theme] .k46-modes button.on { background: var(--brand) !important; color: var(--auf-brand) !important; border-color: var(--brand) !important; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -45163,12 +45229,114 @@ function berechneMastery(versuche, wahl = {}) {
   window.__ELTERN = { oeffnen: oeffnen, ereignisse: ereignisse, hinzufuegen: hinzufuegen, serie: function () { return serie(ereignisse(), Date.now()); } };
 })();
 
+/* =====================================================================
+   Alte Seiten im neuen Stil (Wunsch des Auftraggebers, 2026-09-27: „Es
+   sind nur die alten Sachen, die vor dir da waren, die mich stören.“)
+
+   Die Engine-Seiten (Sprachthemen, Übungswelt, Diktat, Lesen, Karten,
+   Klausuren …) bleiben inhaltlich, wie sie sind. Vereinheitlicht wird, was
+   von Seite zu Seite anders aussah:
+
+   * Sterne: EINE feste Stelle in der Seitenleiste statt eines Abzeichens
+     in jedem Seitenkopf, mal links, mal rechts. Ein Fortschritt „1 / 10“
+     im Abzeichen bleibt stehen, nur der Stern-Teil fällt weg.
+   * Technische Reste im Text: Versionsnummer im Titel („Übungswelt 1.24“),
+     Stufenkennung in der Aufgabenmarke („… · low“).
+   * Stufenwahl bei Diktat und Lesen: Karten wie überall, Farbe als Streifen
+     aus den Tokens statt Ampel-Emojis.
+   * Beschriftung für zwei Bedienelemente, die keine hatten (Lautstärke in
+     der Übungswelt, Kategorie im Vokabeltrainer).
+
+   Alles Übrige macht app/design/thema.css (Abschnitt „Alte Seiten“).
+   Läuft nach jedem Zeichnen über einen MutationObserver — dessen Rückruf
+   kommt vor dem nächsten Bild, es blitzt also nichts auf. Jede Änderung
+   ist idempotent; ein zweiter Durchlauf ändert nichts mehr.
+   ===================================================================== */
+(function () {
+  "use strict";
+  if (typeof document.querySelector !== "function" || typeof document.getElementById !== "function") return;
+
+  var STERN = /\s*(?:·\s*)?⭐\s*\d+(?:\s*(?:Sterne?|Punkte)(?:\s*·\s*[^·]*)?)?\s*$/;
+  var STUFE = { low: "leicht", mid: "mittel", high: "schwer" };
+
+  function sterne() {
+    try { return (typeof K !== "undefined" && K && K.stars) || 0; } catch (e) { return 0; }
+  }
+
+  function ordnen() {
+    var view = document.getElementById("view");
+    if (!view) return;
+
+    /* Stern-Abzeichen in Seitenköpfen */
+    var abz = view.querySelectorAll(".m127-hd .stars, .kid-head .stars, .m132-head .m132-stars, .m133-hero .m132-stars");
+    for (var i = 0; i < abz.length; i++) {
+      var a = abz[i], t = a.textContent || "";
+      if (!STERN.test(t)) continue;
+      var rest = t.replace(STERN, "").trim();
+      if (rest) { a.textContent = rest; a.classList.add("sx-fortschritt"); }
+      else a.parentNode.removeChild(a);
+    }
+
+    /* Versionsnummer im Titel */
+    var titel = view.querySelectorAll(".kid-head h2, .m127-hd h2");
+    for (var j = 0; j < titel.length; j++) {
+      var n = titel[j].lastChild;
+      if (n && n.nodeType === 3 && /\s\d+\.\d+\s*$/.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(/\s\d+\.\d+\s*$/, "");
+    }
+
+    /* Stufenkennung in der Aufgabenmarke */
+    var marken = view.querySelectorAll(".v17-qtag");
+    for (var k = 0; k < marken.length; k++) {
+      var m = marken[k];
+      if (/\s·\s(?:low|mid|high)\s*$/.test(m.textContent)) m.textContent = m.textContent.replace(/\s·\s(?:low|mid|high)\s*$/, "");
+    }
+
+    /* Stufenwahl Diktat / Lesen */
+    var stufen = view.querySelectorAll("[data-v124tier]");
+    for (var s = 0; s < stufen.length; s++) {
+      var b = stufen[s], st = STUFE[b.getAttribute("data-v124tier")];
+      if (st && !b.classList.contains("sx-stufe")) {
+        b.classList.add("sx-stufe", "sx-" + st);
+        if (b.parentNode) b.parentNode.classList.add("sx-stufen");
+      }
+    }
+
+    /* Bedienelemente der Engine ohne Beschriftung (axe: label, select-name) */
+    var OHNE = { "v17-volume": "Lautstärke", "vcat": "Kategorie" };
+    for (var id in OHNE) {
+      var el = document.getElementById(id);
+      if (el && !el.getAttribute("aria-label")) el.setAttribute("aria-label", OHNE[id]);
+    }
+
+    /* Sterne an der einen festen Stelle */
+    var nv = document.querySelector(".nv-profil .nv-name");
+    if (nv) {
+      var ziel = nv.querySelector(".nv-sterne");
+      if (!ziel) {
+        ziel = document.createElement("span");
+        ziel.className = "nv-sterne";
+        ziel.setAttribute("data-testid", "nv-sterne");
+        nv.appendChild(ziel);
+      }
+      var wert = "⭐ " + sterne();
+      if (ziel.textContent !== wert) ziel.textContent = wert;
+    }
+  }
+
+  try {
+    if (typeof MutationObserver === "function") {
+      new MutationObserver(function () { try { ordnen(); } catch (e) {} }).observe(document.body, { childList: true, subtree: true });
+    }
+  } catch (e) {}
+  try { window.__SEITEN = { ordnen: ordnen }; } catch (e) {}
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 08:51")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 09:07")}}catch(e){}
 })();
 
 </script>
