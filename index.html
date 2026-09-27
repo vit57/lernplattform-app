@@ -527,6 +527,13 @@ html[data-theme] #view .stat .l { display: block; font-size: 13px; color: var(--
 /* Moduswahl (Kategorien / Nachschlagen / Meine Wörter): gewählter Knopf in der
    Markenfarbe mit passender Schrift — im Dunkeln war es Weiß auf Hellviolett. */
 html[data-theme] .m137-modes button.on, html[data-theme] .k46-modes button.on { background: var(--brand) !important; color: var(--auf-brand) !important; border-color: var(--brand) !important; }
+
+/* Seite „🔁 Wiederholen“ (p78) */
+.lm-hinweis { color: var(--ink2); margin: 4px 0 16px; }
+.lm-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.lm-liste li { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.lm-q { font-weight: 650; color: var(--ink); }
+.lm-me { font-size: 13.5px; color: var(--ink2); }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -44565,7 +44572,7 @@ function tagVon(d) {
   })(INHALT, null, 0);
   var ANZAHL = Object.keys(FRAGEN).length;
 
-  var AUS = { lernpfad: 1, heute: 1, m127exam: 1, "eltern-dashboard": 1 };   /* eigene Hilfe, Prüfung, Elternsicht */
+  var AUS = { lernpfad: 1, heute: 1, m127exam: 1, "eltern-dashboard": 1, v17review: 1 };   /* eigene Hilfe, Prüfung, Elternsicht, Wiederholen-Liste (Lösung steht dabei) */
   function zeigen() {
     var t = String((typeof kstate !== "undefined" && kstate.tab) || "");
     return !(AUS[t] || t.indexOf("hub-") === 0);
@@ -45507,7 +45514,8 @@ function woranEsHakt(ereignisse) {
      welche falsch beantworteten Aufgaben fällig sind — Kinder nach Leitner,
      Erwachsene nach SM-2. Fällige erscheinen
        – im Tagesplan als „Aufwärmen“ (p73 gibt die Anzahl an den Plan),
-       – unter „Üben“ als große Karte „🔁 Fehler wiederholen“.
+       – auf der Seite „🔁 Wiederholen“ (ersetzt die Fehlerliste der Engine),
+         erreichbar über genau eine Karte unter „Üben“.
      Gespielt wird die Runde mit der Aufgabenansicht des Lernpfads (p72);
      jede Antwort landet wieder im Log, dadurch rückt die Aufgabe weiter
      oder ist nach zweimal richtig ausgebügelt.
@@ -45925,25 +45933,88 @@ function hinweisStufen(q, regeln = []) {
     return adaptivesLevel(v, basisLevel(klasse));
   }
 
-  /* ---------- Karte unter „Üben“ ---------- */
-  function h(s) { return typeof esc === "function" ? esc(s) : String(s); }
+  /* ---------- Eine Seite „🔁 Wiederholen“ ----------
+     Die Engine hatte unter demselben Namen (kstate.tab „v17review“) nur eine
+     Liste falscher Antworten mit „✓ gelernt“ — ohne Üben. Beides ist jetzt
+     eine Seite: was fällig ist, „Jetzt wiederholen“, alles Offene mit dem
+     nächsten Termin. Die Engine-Liste (V17.errors) bleibt gespeichert,
+     wird aber nicht mehr gezeigt. Unter „Üben“ steht genau eine Karte. */
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s == null ? "" : s); }
+  function tagNr(t) { var d = new Date(t); d.setHours(12, 0, 0, 0); return Math.round(d.getTime() / 86400000); }
+  function wann(due) {
+    var jetzt = Date.now();
+    if (due <= jetzt) return "jetzt";
+    var n = tagNr(due) - tagNr(jetzt);
+    return n <= 0 ? "heute noch" : n === 1 ? "morgen" : "in " + n + " Tagen";
+  }
+  function kurz(s, n) { s = String(s || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+  function htmlSeite() {
+    var w = liste(), zeigbar = faellig().length, offen = w.offen.slice().sort(function (a, b) { return a.due - b.due; });
+    var s = '<div class="hb lm"><h2 class="hb-titel">🔁 Wiederholen</h2>'
+      + '<p class="hb-sub">Was du falsch hattest, kommt wieder — bis du es zweimal hintereinander richtig hast.</p>'
+      + '<div class="hb-zahlen" data-testid="lm-zahlen"><div><b>' + w.faellig.length + "</b><span>jetzt fällig</span></div><div><b>" + w.offen.length
+      + "</b><span>noch offen</span></div><div><b>" + w.ausgebuegelt + "</b><span>ausgebügelt</span></div></div>";
+    if (zeigbar) {
+      var n = Math.min(zeigbar, 8);
+      s += '<div class="hb-raster"><button class="hb-karte gross" data-lm="start" data-testid="lm-start"><span class="hb-ic" aria-hidden="true">▶</span><span class="hb-tx">'
+        + '<span class="hb-ti">Jetzt ' + (n === 1 ? "1 Aufgabe" : n + " Aufgaben") + ' wiederholen</span><span class="hb-me">Mit Hinweisen, wenn du sie brauchst.</span></span></button></div>';
+    } else if (w.faellig.length) {
+      s += '<p class="lm-hinweis">Die fälligen Aufgaben kommen in der Übung wieder, aus der sie stammen.</p>';
+    } else if (offen.length) {
+      s += '<p class="lm-hinweis" data-testid="lm-naechste">Gerade ist nichts fällig. Die nächste Aufgabe kommt ' + h(wann(offen[0].due)) + ".</p>";
+    } else {
+      s += '<div class="v17-empty" data-testid="lm-leer">🎉 Keine offenen Fehler — stark!</div>';
+    }
+    if (offen.length) {
+      s += '<h3 class="hb-zw">Noch offen</h3><ul class="lm-liste" data-testid="lm-liste">' + offen.map(function (x) {
+        return "<li><span class=\"lm-q\">" + h(kurz(x.q, 120)) + "</span><span class=\"lm-me\">"
+          + (x.r ? "Richtig: <b>" + h(kurz(x.r, 60)) + "</b> · " : "") + h(x.fehler === 1 ? "1× falsch" : x.fehler + "× falsch")
+          + (x.inFolge ? " · 1× richtig" : "") + " · fällig " + h(wann(x.due)) + (aufgabeVon(x) ? "" : " · kommt in der Übung wieder") + "</span></li>";
+      }).join("") + "</ul>";
+    }
+    return s + "</div>";
+  }
+
   function karteEinsetzen() {
     if (kstate.tab !== "hub-ueben" || typeof document.getElementById !== "function") return;
     var view = document.getElementById("view");
     if (!view || view.querySelector("[data-lm]")) return;
+    var alt = view.querySelector('[data-hb-karte][data-v17-tab="v17review"]');
     var n = faellig().length;
-    if (!n) return;
-    var raster = view.querySelector(".hb-raster");
-    if (!raster || !raster.parentNode) return;
-    var div = document.createElement("div");
-    div.className = "hb-raster";
-    div.innerHTML = '<button class="hb-karte gross" data-lm="wiederholen" data-testid="lm-wiederholen"><span class="hb-ic" aria-hidden="true">🔁</span>'
-      + '<span class="hb-tx"><span class="hb-ti">Fehler wiederholen</span><span class="hb-me">' + h(n === 1 ? "1 Aufgabe ist" : n + " Aufgaben sind")
-      + " fällig — was du falsch hattest, kommt wieder, bis es zweimal sitzt.</span></span></button>";
-    raster.parentNode.insertBefore(div, raster);
+    var karte = document.createElement("button");
+    karte.className = "hb-karte" + (n ? " gross" : "");
+    karte.setAttribute("data-lm", "seite");
+    karte.setAttribute("data-testid", "lm-wiederholen");
+    karte.innerHTML = '<span class="hb-ic" aria-hidden="true">🔁</span><span class="hb-tx"><span class="hb-ti">' + (n ? "Fehler wiederholen" : "Wiederholen")
+      + '</span><span class="hb-me">' + h(n ? (n === 1 ? "1 Aufgabe ist" : n + " Aufgaben sind") + " fällig — was du falsch hattest, kommt wieder, bis es zweimal sitzt."
+        : "Was du falsch hattest, kommt hier wieder.") + "</span></span>";
+    if (n) {
+      var raster = view.querySelector(".hb-raster");
+      if (!raster || !raster.parentNode) return;
+      var div = document.createElement("div");
+      div.className = "hb-raster";
+      div.appendChild(karte);
+      raster.parentNode.insertBefore(div, raster);
+      if (alt && alt.parentNode) alt.parentNode.removeChild(alt);
+    } else if (alt && alt.parentNode) {
+      alt.parentNode.replaceChild(karte, alt);
+    } else {
+      var r2 = view.querySelector(".hb-raster");
+      if (r2) r2.appendChild(karte);
+    }
+  }
+
+  function profilOk() {
+    var p = profil();
+    return p && p.type !== "baby" && !(typeof showProfiles !== "undefined" && showProfiles);
   }
   var renderVorher = render;
   var renderNeu = function () {
+    if (kstate.tab === "v17review" && profilOk() && typeof document.getElementById === "function") {
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) { view.innerHTML = htmlSeite(); try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {} return; }
+    }
     var r = renderVorher.apply(this, arguments);
     try { karteEinsetzen(); } catch (e) {}
     return r;
@@ -45953,10 +46024,13 @@ function hinweisStufen(q, regeln = []) {
 
   var ziel = typeof window.addEventListener === "function" ? window : document;
   ziel.addEventListener("click", function (e) {
-    var t = e.target && e.target.closest ? e.target.closest('[data-lm="wiederholen"]') : null;
+    var t = e.target && e.target.closest ? e.target.closest("[data-lm]") : null;
     if (!t) return;
     e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-    starteWiederholung(8, "hub-ueben");
+    if (t.getAttribute("data-lm") === "start") { starteWiederholung(8, "v17review"); return; }
+    kstate.lp = null;
+    kstate.tab = "v17review";
+    try { render(); } catch (x) {}
   }, true);
 
   window.__LERNMODELL = { liste: liste, faellig: faellig, starteWiederholung: starteWiederholung, hinweise: hinweise,
@@ -45971,7 +46045,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 09:28")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 09:37")}}catch(e){}
 })();
 
 </script>
