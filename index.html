@@ -267,6 +267,8 @@ html[data-theme] .rule-ex .de, html[data-theme] .kid-topic .kc, html[data-theme]
 /* Inline-Stile erreicht der Dunkel-Übersetzer nicht (sie stehen in keinem
    Stylesheet). #787774 steht inline im Profilformular — 4,4 : 1 hell. */
 html[data-theme] [style*="color:#787774"] { color: var(--sec) !important; }
+/* Sternfarbe fest #8a6410 (engine:16100) — auf den Sepia/Salbei/Nebel-Flächen zu schwach; ans Token binden. */
+html[data-theme] .stars { color: var(--warn) !important; }
 /* .rank ist mit opacity .75 halbdurchsichtig (engine:24039) — 3,9 : 1. */
 html[data-theme] .m137-pts .rank { opacity: 1; }
 /* Das Gold der Klassenmarke (#c88a1e, engine:10376) — 2,9 : 1. */
@@ -325,6 +327,140 @@ html[data-lesefreundlich] #view { line-height: 1.8; }
 .dz-gruppe { border: 0; margin: 0 0 14px; padding: 0; }
 .dz-gruppe legend { font-weight: 700; margin-bottom: 6px; }
 .dz-gruppe label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-right: 14px; cursor: pointer; }
+
+/* =====================================================================
+   Neue Oberfläche (p74): Seitenleiste, schlanke Kopfzeile, Bereichsseiten.
+   Nur Tokens — so passen alle Designs (hell, dunkel, Sepia …) von selbst.
+   ===================================================================== */
+body.kopf-schlank header .logo, body.kopf-schlank header .head-t { display: none !important; }
+/* Mit Seitenleiste (breite Bildschirme) braucht es keine Kopfzeile — sie
+   wiederholte nur die Überschrift (Wunsch: „komplett weglassen“). Auf
+   schmalen Bildschirmen bleibt eine schlanke Leiste mit Menü und Bereich. */
+@media (min-width: 901px) {
+  /* Nicht die Kopfzeile selbst ausblenden: Die Seitenleiste (#tabs) steckt
+     in ihr. Nur ihr übriger Inhalt verschwindet, sie selbst wird flach. */
+  body.nv-an header { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+  body.nv-an header .head-in { min-height: 0 !important; height: 0; padding: 0 !important; }
+  body.nv-an header .head-in > :not(#tabs) { display: none !important; }
+}
+body.nv-an footer .wrap { font-size: 12px !important; color: var(--ink3) !important; }
+body.kopf-schlank header .head-in { min-height: 56px; padding: 8px 0 !important; }
+#nv-titel { font-size: 17px; font-weight: 750; letter-spacing: -.01em; color: var(--ink); }
+/* Schmale Bildschirme: Platz für den Menü-Knopf der Engine (fest links oben). */
+@media (max-width: 900px) { #nv-titel { margin-left: 58px; } }
+
+/* Feste Breite: Bei Erwachsenen kam sie nur vom inneren Engine-Container, den .nv ersetzt (Leiste war 0 px breit). */
+body.nv-an #tabs { padding: 0 !important; width: 248px !important; }
+.nv { display: flex; flex-direction: column; height: 100%; padding: 14px 12px; gap: 6px; box-sizing: border-box; }
+.nv-profil { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid var(--line);
+  background: var(--paper2); color: var(--ink); border-radius: 16px; padding: 10px 12px; margin-bottom: 10px; cursor: pointer; font: inherit; min-height: 56px; }
+.nv-av { font-size: 26px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: var(--brand-soft); }
+.nv-name { display: block; font-weight: 750; font-size: 16px; }
+.nv-klein { display: block; font-size: 12.5px; color: var(--ink2); }
+.nv-liste { display: flex; flex-direction: column; gap: 4px; }
+.nv-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; background: none; color: var(--ink);
+  border-radius: 12px; padding: 12px 14px; font: inherit; font-size: 16px; font-weight: 650; cursor: pointer; min-height: 48px; }
+.nv-item:hover { background: var(--line2); }
+.nv-item.aktiv { background: var(--brand-soft); color: var(--brand); font-weight: 750; }
+.nv-ic { font-size: 20px; width: 26px; text-align: center; }
+.nv-fuss { margin-top: auto; border-top: 1px solid var(--line); padding-top: 8px; }
+
+.hb { max-width: 960px; }
+.hb-titel { font-size: 28px; font-weight: 800; letter-spacing: -.02em; margin: 4px 0 4px; color: var(--ink); }
+.hb-sub { color: var(--ink2); margin: 0 0 16px; font-size: 15.5px; }
+.hb-faecher { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 18px; }
+.hb-fach { border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 999px; padding: 8px 16px; font: inherit;
+  font-weight: 650; font-size: 15px; cursor: pointer; min-height: 44px; }
+.hb-fach.an { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
+.hb-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 0 0 12px; }
+.hb-karte { display: flex; align-items: flex-start; gap: 14px; text-align: left; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  border-radius: 18px; padding: 16px 16px; font: inherit; cursor: pointer; min-height: 88px; box-shadow: var(--shadow); transition: transform .12s, border-color .12s; }
+.hb-karte:hover { border-color: var(--brand-line); transform: translateY(-1px); }
+.hb-karte.gross { grid-column: 1 / -1; background: var(--brand); color: var(--auf-brand); border-color: var(--brand); min-height: 96px; }
+.hb-karte.gross .hb-me { color: inherit; }
+.hb-ic { font-size: 30px; line-height: 1; }
+.hb-ti { display: block; font-size: 17px; font-weight: 750; }
+.hb-me { display: block; font-size: 13.5px; color: var(--ink2); margin-top: 4px; line-height: 1.45; }
+.hb-zw { font-size: 15px; font-weight: 750; color: var(--ink2); margin: 18px 0 10px; text-transform: uppercase; letter-spacing: .05em; }
+.hb-zahlen { display: flex; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; }
+.hb-zahlen div { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px; min-width: 140px; }
+.hb-zahlen b { display: block; font-size: 26px; font-weight: 800; color: var(--ink); }
+.hb-zahlen span { font-size: 13px; color: var(--ink2); }
+
+/* „?“ an Übungsaufgaben (p75) */
+.hi-knopf { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; min-width: 30px; margin-left: 8px;
+  border-radius: 999px; border: 1.5px solid var(--brand-line); background: var(--brand-soft); color: var(--brand); font: inherit; font-weight: 800;
+  font-size: 15px; cursor: pointer; vertical-align: middle; }
+.hi-knopf:hover { background: var(--brand); color: var(--auf-brand); }
+.hi-regeln { margin: 6px 0 4px 20px; line-height: 1.6; color: var(--ink); }
+.hi-regeln li { margin: 6px 0; }
+
+/* =====================================================================
+   Designs wie in der Bibel-App (2026-09-27). data-theme bleibt die
+   Grundhelligkeit (hell/dunkel — daran hängen der Dunkel-Übersetzer und
+   alle Kontrastregeln), data-farbe setzt die Palette darüber. Jede Palette
+   ist auf ≥ 4,5 : 1 geprüft (axe, alle Ansichten).
+   ===================================================================== */
+html[data-theme="hell"][data-farbe="sepia"] {
+  --paper: #fbf6ea; --paper2: #f4ecd8; --bg: #fbf6ea; --soft: #f4ecd8; --surf2: #ebe0c6;
+  --ink: #3b2f22; --text: #3b2f22; --ink2: #54463a; --ink3: #5f5040; --sec: #5f5040;
+  --line: #d9ccad; --line2: #ebe0c6; --border: #d9ccad;
+  --brand: #7a4b1f; --brand2: #8d5a2b; --brand-soft: #ecdcc0; --brand-line: #cfb68c; --blue: #7a4b1f; --blue-soft: #ecdcc0;
+  --good: #3d6a34; --good-soft: #e0ead5; --good-line: #b9ccab; --bad: #9b2f22; --bad-soft: #f3dcd6; --warn: #684509; --warn-soft: #f3e3c3;
+  --v118-accent: #7a4b1f; --v118-accent-soft: #ecdcc0; --fokus: #9a5a1c; --auf-brand: #ffffff;
+}
+html[data-theme="hell"][data-farbe="salbei"] {
+  --paper: #f7f9f4; --paper2: #e9efe4; --bg: #f7f9f4; --soft: #e9efe4; --surf2: #dfe7d9;
+  --ink: #24302a; --text: #24302a; --ink2: #405046; --ink3: #4c5c52; --sec: #4c5c52;
+  --line: #cdd8c8; --line2: #e1e9dc; --border: #cdd8c8;
+  --brand: #3b6a4c; --brand2: #4b7c5c; --brand-soft: #dbeadf; --brand-line: #a9c7b3; --blue: #3b6a4c; --blue-soft: #dbeadf;
+  --good: #2c6a3e; --good-soft: #dcebdf; --bad: #9a3b30; --bad-soft: #f2dcd8; --warn: #624710; --warn-soft: #efe4c8;
+  --v118-accent: #3b6a4c; --v118-accent-soft: #dbeadf; --fokus: #2f5a40; --auf-brand: #ffffff;
+}
+html[data-theme="hell"][data-farbe="nebel"] {
+  --paper: #f8f9fc; --paper2: #e9edf3; --bg: #f8f9fc; --soft: #e9edf3; --surf2: #dde3ec;
+  --ink: #252b36; --text: #252b36; --ink2: #434b5b; --ink3: #4f586a; --sec: #4f586a;
+  --line: #d2d9e3; --line2: #e4e9f0; --border: #d2d9e3;
+  --brand: #3c5c9b; --brand2: #4b6cad; --brand-soft: #dde5f3; --brand-line: #aebfe0; --blue: #3c5c9b; --blue-soft: #dde5f3;
+  --good: #2e6a45; --good-soft: #dcebe2; --bad: #a13a33; --bad-soft: #f4dddb; --warn: #624510; --warn-soft: #f0e4c9;
+  --v118-accent: #3c5c9b; --v118-accent-soft: #dde5f3; --fokus: #2f4f8f; --auf-brand: #ffffff;
+}
+html[data-theme="dunkel"][data-farbe="nacht"] {
+  --paper: #14161a; --paper2: #0c0d10; --bg: #14161a; --soft: #0c0d10; --surf2: #1c1f24;
+  --ink: #e7e9ec; --text: #e7e9ec; --ink2: #c6cbd2; --ink3: #a9b0b9; --sec: #a9b0b9;
+  --line: #2c3037; --line2: #1d2026; --border: #2c3037;
+  --brand: #93b6ff; --brand2: #a9c4ff; --brand-soft: #1b2540; --brand-line: #34497a; --blue: #93b6ff; --blue-soft: #1b2540;
+  --good: #7fd8a0; --good-soft: #13291e; --bad: #ff9a90; --bad-soft: #36191a; --warn: #f0c46e; --warn-soft: #30260f;
+  --v118-accent: #93b6ff; --v118-accent-soft: #1b2540; --fokus: #a9c4ff; --auf-brand: #0c0d10;
+}
+html[data-theme="dunkel"][data-farbe="schiefer"] {
+  --paper: #2a3038; --paper2: #222730; --bg: #2a3038; --soft: #222730; --surf2: #333a44;
+  --ink: #edf0f4; --text: #edf0f4; --ink2: #d2d8df; --ink3: #b7bfc8; --sec: #b7bfc8;
+  --line: #414953; --line2: #343b45; --border: #414953;
+  --brand: #9fd0c9; --brand2: #b5dcd6; --brand-soft: #2d4144; --brand-line: #4f6d70; --blue: #9fd0c9; --blue-soft: #2d4144;
+  --good: #8fdcaa; --good-soft: #243a2e; --bad: #ffa59b; --bad-soft: #452b2b; --warn: #f2cc7c; --warn-soft: #403521;
+  --v118-accent: #9fd0c9; --v118-accent-soft: #2d4144; --fokus: #b5dcd6; --auf-brand: #1b2026;
+}
+html[data-theme="dunkel"][data-farbe="kontrast"] {
+  --paper: #000000; --paper2: #000000; --bg: #000000; --soft: #000000; --surf2: #111111;
+  --ink: #ffffff; --text: #ffffff; --ink2: #ffffff; --ink3: #f0f0f0; --sec: #f0f0f0;
+  --line: #9a9a9a; --line2: #3a3a3a; --border: #9a9a9a;
+  --brand: #ffd83d; --brand2: #ffe066; --brand-soft: #2e2600; --brand-line: #8a7300; --blue: #ffd83d; --blue-soft: #2e2600;
+  --good: #7dff9e; --good-soft: #00290d; --bad: #ff9a90; --bad-soft: #330b08; --warn: #ffd83d; --warn-soft: #2e2600;
+  --v118-accent: #ffd83d; --v118-accent-soft: #2e2600; --fokus: #ffd83d; --auf-brand: #000000;
+}
+
+/* Design-Auswahl im Darstellungs-Dialog */
+.dz-designs { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.dz-designs label { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0; padding: 8px; border: 1.5px solid var(--line);
+  border-radius: 12px; cursor: pointer; min-height: 44px; }
+.dz-designs label:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.dz-muster { display: flex; height: 26px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+.dz-muster i { flex: 1; }
+.dz-designs .dz-name { display: flex; align-items: center; gap: 6px; font-weight: 650; font-size: 14px; }
+
+/* Nur für Screenreader sichtbar */
+.nur-vorlesen { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -578,8 +714,11 @@ function abgleichen(lokal, fremd) {
   try {
     var d = JSON.parse(localStorage.getItem("egl-darstellung") || "{}") || {};
     var t = d.theme || "system";
-    var dunkel = t === "dunkel" || (t === "system" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    /* Designs wie in der Bibel-App: Grundhelligkeit + Palette. */
+    var DUNKEL = { dunkel: 1, nacht: 1, schiefer: 1, kontrast: 1 }, PALETTE = { sepia: 1, salbei: 1, nebel: 1, nacht: 1, schiefer: 1, kontrast: 1 };
+    var dunkel = DUNKEL[t] || (t === "system" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
     r.setAttribute("data-theme", dunkel ? "dunkel" : "hell");
+    if (PALETTE[t]) r.setAttribute("data-farbe", t);
     if (d.schrift === "gross" || d.schrift === "sehr-gross") r.setAttribute("data-schrift", d.schrift);
     if (d.lese) r.setAttribute("data-lesefreundlich", "1");
   } catch (e) {
@@ -42432,7 +42571,7 @@ function neuerRuecksetzCode() {
   } catch (e) {}
 
   /* elternOk: für p72 (Klasse ändern, Stufen freigeben — §7.1/§10.1). */
-  window.__PROFILSCHUTZ = { lade: lade, pinFormatOk: pinFormatOk, pinPasst: pinPasst, SPERRE: SPERRE, elternOk: elternOk, hinweis: hinweisDialog };
+  window.__PROFILSCHUTZ = { lade: lade, pinFormatOk: pinFormatOk, pinPasst: pinPasst, SPERRE: SPERRE, elternOk: elternOk, hinweis: hinweisDialog, verwaltung: verwaltung };
 })();
 
 /* =====================================================================
@@ -42460,10 +42599,24 @@ function neuerRuecksetzCode() {
   var systemDunkel = null;
   try { systemDunkel = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null; } catch (e) {}
 
+  /* Designs wie in der Bibel-App: je Design Grundhelligkeit + Palette. */
+  var DESIGNS = [
+    { id: "system", name: "Wie das Gerät", muster: ["#ffffff", "#1e1d24", "#5b4bd6"] },
+    { id: "hell", name: "Hell", muster: ["#ffffff", "#faf9fc", "#5b4bd6"] },
+    { id: "sepia", name: "Sepia", muster: ["#fbf6ea", "#ecdcc0", "#7a4b1f"] },
+    { id: "salbei", name: "Salbei", muster: ["#f7f9f4", "#dbeadf", "#3b6a4c"] },
+    { id: "nebel", name: "Nebel", muster: ["#f8f9fc", "#dde5f3", "#3c5c9b"] },
+    { id: "dunkel", name: "Dunkel", muster: ["#1e1d24", "#2b2747", "#a79bf7"] },
+    { id: "nacht", name: "Nacht", muster: ["#14161a", "#1b2540", "#93b6ff"] },
+    { id: "schiefer", name: "Schiefer", muster: ["#2a3038", "#2d4144", "#9fd0c9"] },
+    { id: "kontrast", name: "Kontrast", muster: ["#000000", "#ffffff", "#ffd83d"] }
+  ];
+  var DUNKEL = { dunkel: 1, nacht: 1, schiefer: 1, kontrast: 1 }, PALETTE = { sepia: 1, salbei: 1, nebel: 1, nacht: 1, schiefer: 1, kontrast: 1 };
   function anwenden(d) {
     var t = d.theme || "system";
-    var dunkel = t === "dunkel" || (t === "system" && !!(systemDunkel && systemDunkel.matches));
+    var dunkel = DUNKEL[t] || (t === "system" && !!(systemDunkel && systemDunkel.matches));
     wurzel.setAttribute("data-theme", dunkel ? "dunkel" : "hell");
+    if (PALETTE[t]) wurzel.setAttribute("data-farbe", t); else wurzel.removeAttribute("data-farbe");
     if (d.schrift === "gross" || d.schrift === "sehr-gross") wurzel.setAttribute("data-schrift", d.schrift);
     else wurzel.removeAttribute("data-schrift");
     if (d.lese) wurzel.setAttribute("data-lesefreundlich", "1"); else wurzel.removeAttribute("data-lesefreundlich");
@@ -42634,9 +42787,11 @@ function neuerRuecksetzCode() {
     hinter.setAttribute("aria-labelledby", "dz-titel");
     hinter.setAttribute("data-testid", "dz-dialog");
     hinter.innerHTML = '<div class="ps-box"><h2 id="dz-titel" style="margin:0 0 12px;font-size:19px">◐ Darstellung</h2>'
-      + '<fieldset class="dz-gruppe"><legend>Farben</legend>'
-      + feld("dz-theme", "hell", "Hell", t === "hell") + feld("dz-theme", "dunkel", "Dunkel", t === "dunkel")
-      + feld("dz-theme", "system", "Wie das Gerät", t === "system") + "</fieldset>"
+      + '<fieldset class="dz-gruppe"><legend>Design</legend><div class="dz-designs">'
+      + DESIGNS.map(function (x) {
+        return '<label><span class="dz-muster" aria-hidden="true">' + x.muster.map(function (c) { return '<i style="background:' + c + '"></i>'; }).join("")
+          + '</span><span class="dz-name"><input type="radio" name="dz-theme" value="' + x.id + '"' + (t === x.id ? " checked" : "") + "> " + x.name + "</span></label>";
+      }).join("") + "</div></fieldset>"
       + '<fieldset class="dz-gruppe"><legend>Schriftgröße</legend>'
       + feld("dz-schrift", "normal", "Normal", s === "normal") + feld("dz-schrift", "gross", "Groß", s === "gross")
       + feld("dz-schrift", "sehr-gross", "Sehr groß", s === "sehr-gross") + "</fieldset>"
@@ -43495,7 +43650,7 @@ function stationen(skills, wahl) {
     rerenderLp();
   }
   window.__LERNPFAD = { pfad: pfad, aufgabenVon: aufgabenVon, bewerte: bewerte, lade: lade, stand: stand, starte: starte,
-    FACH: FACH, klasse: klasse, SKILLS: SKILLS };
+    FACH: FACH, klasse: klasse, SKILLS: SKILLS, klasseAendern: klasseAendern, themenVon: themenVon };
 })();
 
 /* =====================================================================
@@ -43869,7 +44024,484 @@ function tagVon(d) {
     if (a === "ziel") return zielAendern();
   }, true);
 
-  window.__HEUTE = { lade: lade, planFuerHeute: planFuerHeute, abhaken: abhaken };
+  window.__HEUTE = { lade: lade, planFuerHeute: planFuerHeute, abhaken: abhaken, zielAendern: zielAendern };
+})();
+
+/* =====================================================================
+   Neue Oberfläche — ein Aufbau für Kinder und Erwachsene (2026-09-27).
+
+   Wunsch des Auftraggebers: „deutlich übersichtlicher und einheitlicher …
+   Man weiß nicht, wo was ist … Es sollte einfach einen Bereich geben, wo man
+   lernen kann, und einen Bereich, wo man üben kann … Das obere Panel ist
+   komplett unnötig.“ Zielbild AUFTRAG-v2.md §11.2: Heute · Lernen · Üben ·
+   Mein Fortschritt · Eltern.
+
+   So funktioniert es, ohne die eingefrorene Programmschicht umzuschreiben:
+   * Die Engine zeichnet ihre Seitenleiste wie bisher (je Profiltyp und Fach
+     verschieden). Dieser Baustein ERNTET daraus alle Einträge samt ihren
+     Klick-Kennungen (data-m132nav, data-tab, data-v17-tab …) und ersetzt die
+     Leiste durch fünf feste Bereiche.
+   * Die Bereichsseiten „Lernen“, „Üben“, „Fortschritt“, „Eltern“ zeigen die
+     geernteten Einträge als Karten — mit denselben Kennungen. Ein Klick löst
+     also genau die alte Funktion aus; nichts geht verloren, und Kinder- wie
+     Erwachsenenfassung haben denselben Aufbau.
+   * Das Fach wählt man oben auf der Bereichsseite, nicht mehr in der Leiste.
+   * Die Kopfzeile zeigt nur noch, wo man ist, und die Darstellung.
+   * „?“ an Übungsaufgaben: die passende Regel als kleines Fenster, mit Link
+     in die Lernwelt (Lektion, Stufe „Erklären“).
+   ===================================================================== */
+(function () {
+  "use strict";
+  if (typeof kstate === "undefined" || typeof render !== "function" || typeof renderTabs !== "function") return;
+
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s); }
+  function neu() { try { render(); } catch (e) {} }
+  var picker = function () { return typeof showProfiles !== "undefined" && showProfiles; };
+
+  /* ---------- Ernte der Engine-Leiste ---------- */
+  var MODELL = { faecher: [], eintraege: [] };
+  /* Aus dem HTML-TEXT der Engine-Leiste, nicht über DOM-Abfragen: Die
+     Prüf-Sandbox hat keinen HTML-Parser, und die Werkzeuge sollen dieselbe
+     Oberfläche sehen wie das Kind (erreichbar.js klickt sich durch). */
+  function textVon(html) { return String(html).replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim(); }
+  function ernten(tabs) {
+    var html = String(tabs.innerHTML || ""), faecher = [], eintraege = [], abschnitt = "";
+    var re = /<div class="knav-sec"[^>]*>([\s\S]*?)<\/div>|<button([^>]*)>([\s\S]*?)<\/button>/g, m;
+    while ((m = re.exec(html))) {
+      if (m[1] != null) { abschnitt = textVon(m[1]); continue; }
+      var kopf = m[2], innen = m[3], attrs = {}, a, ra = /(data-[\w-]+)="([^"]*)"/g;
+      while ((a = ra.exec(kopf))) attrs[a[1]] = a[2];
+      var klasse = (kopf.match(/class="([^"]*)"/) || [])[1] || "";
+      var si = (innen.match(/<span class="si">([\s\S]*?)<\/span>/) || [])[1];
+      var ic = (innen.match(/<span class="ic">([\s\S]*?)<\/span>/) || [])[1];
+      if (attrs["data-m132subj"]) {
+        faecher.push({ su: attrs["data-m132subj"], icon: si ? textVon(si) : "", name: textVon(si ? innen.replace(/<span class="si">[\s\S]*?<\/span>/, "") : innen), an: /(^|\s)on(\s|$)/.test(klasse) });
+        continue;
+      }
+      /* Der Kopf der alten Leiste („🎓 Lernwelt“) führte zur Engine-Startseite
+         mit „Dein Stand in …“ und allen Themen — die darf nicht verloren gehen. */
+      if (/knav-head/.test(klasse)) {
+        if (attrs["data-m132nav"] === "m132home" && !eintraege.some(function (x) { return x.attrs["data-m132nav"] === "m132home"; }))
+          eintraege.push({ attrs: { "data-m132nav": "m132home" }, icon: "🏠", name: "Übersicht", abschnitt: "Ich" });
+        continue;
+      }
+      if (attrs["data-m130t"] || attrs["data-act"] === "prof-switch" || !Object.keys(attrs).length) continue;
+      var text = textVon(innen);
+      var icon = ic ? textVon(ic) : (text.match(/^\S+/) || [""])[0];
+      var name = textVon(ic ? innen.replace(/<span class="ic">[\s\S]*?<\/span>/, "") : innen).replace(/^[^\wÄÖÜäöü]+\s*/, "");
+      eintraege.push({ attrs: attrs, icon: icon, name: name, abschnitt: abschnitt });
+    }
+    return { faecher: faecher, eintraege: eintraege };
+  }
+
+  /* In welchen Bereich gehört ein Eintrag? */
+  function bereichVon(e) {
+    var nav = e.attrs["data-m132nav"], tab = e.attrs["data-tab"], v17 = e.attrs["data-v17-tab"];
+    if (nav === "heute") return "heute";
+    if (nav === "m132home") return "fortschritt";               /* Engine-Startseite: „Dein Stand in …“ */
+    if (nav === "m127sync" || v17 === "v17parents") return "eltern";
+    if (nav === "m127timer" || nav === "m127stats" || tab === "Statistik") return "fortschritt";
+    if (nav === "m127games") return "ueben";
+    if (nav === "m127uni") return "lernen";
+    if (/lernen/i.test(e.abschnitt)) return "lernen";
+    if (/üben|prüfen/i.test(e.abschnitt)) return "ueben";
+    if (/ich/i.test(e.abschnitt)) return "fortschritt";
+    return "ueben";
+  }
+
+  var TEXTE = {
+    lernpfad: "Schritt für Schritt: entdecken, verstehen, üben, nachweisen.",
+    m127deu: "Regeln mit Beispielen: Wortarten, Rechtschreibung, Zeitformen, Fälle.",
+    m127eng: "Grammatik und Wortschatz mit Regeln und Beispielen.",
+    m127math: "Mathe-Themen deiner Klasse mit Erklärungen.",
+    read: "Texte lesen und Fragen dazu beantworten.",
+    m127gk: "Wissen entdecken: Themen zum Nachlesen.",
+    m127uni: "Studium: Mathematik, Informatik, Physik, Chemie, Biologie.",
+    m127kid: "Wörter lernen mit Bildern, Ton und kleinen Spielen.",
+    v17practice: "Viele kurze Übungsformate.",
+    cards: "Wörter im Karteikasten wiederholen.",
+    dikt: "Zuhören und richtig aufschreiben.",
+    hoer: "Texte anhören und Fragen beantworten.",
+    write: "Sätze und kurze Texte selbst schreiben.",
+    m127kopf: "Schnell im Kopf rechnen.",
+    m127sach: "Rechnen mit Aufgaben aus dem Alltag.",
+    m127exam: "Wie eine Klassenarbeit — zeig, was du kannst.",
+    v17daily: "Jeden Tag eine neue Aufgabe.",
+    v17review: "Aufgaben, die noch nicht gesessen haben.",
+    m127games: "Spielen und dabei lernen.",
+    m127timer: "Lernzeit messen.",
+    m127stats: "Alle Ergebnisse im Überblick.",
+    m132home: "Dein Stand im gewählten Fach, alle Themen.",
+    m127sync: "Sichern und zwischen iPad und Mac abgleichen.",
+    v17parents: "Was in dieser Woche gelernt wurde.",
+    Aufgaben: "Aufgaben zu Sprache und Alltag.",
+    Vokabeln: "Wortschatz üben.",
+    Karten: "Karteikarten wiederholen.",
+    Regeln: "Das Regelwerk zum Nachschlagen.",
+    Statistik: "Deine Ergebnisse nach Themen und Niveaus."
+  };
+  function schluesselVon(e) { return e.attrs["data-m132nav"] || e.attrs["data-v17-tab"] || e.attrs["data-tab"] || (e.attrs["data-m137themen"] ? "m137themen" : ""); }
+
+  /* ---------- Neue Seitenleiste ---------- */
+  var BEREICHE = [
+    { id: "heute", icon: "☀️", name: "Heute", text: "Dein Plan für heute" },
+    { id: "lernen", icon: "📖", name: "Lernen", text: "Verstehen: Regeln, Erklärungen, Texte" },
+    { id: "ueben", icon: "✏️", name: "Üben", text: "Anwenden und festigen" },
+    { id: "fortschritt", icon: "📊", name: "Fortschritt", text: "Was du schon kannst" },
+    { id: "eltern", icon: "👪", name: "Eltern", text: "Überblick, Einstellungen, Sicherung" }
+  ];
+  var aktiverBereich = "heute";
+  function istKind() { var p = profil(); return !!(p && p.type === "kid"); }
+  function bereichsName(id) {
+    if (id === "eltern" && !istKind()) return "Einstellungen";
+    if (id === "heute" && !istKind()) return "Übersicht";
+    return (BEREICHE.filter(function (b) { return b.id === id; })[0] || {}).name || "";
+  }
+  function bereichsIcon(id) { return id === "eltern" && !istKind() ? "⚙️" : (BEREICHE.filter(function (b) { return b.id === id; })[0] || {}).icon; }
+
+  function leisteHtml() {
+    var p = profil();
+    var s = '<div class="nv" data-testid="nv">'
+      + '<button class="nv-profil" data-act="prof-switch" aria-label="Profil wechseln — ' + h(p.name) + '"><span class="nv-av" aria-hidden="true">' + (p.type === "kid" ? "🧒" : "🧑")
+      + '</span><span><span class="nv-name">' + h(p.name) + '</span><span class="nv-klein">Profil wechseln</span></span></button><div class="nv-liste">';
+    BEREICHE.forEach(function (b) {
+      var aktiv = aktiverBereich === b.id;
+      /* „Heute“: Kinder → Tagesplan (p73), Erwachsene → ihre Übersicht. */
+      var ziel = b.id === "heute" ? (istKind() ? 'data-m132nav="heute"' : 'data-m132nav="m132home"') : 'data-hub="' + b.id + '"';
+      s += '<button class="nv-item' + (aktiv ? " aktiv" : "") + '" ' + ziel + ' data-nv="' + b.id + '"' + (aktiv ? ' aria-current="page"' : "") + ">"
+        + '<span class="nv-ic" aria-hidden="true">' + bereichsIcon(b.id) + "</span>" + h(bereichsName(b.id)) + "</button>";
+    });
+    /* Kein zweites <nav>: #tabs ist schon die Navigation „Bereiche“ (axe: landmark-unique). */
+    return s + '</div><div class="nv-fuss"><button class="nv-item" data-dz-oeffnen="1"><span class="nv-ic" aria-hidden="true">◐</span>Darstellung</button></div></div>';
+  }
+
+  var tabsVorher = renderTabs;
+  var tabsNeu = function () {
+    var r = tabsVorher.apply(this, arguments);
+    try {
+      var p = profil(), tabs = document.getElementById("tabs");
+      if (!tabs || !p || picker() || p.type === "baby") { document.body.classList.remove("nv-an"); kopfzeile(); return r; }
+      var m = ernten(tabs);
+      if (m.eintraege.length) MODELL = m;
+      bereichBestimmen();
+      tabs.innerHTML = leisteHtml();
+      document.body.classList.add("nv-an");
+      kopfzeile();
+    } catch (e) {}
+    return r;
+  };
+  renderTabs = tabsNeu;
+  try { window.renderTabs = tabsNeu; } catch (e) {}
+
+  /* Welcher Bereich ist gerade aktiv? Aus dem Zustand, sonst der letzte Klick. */
+  function bereichBestimmen() {
+    var t = String(kstate.tab || "");
+    if (t.indexOf("hub-") === 0) { aktiverBereich = t.slice(4); return; }
+    if (t === "heute" || (!istKind() && t === "m132home")) { aktiverBereich = "heute"; return; }
+    if (t === "lernpfad") { aktiverBereich = "lernen"; return; }
+    var treffer = MODELL.eintraege.filter(function (e) { return e.attrs["data-m132nav"] && e.attrs["data-m132nav"] === t; })[0];
+    if (treffer) aktiverBereich = bereichVon(treffer);
+  }
+
+  /* ---------- Kopfzeile ---------- */
+  function kopfzeile() {
+    try {
+      var kopf = document.querySelector("header .head-in");
+      if (!kopf) return;
+      document.body.classList.add("kopf-schlank");
+      var titel = document.getElementById("nv-titel");
+      if (!titel) {
+        titel = document.createElement("div");
+        titel.id = "nv-titel";
+        titel.setAttribute("aria-live", "polite");
+        kopf.insertBefore(titel, kopf.firstChild);
+      }
+      var p = profil();
+      titel.textContent = !p || picker() ? "Lernplattform" : bereichsIcon(aktiverBereich) + " " + bereichsName(aktiverBereich);
+      /* Die h1 stand im ausgeblendeten Logo-Bereich — für Screenreader eine
+         eigene, unsichtbare h1 am Anfang des Inhalts (axe: page-has-heading-one). */
+      var main = document.querySelector("main");
+      if (main) {
+        var h1 = document.getElementById("nv-h1");
+        if (!h1) { h1 = document.createElement("h1"); h1.id = "nv-h1"; h1.className = "nur-vorlesen"; main.insertBefore(h1, main.firstChild); }
+        h1.textContent = !p || picker() ? "Lernplattform" : "Lernplattform — " + bereichsName(aktiverBereich);
+      }
+      /* Fußzeile: nur noch Version und Stand. */
+      var fuss = document.querySelector("footer .wrap");
+      if (fuss && !fuss.getAttribute("data-nv-fuss")) {
+        var m = fuss.textContent.match(/Version [0-9.]+( · Stand [0-9. :]+)?/);
+        if (m) { fuss.textContent = m[0]; fuss.setAttribute("data-nv-fuss", "1"); }
+      }
+    } catch (e) {}
+  }
+
+  /* ---------- Bereichsseiten ---------- */
+  var UNTERTITEL = {
+    lernen: "Hier verstehst du etwas Neues — mit Regeln, Beispielen und Texten.",
+    ueben: "Hier wendest du an, was du gelernt hast. Bei jeder Aufgabe hilft dir das ?.",
+    fortschritt: "Was du schon geschafft hast.",
+    eltern: "Überblick für Eltern und alle Einstellungen."
+  };
+  function karte(e, gross) {
+    var attr = Object.keys(e.attrs).map(function (k) { return k + '="' + h(e.attrs[k]) + '"'; }).join(" ");
+    var text = TEXTE[schluesselVon(e)] || "";
+    return '<button class="hb-karte' + (gross ? " gross" : "") + '" ' + attr + ' data-hb-karte="1"><span class="hb-ic" aria-hidden="true">' + h(e.icon) + "</span>"
+      + '<span class="hb-tx"><span class="hb-ti">' + h(e.name) + "</span>" + (text ? '<span class="hb-me">' + h(text) + "</span>" : "") + "</span></button>";
+  }
+  function fachLeiste() {
+    if (!MODELL.faecher.length) return "";
+    return '<div class="hb-faecher" role="group" aria-label="Fach">' + MODELL.faecher.map(function (f) {
+      return '<button class="hb-fach' + (f.an ? " an" : "") + '" data-m132subj="' + h(f.su) + '" aria-pressed="' + f.an + '"><span aria-hidden="true">' + h(f.icon) + "</span> " + h(f.name) + "</button>";
+    }).join("") + "</div>";
+  }
+  function eintraegeFuer(bereich) { return MODELL.eintraege.filter(function (e) { return bereichVon(e) === bereich; }); }
+
+  function htmlBereich(id) {
+    var s = '<div class="hb"><h2 class="hb-titel">' + bereichsIcon(id) + " " + h(bereichsName(id)) + "</h2>"
+      + '<p class="hb-sub">' + h(UNTERTITEL[id] || "") + "</p>";
+    if (id === "lernen" || id === "ueben") s += fachLeiste();
+    var liste = eintraegeFuer(id);
+    if (id === "lernen") {
+      var pfad = liste.filter(function (e) { return e.attrs["data-m132nav"] === "lernpfad"; })[0];
+      if (pfad) s += '<div class="hb-raster">' + karte(pfad, true) + "</div>";
+      liste = liste.filter(function (e) { return e !== pfad; });
+    }
+    if (id === "ueben") {
+      var testen = liste.filter(function (e) { return /prüfen/i.test(e.abschnitt); });
+      var rest = liste.filter(function (e) { return testen.indexOf(e) < 0; });
+      s += '<div class="hb-raster">' + rest.map(function (e) { return karte(e); }).join("") + "</div>";
+      if (testen.length) s += '<h3 class="hb-zw">Testen und wiederholen</h3><div class="hb-raster">' + testen.map(function (e) { return karte(e); }).join("") + "</div>";
+      return s + "</div>";
+    }
+    if (id === "fortschritt") s += fortschrittKopf();
+    if (id === "eltern") s += elternKopf();
+    s += '<div class="hb-raster">' + liste.map(function (e) { return karte(e); }).join("") + "</div>";
+    return s + "</div>";
+  }
+
+  function fortschrittKopf() {
+    var sterne = 0, gemeistert = 0;
+    try { sterne = (typeof K !== "undefined" && K && K.stars) || 0; } catch (e) {}
+    try {
+      var LP = window.__LERNPFAD;
+      if (LP && istKind()) Object.keys(LP.FACH).forEach(function (su) { gemeistert += LP.pfad(LP.FACH[su]).filter(function (s) { return s.zustand === "gemeistert"; }).length; });
+    } catch (e) {}
+    return '<div class="hb-zahlen"><div><b>' + sterne + '</b><span>Sterne</span></div>'
+      + (istKind() ? '<div><b>' + gemeistert + "</b><span>Stationen gemeistert</span></div>" : "") + "</div>";
+  }
+  function elternKopf() {
+    var s = '<div class="hb-raster">';
+    if (window.__ELTERN && istKind()) s += '<button class="hb-karte gross" data-eltern="dashboard"><span class="hb-ic" aria-hidden="true">📈</span><span class="hb-tx"><span class="hb-ti">Eltern-Überblick</span><span class="hb-me">Tag, Woche, Monat, Tendenzen und Wochenbericht.</span></span></button>';
+    s += '<button class="hb-karte" data-eltern="pin"><span class="hb-ic" aria-hidden="true">🔒</span><span class="hb-tx"><span class="hb-ti">PINs</span><span class="hb-me">Profile und Elternbereich schützen.</span></span></button>';
+    if (istKind()) {
+      s += '<button class="hb-karte" data-eltern="klasse"><span class="hb-ic" aria-hidden="true">🎒</span><span class="hb-tx"><span class="hb-ti">Klasse und Freigabe</span><span class="hb-me">Welche Stufen sichtbar sind.</span></span></button>';
+      s += '<button class="hb-karte" data-eltern="ziel"><span class="hb-ic" aria-hidden="true">⏱️</span><span class="hb-tx"><span class="hb-ti">Tagesziel</span><span class="hb-me">Wie viele Minuten am Tag.</span></span></button>';
+    }
+    return s + "</div>";
+  }
+
+  /* ---------- Routing ---------- */
+  var nachFachwechsel = null;
+  var renderVorher = render;
+  var renderNeu = function () {
+    /* Nach einem Fachwechsel auf der Bereichsseite springt die Engine auf
+       ihre Startseite (kstate.tab = "m132home") — dann bleibt die
+       Bereichsseite stehen, mit dem neuen Fach. */
+    if (nachFachwechsel && kstate.tab === "m132home") { kstate.tab = nachFachwechsel; }
+    nachFachwechsel = null;
+    var p = profil(), t = String(kstate.tab || "");
+    if (p && !picker() && p.type !== "baby" && t.indexOf("hub-") === 0) {
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) view.innerHTML = htmlBereich(t.slice(4));
+      try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
+      return;
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+
+  /* ---------- Klicks ----------
+     Auf window (Capture): Die Engine hört selbst auf document in der
+     Capture-Phase und ist früher registriert — ihr Fachwechsel zeichnete
+     sonst neu, bevor dieser Behandler sich den Bereich merken konnte. */
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target : null;
+    if (!t) return;
+    var hub = t.closest("[data-hub]");
+    if (hub) {
+      e.preventDefault(); e.stopPropagation();
+      aktiverBereich = hub.getAttribute("data-hub");
+      kstate.tab = "hub-" + aktiverBereich;
+      try { document.body.classList.remove("navopen"); } catch (x) {}
+      return neu();
+    }
+    var nv = t.closest("[data-nv]");
+    if (nv) { aktiverBereich = nv.getAttribute("data-nv"); try { document.body.classList.remove("navopen"); } catch (x) {} }
+    if (t.closest("[data-dz-oeffnen]")) {
+      e.preventDefault(); e.stopPropagation();
+      var k = document.querySelector("[data-dz-knopf]"); if (k) k.click();
+      return;
+    }
+    var karteEl = t.closest("[data-hb-karte]");
+    if (karteEl) {
+      /* Nur Einträge ohne data-m132nav setzen den Reiter nicht selbst —
+         sonst bliebe die Bereichsseite stehen. */
+      if (!karteEl.hasAttribute("data-m132nav")) kstate.tab = null;
+      return;   /* weiter zum Behandler der Engine */
+    }
+    var fach = t.closest(".hb-fach[data-m132subj]");
+    if (fach) {
+      /* Die Engine springt beim Fachwechsel auf ihre Startseite — danach
+         zurück auf die Bereichsseite. */
+      nachFachwechsel = kstate.tab;
+      return;
+    }
+    var el = t.closest("[data-eltern]");
+    if (el) {
+      e.preventDefault(); e.stopPropagation();
+      var was = el.getAttribute("data-eltern");
+      if (was === "pin") { var v = document.querySelector("[data-ps-verwalten]"); if (window.__PROFILSCHUTZ && window.__PROFILSCHUTZ.verwaltung) window.__PROFILSCHUTZ.verwaltung(); else if (v) v.click(); }
+      if (was === "klasse" && window.__LERNPFAD && window.__LERNPFAD.klasseAendern) window.__LERNPFAD.klasseAendern();
+      if (was === "ziel" && window.__HEUTE && window.__HEUTE.zielAendern) window.__HEUTE.zielAendern();
+      if (was === "dashboard" && window.__ELTERN) window.__ELTERN.oeffnen();
+      return;
+    }
+  }, true);
+
+  window.__OBERFLAECHE = { modell: function () { return MODELL; }, bereichVon: bereichVon };
+})();
+
+/* =====================================================================
+   „?“ an Übungsaufgaben — die passende Regel als kleines Fenster, mit
+   Link in die Lernwelt (Wunsch des Auftraggebers, 2026-09-27: „Bei den
+   Übungen sollten die Informationen einfach in die Lernwelt verlinkt werden
+   und/oder als kleines Pop-up auftauchen, wenn man auf ein Fragezeichen
+   klickt.“)
+
+   * Beim Laden: Verzeichnis aller Aufgaben aus dem Inhalt — Fragetext →
+     Thema (Regeln) und Skill.
+   * Nach jedem Zeichnen: Fragetexte im sichtbaren Bereich, die im
+     Verzeichnis stehen, bekommen ein „?“ daneben.
+   * Das Fenster zeigt die Regeln des Themas, NICHT die Lösung (das wäre
+     Vorsagen), und „In der Lernwelt ansehen“: die Lektion bei „Erklären“;
+     „Zurück“ führt wieder zur Übung.
+   * In Klausuren kein „?“.
+   ===================================================================== */
+(function () {
+  "use strict";
+  var INHALT = window.__INHALT_DATEN;
+  if (!INHALT || typeof document.querySelector !== "function") return;
+
+  /* Fragetext → Nachschlage-Schlüssel. Kein Antwort-Normalisierer (bewertet nichts);
+     deshalb nicht „norm…“ genannt — der Name ist im Normalisierer-Register für
+     Antwort-Normalisierer reserviert. */
+  function frageSchluessel(s) {
+    return String(s || "").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+
+  /* ---------- Verzeichnis ---------- */
+  var FRAGEN = {};   /* normierter Fragetext → { thema, skill } */
+  var THEMA_VON_SKILL = {};
+  (function geh(o, thema, tiefe) {
+    if (!o || typeof o !== "object" || tiefe > 7) return;
+    if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) geh(o[i], thema, tiefe + 1); return; }
+    var istThema = o.id && Array.isArray(o.ex) && Array.isArray(o.rules);
+    if (istThema) thema = o;
+    if (typeof o.q === "string" && o.q.length >= 6 && o.skill) {
+      var k = frageSchluessel(o.q);
+      if (!FRAGEN[k]) FRAGEN[k] = { thema: thema && thema.rules ? thema : null, skill: o.skill };
+      if (thema && thema.rules && !THEMA_VON_SKILL[o.skill]) THEMA_VON_SKILL[o.skill] = thema;
+    }
+    for (var s in o) if (Object.prototype.hasOwnProperty.call(o, s) && s !== "q") geh(o[s], thema, tiefe + 1);
+  })(INHALT, null, 0);
+  var ANZAHL = Object.keys(FRAGEN).length;
+
+  var AUS = { lernpfad: 1, heute: 1, m127exam: 1 };   /* eigene Hilfe bzw. Prüfung */
+  function zeigen() {
+    var t = String((typeof kstate !== "undefined" && kstate.tab) || "");
+    return !(AUS[t] || t.indexOf("hub-") === 0);
+  }
+
+  /* ---------- „?“ einsetzen ---------- */
+  function scannen() {
+    var view = document.getElementById("view");
+    if (!view || !zeigen()) return;
+    var alle = view.querySelectorAll("*");
+    for (var i = 0; i < alle.length; i++) {
+      var el = alle[i];
+      if (el.getAttribute("data-hilfe-an") || el.closest("[data-hilfe-an], button, label, .ps-hinter, [data-hilfe]")) continue;
+      if (el.childElementCount > 4) continue;
+      var text = el.textContent || "";
+      if (text.length < 6 || text.length > 400) continue;
+      var eintrag = FRAGEN[frageSchluessel(text)];
+      if (!eintrag) continue;
+      el.setAttribute("data-hilfe-an", "1");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "hi-knopf";
+      b.setAttribute("data-hilfe", frageSchluessel(text));
+      b.setAttribute("aria-label", "Hilfe zu dieser Aufgabe: die Regel ansehen");
+      b.textContent = "?";
+      el.appendChild(b);
+    }
+  }
+  var geplant = false;
+  function planen() { if (geplant) return; geplant = true; setTimeout(function () { geplant = false; try { scannen(); } catch (e) {} }, 30); }
+  try {
+    if (typeof MutationObserver === "function") new MutationObserver(planen).observe(document.body, { childList: true, subtree: true });
+  } catch (e) {}
+
+  /* ---------- Fenster ---------- */
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s); }
+  function oeffnen(schluessel) {
+    var e = FRAGEN[schluessel];
+    if (!e) return;
+    var thema = e.thema || THEMA_VON_SKILL[e.skill];
+    var LP = window.__LERNPFAD;
+    var lektion = !!(LP && LP.SKILLS && LP.SKILLS[e.skill] && LP.FACH && (function () {
+      var fach = LP.SKILLS[e.skill].fach; return Object.keys(LP.FACH).some(function (su) { return LP.FACH[su] === fach; });
+    })()) && typeof curProf === "function" && curProf() && curProf().type === "kid";
+    var regeln = thema && thema.rules ? thema.rules.slice(0, 6) : [];
+    var hinter = document.createElement("div");
+    hinter.className = "ps-hinter";
+    hinter.setAttribute("role", "dialog"); hinter.setAttribute("aria-modal", "true");
+    hinter.setAttribute("aria-labelledby", "hi-titel"); hinter.setAttribute("data-testid", "hi-fenster");
+    hinter.innerHTML = '<div class="ps-box"><h3 id="hi-titel">💡 ' + (thema ? h((thema.icon ? thema.icon + " " : "") + thema.title) : "Das hilft dir") + "</h3>"
+      + (regeln.length ? '<ul class="hi-regeln">' + regeln.map(function (r) { return "<li>" + r + "</li>"; }).join("") + "</ul>"
+        : '<p class="ps-text">Zu dieser Aufgabe gibt es keine eigene Regel — lies die Frage noch einmal in Ruhe.</p>')
+      + '<div class="ps-knoepfe">' + (lektion ? '<button class="btn" data-hi="lernwelt">📖 In der Lernwelt ansehen</button>' : "")
+      + '<button class="btn btn-primary" data-hi="zu">Verstanden</button></div></div>';
+    document.body.appendChild(hinter);
+    var zu = function () { hinter.remove(); };
+    hinter.addEventListener("click", function (ev) {
+      if (ev.target === hinter) return zu();
+      var b = ev.target.closest ? ev.target.closest("[data-hi]") : null;
+      if (!b) return;
+      ev.stopPropagation();
+      if (b.getAttribute("data-hi") === "lernwelt") {
+        zu();
+        LP.starte({ typ: "lektion", skill: e.skill, stufe: 2, ruecksprung: kstate.tab || null });
+        return;
+      }
+      zu();
+    });
+    hinter.addEventListener("keydown", function (ev) { if (ev.key === "Escape") zu(); });
+    try { hinter.querySelector('[data-hi="zu"]').focus(); } catch (x) {}
+  }
+
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest("[data-hilfe]") : null;
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    oeffnen(b.getAttribute("data-hilfe"));
+  }, true);
+
+  window.__HILFE = { anzahl: ANZAHL, oeffnen: oeffnen, scannen: scannen };
 })();
 
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
@@ -43877,7 +44509,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 01:02")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 08:36")}}catch(e){}
 })();
 
 </script>
