@@ -486,7 +486,7 @@ html[data-theme="dunkel"][data-farbe="kontrast"] {
  *
  * `abgleichen(lokal, fremd)` führt zwei Stände zusammen:
  *   - je Teil gewinnt der neuere Stempel; nur Vorhandenes wird übernommen,
- *   - Lernpfad-Versuche werden vereinigt (derselbe Versuch zählt einmal),
+ *   - Lernpfad-Versuche und Ereignisse werden vereinigt (jedes zählt einmal),
  *   - gelesene Texte (Textrotation) werden vereinigt,
  *   - Gelöschtes bleibt gelöscht, wenn der Löschstempel neuer ist,
  *   - gerätebezogene Schlüssel (aktives Profil, Darstellung …) bleiben lokal.
@@ -574,6 +574,14 @@ function lernpfadVereinen(a, b) {
   return out;
 }
 
+/* Ereignis-Log (M10): Vereinigung über die Kennung — jedes Ereignis genau
+   einmal, nach Zeit geordnet, die jüngsten 5 000. */
+function ereignisseVereinen(a, b) {
+  const nachId = new Map();
+  for (const e of [...a, ...b]) if (e && e.i && !nachId.has(e.i)) nachId.set(e.i, e);
+  return [...nachId.values()].sort((x, y) => x.t - y.t || vergleiche(String(x.i), String(y.i))).slice(-5000);
+}
+
 function rotationVereinen(a, b) {
   const out = {};
   for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
@@ -613,7 +621,8 @@ function abgleichen(lokal, fremd) {
       ergebnis = a;
     } else {
       const ja = json(a), jb = json(b);
-      if (k.startsWith('egl-lernpfad-') && istObjekt(ja) && istObjekt(jb)) ergebnis = JSON.stringify(lernpfadVereinen(ja, jb));
+      if (k.startsWith('egl-ereignisse-') && Array.isArray(ja) && Array.isArray(jb)) ergebnis = JSON.stringify(ereignisseVereinen(ja, jb));
+      else if (k.startsWith('egl-lernpfad-') && istObjekt(ja) && istObjekt(jb)) ergebnis = JSON.stringify(lernpfadVereinen(ja, jb));
       else if (k.startsWith('egl-textrotation-') && istObjekt(ja) && istObjekt(jb)) ergebnis = JSON.stringify(rotationVereinen(ja, jb));
       else if (teile(ja) && teile(jb) && Array.isArray(ja) === Array.isArray(jb)) {
         const pa = teile(ja), pb = teile(jb), out = {};
@@ -39864,6 +39873,7 @@ function nameFuer(k){
   if(k==="egl-darstellung")return "Darstellung (Theme, Schriftgröße)";
   if(k.indexOf("egl-lernpfad-")===0)return "Lernpfad (Mastery, Einstufung)";
   if(k.indexOf("egl-tagesplan-")===0)return "Tagesplan (heute)";
+  if(k.indexOf("egl-ereignisse-")===0)return "Lernverlauf (für den Eltern-Überblick)";
   return k;
 }
 function wann(iso){
@@ -43492,6 +43502,7 @@ function stationen(skills, wahl) {
       try { renderTabs(); } catch (e) {}
       var su = fachJetzt(), view = document.getElementById("view");
       var l = kstate.lp;
+      if (l && l.liste && l.i < l.liste.length && !l.fb && !l.qStart) l.qStart = Date.now();   /* Bearbeitungszeit (M10) */
       /* Eine laufende Lektion/Runde braucht kein Fach aus der Seitenleiste
          (aus dem Tagesplan kann sie für ein anderes Fach gestartet sein). */
       if (!su && !l) { kstate.tab = null; return renderVorher.apply(this, arguments); }
@@ -43541,6 +43552,14 @@ function stationen(skills, wahl) {
     var q = istDiagnose ? l.liste[l.i].q : l.liste[l.i];
     var ok = bewerte(q, antwort);
     l.fb = { ok: ok };
+    /* M10: jede Antwort ins Ereignis-Log (p76) — mit Skill, gegebener und
+       richtiger Antwort und Bearbeitungszeit. */
+    try {
+      var gegeben = q.t === "mc" ? q.o[antwort] : q.t === "multi" ? (antwort || []).map(function (i) { return q.o[i]; }).join(", ") : String(antwort);
+      melde("lp:antwort", { skill: q.skill || l.skill, fach: (SKILLS[q.skill || l.skill] || {}).fach || "", ok: ok,
+        frage: String(q.q || "").replace(/<[^>]+>/g, ""), gegeben: gegeben, richtig: loesungText(q), dauer: l.qStart ? Date.now() - l.qStart : 0 });
+    } catch (e) {}
+    l.qStart = 0;
     if (istDiagnose) {
       var sk = l.liste[l.i].skill, e = l.ergebnis[sk] || (l.ergebnis[sk] = { ok: 0, n: 0 });
       e.n++; if (ok) e.ok++;
@@ -44200,6 +44219,7 @@ function tagVon(d) {
     if (t.indexOf("hub-") === 0) { aktiverBereich = t.slice(4); return; }
     if (t === "heute" || (!istKind() && t === "m132home")) { aktiverBereich = "heute"; return; }
     if (t === "lernpfad") { aktiverBereich = "lernen"; return; }
+    if (t === "eltern-dashboard") { aktiverBereich = "eltern"; return; }
     var treffer = MODELL.eintraege.filter(function (e) { return e.attrs["data-m132nav"] && e.attrs["data-m132nav"] === t; })[0];
     if (treffer) aktiverBereich = bereichVon(treffer);
   }
@@ -44287,8 +44307,12 @@ function tagVon(d) {
       var LP = window.__LERNPFAD;
       if (LP && istKind()) Object.keys(LP.FACH).forEach(function (su) { gemeistert += LP.pfad(LP.FACH[su]).filter(function (s) { return s.zustand === "gemeistert"; }).length; });
     } catch (e) {}
+    /* Kindersicht (§9.6): Serie und gemeisterte Stationen, keine Prozentzahlen. */
+    var serie = 0;
+    try { serie = window.__ELTERN ? window.__ELTERN.serie() : 0; } catch (e) {}
     return '<div class="hb-zahlen"><div><b>' + sterne + '</b><span>Sterne</span></div>'
-      + (istKind() ? '<div><b>' + gemeistert + "</b><span>Stationen gemeistert</span></div>" : "") + "</div>";
+      + (istKind() ? '<div><b>' + gemeistert + "</b><span>Stationen gemeistert</span></div>" : "")
+      + '<div><b>' + (serie ? "🔥 " + serie : "0") + "</b><span>" + (serie === 1 ? "Tag gelernt" : "Tage hintereinander gelernt") + "</span></div></div>";
   }
   function elternKopf() {
     var s = '<div class="hb-raster">';
@@ -44372,7 +44396,8 @@ function tagVon(d) {
     }
   }, true);
 
-  window.__OBERFLAECHE = { modell: function () { return MODELL; }, bereichVon: bereichVon };
+  window.__OBERFLAECHE = { modell: function () { return MODELL; }, bereichVon: bereichVon,
+    fach: function () { var f = MODELL.faecher.filter(function (x) { return x.an; })[0]; return f ? f.name : ""; } };
 })();
 
 /* =====================================================================
@@ -44420,7 +44445,7 @@ function tagVon(d) {
   })(INHALT, null, 0);
   var ANZAHL = Object.keys(FRAGEN).length;
 
-  var AUS = { lernpfad: 1, heute: 1, m127exam: 1 };   /* eigene Hilfe bzw. Prüfung */
+  var AUS = { lernpfad: 1, heute: 1, m127exam: 1, "eltern-dashboard": 1 };   /* eigene Hilfe, Prüfung, Elternsicht */
   function zeigen() {
     var t = String((typeof kstate !== "undefined" && kstate.tab) || "");
     return !(AUS[t] || t.indexOf("hub-") === 0);
@@ -44501,7 +44526,641 @@ function tagVon(d) {
     oeffnen(b.getAttribute("data-hilfe"));
   }, true);
 
-  window.__HILFE = { anzahl: ANZAHL, oeffnen: oeffnen, scannen: scannen };
+  /* finde: für das Ereignis-Log (p76) — Fragetext → { skill, thema }. */
+  window.__HILFE = { anzahl: ANZAHL, oeffnen: oeffnen, scannen: scannen, finde: function (text) { return FRAGEN[frageSchluessel(text)] || null; } };
+})();
+
+/* =====================================================================
+   M10 — Ereignis-Log und Eltern-Dashboard (AUFTRAG-v2.md §9).
+
+   Ereignis-Log (egl-ereignisse-<Profil>, die jüngsten 5 000; beim
+   Geräte-Abgleich über die Kennung vereinigt):
+   * Lernpfad/„Heute“: exakt über das Ereignis lp:antwort aus p72 (Skill,
+     gegebene und richtige Antwort, Bearbeitungszeit).
+   * Übungen der Engine: wenn im Inhalt eine Rückmeldung „✅ …“/„❌ …“
+     erscheint. Die Frage kommt aus dem Fragen-Verzeichnis von p75 (die
+     aktuell markierte Aufgabe), die richtige Antwort aus „Richtig ist: …“,
+     die gegebene aus der markierten falschen Option bzw. dem Eingabefeld.
+     Ohne Treffer im Verzeichnis zählt das Ereignis mit dem Fach der
+     Seitenleiste, ohne Skill.
+
+   Dashboard (Eltern-PIN): Übersicht (Kennzahlen, drei Listen, Tendenzen) ·
+   Tag · Woche · Monat · Wochenbericht; CSV-Export; Druckfassung. Die
+   Rechnungen stehen in app/kern/auswertung.js (beim Bauen eingezogen).
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/**
+ * Auswertung des Ereignis-Logs für das Eltern-Dashboard (AUFTRAG-v2.md §9)
+ * — reine Funktionen.
+ *
+ * Ein Ereignis ist eine beantwortete Aufgabe:
+ *   { i: Kennung, t: Zeitpunkt ms, f: Fach, s: Skill|null, ok: 0|1,
+ *     q: Frage, g: gegebene Antwort, r: richtige Antwort, d: Dauer ms }
+ *
+ * Sitzung: Ereignisse mit weniger als 5 Minuten Abstand. Ihre Dauer ist die
+ * Spanne vom ersten bis zum letzten Ereignis plus dessen Bearbeitungszeit —
+ * reine Bearbeitungszeit, keine Pausen.
+ *
+ * Tendenz (§9.4): erst ab mindestens 8 Bearbeitungen im Zeitraum, sonst
+ * `null` („noch zu wenig Daten") — eine falsche Tendenz ist schlimmer als
+ * keine.
+ */
+
+/** @typedef {{ i: string, t: number, f: string, s?: string|null, ok: number, q?: string, g?: string, r?: string, d?: number }} Ereignis */
+
+const PAUSE_MS = 5 * 60 * 1000;
+const MIN_FUER_TREND = 8;
+const TAG_MS = 86400000;
+
+/** Lokales Datum JJJJ-MM-TT. @param {number|Date} t */
+function datum(t) {
+  const d = new Date(t), z = (x) => String(x).padStart(2, '0');
+  return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+}
+/** Montag der Woche (lokal) als Datum. @param {number} t */
+function montag(t) {
+  const d = new Date(t); d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return datum(d);
+}
+const quote = (ok, n) => (n ? Math.round((100 * ok) / n) : null);
+const sortiert = (ev) => ev.slice().sort((a, b) => a.t - b.t);
+
+/** @param {readonly Ereignis[]} ev */
+function sitzungen(ev) {
+  const out = [];
+  let akt = null;
+  for (const e of sortiert(ev)) {
+    if (!akt || e.t - akt.letzt > PAUSE_MS) {
+      akt = { start: e.t, letzt: e.t, ereignisse: [] };
+      out.push(akt);
+    }
+    akt.ereignisse.push(e);
+    akt.letzt = e.t;
+  }
+  return out.map((s) => {
+    const letzte = s.ereignisse[s.ereignisse.length - 1];
+    const ms = s.letzt - s.start + Math.min(letzte.d || 30000, 120000);
+    const ok = s.ereignisse.filter((e) => e.ok).length;
+    const faecher = {};
+    for (const e of s.ereignisse) faecher[e.f] = (faecher[e.f] || 0) + 1;
+    return {
+      start: s.start, ende: s.letzt, minuten: Math.max(1, Math.round(ms / 60000)), n: s.ereignisse.length, quote: quote(ok, s.ereignisse.length),
+      faecher: Object.keys(faecher), skills: [...new Set(s.ereignisse.map((e) => e.s).filter(Boolean))], ereignisse: s.ereignisse,
+    };
+  });
+}
+
+/** Lernminuten je Fach aus Sitzungen (anteilig nach Ereignissen). */
+function minutenJeFach(sitz) {
+  const m = {};
+  for (const s of sitz) for (const f of s.faecher) {
+    const anteil = s.ereignisse.filter((e) => e.f === f).length / s.n;
+    m[f] = (m[f] || 0) + s.minuten * anteil;
+  }
+  for (const f of Object.keys(m)) m[f] = Math.round(m[f]);
+  return m;
+}
+
+/** Tagesansicht (§9.1). @param {readonly Ereignis[]} ev @param {string} tag */
+function tag(ev, tag) {
+  const heute = ev.filter((e) => datum(e.t) === tag);
+  const sitz = sitzungen(heute);
+  const fehler = sortiert(heute).filter((e) => !e.ok).map((e) => ({ t: e.t, f: e.f, s: e.s || null, q: e.q || '', g: e.g || '', r: e.r || '' }));
+  const minuten = sitz.reduce((a, s) => a + s.minuten, 0);
+  return { tag, sitzungen: sitz, fehler, minuten, minutenJeFach: minutenJeFach(sitz), n: heute.length, quote: quote(heute.filter((e) => e.ok).length, heute.length) };
+}
+
+/** Wochenraster 7 Tage × Fächer (§9.2). @param {readonly Ereignis[]} ev @param {string} montagsDatum */
+function woche(ev, montagsDatum) {
+  const start = new Date(montagsDatum + 'T12:00:00').getTime();
+  const tage = Array.from({ length: 7 }, (_, i) => datum(start + i * TAG_MS));
+  const faecher = [...new Set(ev.filter((e) => tage.includes(datum(e.t))).map((e) => e.f))].sort();
+  const zelle = (tg, f) => {
+    const x = ev.filter((e) => datum(e.t) === tg && e.f === f);
+    return { minuten: minutenJeFach(sitzungen(ev.filter((e) => datum(e.t) === tg)))[f] || 0, n: x.length, quote: quote(x.filter((e) => e.ok).length, x.length) };
+  };
+  const raster = faecher.map((f) => ({ f, tage: tage.map((tg) => zelle(tg, f)) }));
+  const summeFach = raster.map((r) => ({ f: r.f, minuten: r.tage.reduce((a, z) => a + z.minuten, 0), n: r.tage.reduce((a, z) => a + z.n, 0) }));
+  const summeTag = tage.map((tg, i) => raster.reduce((a, r) => a + r.tage[i].minuten, 0));
+  const inWoche = ev.filter((e) => tage.includes(datum(e.t)));
+  const vorTage = Array.from({ length: 7 }, (_, i) => datum(start + (i - 7) * TAG_MS));
+  const vorWoche = ev.filter((e) => vorTage.includes(datum(e.t)));
+  const q = quote(inWoche.filter((e) => e.ok).length, inWoche.length), qv = quote(vorWoche.filter((e) => e.ok).length, vorWoche.length);
+  return { tage, faecher, raster, summeFach, summeTag, quote: q, vergleichPP: q != null && qv != null ? q - qv : null };
+}
+
+/** Monat (§9.3): Heatmap nach Minuten, Verlauf je Fach. @param {readonly Ereignis[]} ev @param {number} jahr @param {number} monat 1–12 */
+function monat(ev, jahr, monat) {
+  const tageImMonat = new Date(jahr, monat, 0).getDate();
+  const tage = Array.from({ length: tageImMonat }, (_, i) => datum(new Date(jahr, monat - 1, i + 1, 12)));
+  const heat = tage.map((tg) => ({ tag: tg, minuten: tag(ev, tg).minuten }));
+  const imMonat = ev.filter((e) => tage.includes(datum(e.t)));
+  const faecher = [...new Set(imMonat.map((e) => e.f))].sort();
+  const verlauf = faecher.map((f) => ({ f, punkte: tage.map((tg) => {
+    const x = imMonat.filter((e) => e.f === f && datum(e.t) === tg);
+    return quote(x.filter((e) => e.ok).length, x.length);
+  }) }));
+  return { tage, heat, verlauf, skills: [...new Set(imMonat.map((e) => e.s).filter(Boolean))], n: imMonat.length };
+}
+
+/**
+ * Tendenzen je Skill (§9.4).
+ * @param {readonly Ereignis[]} ev
+ * @param {number} jetzt
+ */
+function trends(ev, jetzt) {
+  const jeSkill = {};
+  for (const e of ev) if (e.s) (jeSkill[e.s] = jeSkill[e.s] || []).push(e);
+  const fenster = (liste, von, bis) => liste.filter((e) => e.t > jetzt - von * TAG_MS && e.t <= jetzt - bis * TAG_MS);
+  const trend = (liste, tage) => {
+    const neu = fenster(liste, tage, 0), alt = fenster(liste, 2 * tage, tage);
+    if (neu.length < MIN_FUER_TREND || alt.length < MIN_FUER_TREND) return null;
+    return quote(neu.filter((e) => e.ok).length, neu.length) - quote(alt.filter((e) => e.ok).length, alt.length);
+  };
+  return Object.keys(jeSkill).map((s) => {
+    const l = sortiert(jeSkill[s]);
+    const letzte = l[l.length - 1].t;
+    const t7 = trend(l, 7), t30 = trend(l, 30);
+    const lange = jetzt - letzte > 14 * TAG_MS;
+    const zeichen = lange ? '⚠' : t7 == null ? '·' : t7 >= 5 ? '↑' : t7 <= -5 ? '↓' : '→';
+    return {
+      skill: s, fach: l[0].f, n: l.length, quote: quote(l.filter((e) => e.ok).length, l.length),
+      trend7: t7, trend30: t30, letzte, oDauer: Math.round(l.reduce((a, e) => a + (e.d || 0), 0) / l.length / 1000), zeichen,
+    };
+  }).sort((a, b) => (a.trend7 ?? 0) - (b.trend7 ?? 0) || (a.quote ?? 0) - (b.quote ?? 0));
+}
+
+/**
+ * Drei Listen (§9.4). `mastery`: Skill → Score (0–100) aus dem Lernpfad;
+ * ohne Mastery zählt die Trefferquote.
+ */
+function listen(tr, mastery = {}) {
+  const wert = (x) => (mastery[x.skill] != null ? mastery[x.skill] : x.quote ?? 0);
+  const brauchtUebung = tr.filter((x) => wert(x) < 50 || (x.trend7 != null && x.trend7 <= -10));
+  const sitzt = tr.filter((x) => !brauchtUebung.includes(x) && wert(x) >= 75);
+  const inArbeit = tr.filter((x) => !brauchtUebung.includes(x) && !sitzt.includes(x));
+  return { brauchtUebung, inArbeit, sitzt };
+}
+
+/** Ein Satz Zusammenfassung (§9.1). */
+function zusammenfassung(t, name, titel = (s) => s) {
+  if (!t.n) return name + ' hat an diesem Tag nicht gelernt.';
+  const faecher = Object.entries(t.minutenJeFach).sort((a, b) => b[1] - a[1]);
+  let satz = name + ' hat ' + t.minuten + (t.minuten === 1 ? ' Minute' : ' Minuten') + ' gelernt';
+  if (faecher.length > 1) satz += ', davon ' + faecher[0][1] + ' Minuten ' + faecher[0][0];
+  else if (faecher.length === 1) satz += ' (' + faecher[0][0] + ')';
+  satz += ' — ' + t.n + ' Aufgaben, ' + t.quote + ' % richtig.';
+  const fehlerJeSkill = {};
+  for (const f of t.fehler) if (f.s) fehlerJeSkill[f.s] = (fehlerJeSkill[f.s] || 0) + 1;
+  const schwer = Object.entries(fehlerJeSkill).sort((a, b) => b[1] - a[1])[0];
+  if (schwer && schwer[1] >= 2) satz += ' Bei ' + titel(schwer[0]) + ' gab es ' + schwer[1] + ' Fehler.';
+  return satz;
+}
+
+/** Aufeinanderfolgende Lerntage bis heute (Kindersicht §9.6). */
+function serie(ev, jetzt) {
+  const tage = new Set(ev.map((e) => datum(e.t)));
+  let n = 0, t = jetzt;
+  if (!tage.has(datum(t))) t -= TAG_MS;          /* heute noch nichts — gestern zählt weiter */
+  while (tage.has(datum(t))) { n++; t -= TAG_MS; }
+  return n;
+}
+
+/** CSV der Rohdaten (§9.5), Semikolon-getrennt für Tabellenprogramme. */
+function csv(ev) {
+  const feld = (x) => {
+    const s = String(x == null ? '' : x);
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const kopf = ['Zeitpunkt', 'Datum', 'Fach', 'Skill', 'Richtig', 'Frage', 'Gegeben', 'Richtige Antwort', 'Dauer (s)'];
+  const zeilen = sortiert(ev).map((e) => [new Date(e.t).toISOString(), datum(e.t), e.f, e.s || '', e.ok ? 'ja' : 'nein', e.q || '', e.g || '', e.r || '', Math.round((e.d || 0) / 1000)]);
+  return [kopf, ...zeilen].map((z) => z.map(feld).join(';')).join('\n');
+}
+
+
+  // @ts-check
+/**
+ * Mastery je Skill (AUFTRAG-v2.md §6.2) — reine Funktion.
+ *
+ * - Gleitender, zeitgewichteter Anteil richtiger Erstversuche über die
+ *   letzten N Bearbeitungen (N = masteryItems des Skills, Vorgabe 8).
+ *   Jüngere Ergebnisse wiegen mehr (Gewicht 1 … N).
+ * - Genutzte Hinweise mindern den Beitrag anteilig (je Hinweis 25 %), sind
+ *   aber kein Fehler.
+ * - Mastery braucht Belege: Mit weniger als N Bearbeitungen wird der Wert
+ *   anteilig gedämpft (2 von 2 richtig bei N = 8 → 25). Ohne diese Regel
+ *   schaltete ein abgebrochener Nachweis nach zwei richtigen Antworten frei
+ *   (gefunden von der Gegenprobe im E2E-Test, M8).
+ * - Verfall ohne Aktivität: 1 Punkt je 3 Tage, nie unter 40 % des
+ *   Höchststands.
+ * - Stufen: neu < 20 ≤ angefangen < 50 ≤ geübt < 75 ≤ sicher < 90 ≤ gefestigt.
+ *   `sicher` (≥ 75) schaltet Folgeskills frei.
+ * - Ein bestandener Einstufungstest (§7.3) zählt als 80, solange keine
+ *   eigenen Bearbeitungen vorliegen.
+ */
+
+/** @typedef {{ t: number, richtig: boolean, hinweise?: number }} Versuch */
+/** @typedef {'neu'|'angefangen'|'geuebt'|'sicher'|'gefestigt'} Stufe */
+
+const FREI_AB = 75;
+const TAG = 86400000;
+
+/** @param {number} score @returns {Stufe} */
+function stufeVon(score) {
+  if (score >= 90) return 'gefestigt';
+  if (score >= 75) return 'sicher';
+  if (score >= 50) return 'geuebt';
+  if (score >= 20) return 'angefangen';
+  return 'neu';
+}
+
+/**
+ * @param {readonly Versuch[]} versuche chronologisch
+ * @param {{ n?: number, jetzt?: number, hoechst?: number, diagnose?: number | null }} [wahl]
+ *   `diagnose`: Zeitpunkt eines bestandenen Einstufungstests.
+ * @returns {{ score: number, stufe: Stufe, hoechst: number, gesehen: number }}
+ */
+function berechneMastery(versuche, wahl = {}) {
+  const n = wahl.n && wahl.n > 0 ? wahl.n : 8;
+  const jetzt = wahl.jetzt ?? Date.now();
+  const liste = (versuche || []).filter((v) => v && Number.isFinite(v.t));
+  let roh = 0, letzte = 0, aktiv = false;
+
+  if (liste.length) {
+    const teil = liste.slice(-n);
+    let summe = 0, gewichte = 0;
+    teil.forEach((v, i) => {
+      const w = i + 1;
+      const hinweise = Math.max(0, Math.min(4, v.hinweise || 0));
+      summe += w * (v.richtig ? 1 - 0.25 * hinweise : 0);
+      gewichte += w;
+    });
+    roh = Math.round(((100 * summe) / gewichte) * Math.min(1, teil.length / n));
+    letzte = teil[teil.length - 1].t;
+    aktiv = true;
+  } else if (wahl.diagnose) {
+    roh = 80;
+    letzte = wahl.diagnose;
+    aktiv = true;
+  }
+
+  const hoechst = Math.max(wahl.hoechst || 0, roh);
+  /* `aktiv` statt `letzte`: ein Zeitstempel 0 ist gültig (Fehler beim ersten Testlauf). */
+  const tage = aktiv ? Math.max(0, (jetzt - letzte) / TAG) : 0;
+  const untergrenze = Math.round(0.4 * hoechst);
+  const score = Math.max(Math.min(roh, roh - Math.floor(tage / 3)), Math.min(roh, untergrenze));
+  return { score, stufe: stufeVon(score), hoechst, gesehen: liste.length };
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s == null ? "" : s); }
+  function neu() { try { render(); } catch (e) {} }
+  function kurz(s, n) { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+  /* ---------- Speicher ---------- */
+  function schluessel() { var p = profil(); return "egl-ereignisse-" + (p ? p.id : "anon"); }
+  function ereignisse() { try { var v = JSON.parse(localStorage.getItem(schluessel()) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function hinzufuegen(e) {
+    var p = profil();
+    if (!p || p.type === "baby") return;
+    var liste = ereignisse();
+    liste.push(e);
+    if (liste.length > 5000) liste = liste.slice(-5000);
+    try { localStorage.setItem(schluessel(), JSON.stringify(liste)); } catch (x) {}
+  }
+  function kennung() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function titelVon(skill) {
+    var LP = window.__LERNPFAD;
+    return (LP && LP.SKILLS && LP.SKILLS[skill] && LP.SKILLS[skill].titel) || skill || "—";
+  }
+  function fachVon(skill) {
+    var LP = window.__LERNPFAD;
+    if (skill && LP && LP.SKILLS && LP.SKILLS[skill]) return LP.SKILLS[skill].fach;
+    var O = window.__OBERFLAECHE;
+    return (O && O.fach && O.fach()) || "Allgemein";
+  }
+
+  /* ---------- Erfassung: Lernpfad ---------- */
+  document.addEventListener("lp:antwort", function (ev) {
+    var d = ev.detail || {};
+    hinzufuegen({ i: kennung(), t: Date.now(), f: d.fach || fachVon(d.skill), s: d.skill || null, ok: d.ok ? 1 : 0,
+      q: kurz(d.frage, 160), g: kurz(d.gegeben, 80), r: kurz(d.richtig, 80), d: Math.min(d.dauer || 0, 600000), w: "lp" });
+  });
+
+  /* ---------- Erfassung: Übungen der Engine ---------- */
+  var OHNE = { lernpfad: 1, heute: 1, "eltern-dashboard": 1 };
+  var gesehen = typeof WeakSet === "function" ? new WeakSet() : null;
+  var frageJetzt = "", frageSeit = 0, letzte = { q: "", t: 0 }, letzteFrage = null;
+  function aktuelleFrage(view) {
+    var el = view.querySelector("[data-hilfe-an]");
+    if (!el) return null;
+    var text = (el.textContent || "").replace(/\?$/, "").trim();
+    return { text: text, treffer: window.__HILFE && window.__HILFE.finde ? window.__HILFE.finde(text) : null };
+  }
+  function pruefen(neue) {
+    var t = String(kstate.tab || "");
+    if (OHNE[t] || t.indexOf("hub-") === 0) return;
+    var view = document.getElementById("view");
+    if (!view) return;
+    var f = aktuelleFrage(view);
+    if (f && f.text !== frageJetzt) { frageJetzt = f.text; frageSeit = Date.now(); }
+    /* Beim Prüfen zeichnet die Engine neu; das Merkmal der Frage setzt p75
+       erst kurz danach. Deshalb gilt die zuletzt erkannte Frage. */
+    if (f) letzteFrage = f; else f = letzteFrage;
+    for (var i = 0; i < neue.length; i++) {
+      var n = neue[i];
+      if (!n || n.nodeType !== 1 || !view.contains(n) || (gesehen && gesehen.has(n))) continue;
+      var text = (n.textContent || "").trim();
+      if (text.length > 600 || !/^[✅❌]/.test(text) || /toast/.test(n.className || "")) continue;
+      /* Die Rückmeldung beginnt oft in verschachtelten Elementen mit „✅“ —
+         nur das äußere zählt, alles darin gilt als gesehen (sonst doppelt). */
+      if (gesehen) { gesehen.add(n); var drin = n.querySelectorAll ? n.querySelectorAll("*") : []; for (var d = 0; d < drin.length; d++) gesehen.add(drin[d]); }
+      var ok = /^✅/.test(text) ? 1 : 0;
+      var frage = f ? f.text : "";
+      if (Date.now() - letzte.t < 1500 && letzte.q === frage) continue;
+      letzte = { q: frage, t: Date.now() };
+      /* Richtige Antwort: der erste fett gesetzte Teil nach „Richtig …“ (so
+         schreibt die Engine „Richtige Lösung: <b>…</b>“); die Begründung
+         dahinter gehört nicht dazu. */
+      var mr = String(n.innerHTML || "").match(/Richtig(?:e Lösung)?(?: ist)?:?\s*(?:<br\s*\/?>\s*)*<b>([\s\S]*?)<\/b>/);
+      var r = mr ? mr[1].replace(/<[^>]+>/g, "") : ((text.match(/Richtig(?:e Lösung)?(?: ist)?:\s*([^.!\n]+)/) || [])[1] || "");
+      /* Gegebene Antwort: die falsch gewählte Option (Engine: Klasse „no“). */
+      var falsch = view.querySelector(".m127-opt.no, [data-m127opt].no, .wrong, .falsch, .ans-wrong, [class*='wrong']");
+      var eingabe = view.querySelector("input[type=text], textarea");
+      var gegeben = ok ? "" : (falsch ? falsch.textContent : eingabe ? eingabe.value : "");
+      var skill = f && f.treffer ? f.treffer.skill : null;
+      hinzufuegen({ i: kennung(), t: Date.now(), f: fachVon(skill), s: skill, ok: ok, q: kurz(frage, 160), g: kurz(gegeben, 80),
+        r: ok ? "" : kurz(r, 80), d: frageSeit ? Math.min(Date.now() - frageSeit, 600000) : 0, w: "app" });
+    }
+  }
+  try {
+    if (typeof MutationObserver === "function") new MutationObserver(function (liste) {
+      var neue = [];
+      for (var i = 0; i < liste.length; i++) for (var j = 0; j < liste[i].addedNodes.length; j++) {
+        var n = liste[i].addedNodes[j];
+        neue.push(n);
+        if (n.nodeType === 1 && n.querySelectorAll) { var innen = n.querySelectorAll("*"); for (var k = 0; k < innen.length && k < 400; k++) neue.push(innen[k]); }
+      }
+      try { pruefen(neue); } catch (e) {}
+    }).observe(document.body, { childList: true, subtree: true });
+  } catch (e) {}
+
+  /* ---------- Dashboard ---------- */
+  var zustand = { ansicht: "uebersicht", tag: null, woche: null, monat: null, sort: "trend", fach: "" };
+  var STIL = ".el{max-width:1040px}.el-reiter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}"
+    + ".el-reiter button{border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:8px 16px;font:inherit;font-weight:650;cursor:pointer;min-height:44px}"
+    + ".el-reiter button.an{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}"
+    + ".el-karten{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:0 0 16px}"
+    + ".el-karten div{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 16px}.el-karten b{display:block;font-size:24px;font-weight:800}.el-karten span{font-size:13px;color:var(--ink2)}"
+    + ".el-box{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin:0 0 14px}.el-box h3{margin:0 0 10px;font-size:16px}"
+    + ".el-listen{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 14px}"
+    + ".el-tab{width:100%;border-collapse:collapse;font-size:14px}.el-tab th,.el-tab td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}.el-tab th{color:var(--ink2);font-weight:700;font-size:12.5px}"
+    + ".el-zelle{display:block;width:100%;text-align:center;border:0;border-radius:10px;padding:6px 2px;font:inherit;font-size:12.5px;cursor:pointer;min-height:44px;color:var(--ink)}"
+    + ".el-z0{background:var(--line2)}.el-zg{background:var(--good-soft)}.el-zm{background:var(--warn-soft)}.el-zs{background:var(--bad-soft)}"
+    + ".el-heat{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.el-heat button{aspect-ratio:1;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:12px;cursor:pointer;color:var(--ink);min-height:36px}"
+    + ".el-h0{background:var(--paper)}.el-h1{background:var(--brand-soft)}.el-h2{background:var(--brand-line)}.el-h3{background:var(--brand);color:var(--auf-brand)!important}"
+    + ".el-knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.el-satz{font-size:16px;line-height:1.6}"
+    + "@media print{body.el-druck #tabs,body.el-druck header,body.el-druck footer,body.el-druck .el-reiter,body.el-druck .el-knoepfe,body.el-druck .skip-link{display:none!important}"
+    + "body.el-druck main,body.el-druck header,body.el-druck footer{margin-left:0!important}body.el-druck .el-box{break-inside:avoid;border-color:#999}}";
+  function stil() { try { if (!document.getElementById("el-stil")) { var s = document.createElement("style"); s.id = "el-stil"; s.textContent = STIL; document.head.appendChild(s); } } catch (e) {} }
+
+  function masteryJetzt() {
+    var LP = window.__LERNPFAD, m = {};
+    if (!LP || !LP.stand) return m;
+    try { var v = LP.lade(); Object.keys(v.m || {}).forEach(function (s) { m[s] = LP.stand(v, s).score; }); } catch (e) {}
+    return m;
+  }
+  function masteryAm(skill, stichtag) {
+    var LP = window.__LERNPFAD; if (!LP) return 0;
+    var v = LP.lade(), e = (v.m || {})[skill] || { v: [] };
+    var vs = (e.v || []).filter(function (x) { return x[0] <= stichtag; }).map(function (x) { return { t: x[0], richtig: !!x[1], hinweise: x[2] || 0 }; });
+    var d = v.d && v.d[skill] && v.d[skill] <= stichtag ? v.d[skill] : null;
+    return berechneMastery(vs, { n: (LP.SKILLS[skill] || {}).masteryItems || 8, jetzt: stichtag, diagnose: d }).score;
+  }
+  function uhr(t) { var d = new Date(t); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+  function tagText(tg) { var d = new Date(tg + "T12:00:00"); return d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "numeric" }); }
+  function quoteText(q) { return q == null ? "—" : q + " %"; }
+  function trendText(x) { return x == null ? "noch zu wenig Daten" : (x > 0 ? "+" : "") + x + " Pkt."; }
+  function zellKlasse(z) { return !z.n ? "el-z0" : z.quote >= 80 ? "el-zg" : z.quote >= 55 ? "el-zm" : "el-zs"; }
+
+  function htmlUebersicht(ev, name) {
+    var jetzt = Date.now(), heute = tag(ev, datum(jetzt)), w = woche(ev, montag(jetzt));
+    var tr = trends(ev, jetzt), l = listen(tr, masteryJetzt());
+    var wmin = w.summeTag.reduce(function (a, b) { return a + b; }, 0);
+    var s = '<div class="el-karten"><div><b>' + heute.minuten + '</b><span>Minuten heute</span></div><div><b>' + wmin + '</b><span>Minuten diese Woche</span></div>'
+      + '<div><b>' + quoteText(w.quote) + '</b><span>richtig diese Woche' + (w.vergleichPP != null ? " (" + (w.vergleichPP >= 0 ? "+" : "") + w.vergleichPP + " Pkt. zur Vorwoche)" : "") + "</span></div>"
+      + '<div><b>' + serie(ev, jetzt) + '</b><span>Tage in Folge gelernt</span></div></div>';
+    s += '<p class="el-satz" data-testid="el-satz">' + h(zusammenfassung(heute, name, titelVon)) + "</p>";
+    var liste = function (titel, id, xs) {
+      return '<div class="el-box" data-testid="el-liste-' + id + '"><h3>' + titel + " (" + xs.length + ")</h3>"
+        + (xs.length ? "<ul style=\"margin:0;padding-left:18px\">" + xs.slice(0, 8).map(function (x) { return "<li>" + h(titelVon(x.skill)) + ' <span style="color:var(--ink2)">· ' + h(x.fach) + " · " + quoteText(x.quote) + " " + x.zeichen + "</span></li>"; }).join("") + "</ul>"
+          : '<p style="margin:0;color:var(--ink2)">Noch nichts.</p>') + "</div>";
+    };
+    s += '<div class="el-listen">' + liste("🎯 Braucht Übung", "uebung", l.brauchtUebung) + liste("🛠️ In Arbeit", "arbeit", l.inArbeit) + liste("✅ Sitzt", "sitzt", l.sitzt) + "</div>";
+    var faecher = Array.from(new Set(tr.map(function (x) { return x.fach; }))).sort();
+    var zeilen = tr.filter(function (x) { return !zustand.fach || x.fach === zustand.fach; }).slice();
+    if (zustand.sort === "zuletzt") zeilen.sort(function (a, b) { return b.letzte - a.letzte; });
+    if (zustand.sort === "anzahl") zeilen.sort(function (a, b) { return b.n - a.n; });
+    if (zustand.sort === "quote") zeilen.sort(function (a, b) { return (a.quote || 0) - (b.quote || 0); });
+    s += '<div class="el-box"><h3>Tendenzen je Skill</h3><div class="el-knoepfe"><label>Sortieren <select data-el-wahl="sort">'
+      + [["trend", "schlechtester Trend"], ["quote", "niedrigste Quote"], ["zuletzt", "zuletzt geübt"], ["anzahl", "meiste Aufgaben"]].map(function (o) { return '<option value="' + o[0] + '"' + (zustand.sort === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("")
+      + '</select></label><label>Fach <select data-el-wahl="fach"><option value="">alle</option>' + faecher.map(function (f) { return '<option' + (zustand.fach === f ? " selected" : "") + ">" + h(f) + "</option>"; }).join("") + "</select></label></div>"
+      + '<table class="el-tab" data-testid="el-trends"><thead><tr><th>Skill</th><th>Mastery</th><th>Trend 7 T.</th><th>Trend 30 T.</th><th>Zuletzt</th><th>Aufgaben</th><th>Ø Dauer</th><th><span class="nur-vorlesen">Tendenz</span></th></tr></thead><tbody>';
+    var m = masteryJetzt();
+    zeilen.forEach(function (x) {
+      s += "<tr><td>" + h(titelVon(x.skill)) + '<br><span style="font-size:12px;color:var(--ink2)">' + h(x.fach) + "</span></td><td>" + (m[x.skill] != null ? m[x.skill] + " %" : quoteText(x.quote)) + "</td><td>" + trendText(x.trend7) + "</td><td>" + trendText(x.trend30)
+        + "</td><td>" + tagText(datum(x.letzte)) + "</td><td>" + x.n + "</td><td>" + x.oDauer + " s</td><td aria-label=\"" + ({ "↑": "verbessert", "↓": "verschlechtert", "→": "stabil", "⚠": "lange nicht geübt", "·": "zu wenig Daten" })[x.zeichen] + '" style="font-size:18px">' + x.zeichen + "</td></tr>";
+    });
+    return s + "</tbody></table>" + (zeilen.length ? "" : '<p style="color:var(--ink2)">Noch keine Aufgaben mit zugeordnetem Skill.</p>')
+      + '<p style="font-size:12.5px;color:var(--ink2);margin:8px 0 0">↑ verbessert · → stabil · ↓ verschlechtert · ⚠ über 14 Tage nicht geübt · Tendenzen erst ab 8 Aufgaben je Zeitraum.</p></div>';
+  }
+
+  function htmlTag(ev, name) {
+    var tg = zustand.tag || datum(Date.now()), t = tag(ev, tg);
+    var s = '<div class="el-knoepfe"><label>Tag <input type="date" data-el-wahl="tag" value="' + tg + '"></label></div>'
+      + '<p class="el-satz" data-testid="el-satz">' + h(zusammenfassung(t, name, titelVon)) + "</p>";
+    s += '<div class="el-box" data-testid="el-sitzungen"><h3>Lernsitzungen</h3>' + (t.sitzungen.length ? '<table class="el-tab"><thead><tr><th>Uhrzeit</th><th>Dauer</th><th>Fach</th><th>Skills</th><th>Aufgaben</th><th>Richtig</th></tr></thead><tbody>'
+      + t.sitzungen.map(function (x) { return "<tr><td>" + uhr(x.start) + "–" + uhr(x.ende) + "</td><td>" + x.minuten + " Min.</td><td>" + h(x.faecher.join(", ")) + "</td><td>" + h(x.skills.map(titelVon).join(", ") || "—") + "</td><td>" + x.n + "</td><td>" + quoteText(x.quote) + "</td></tr>"; }).join("")
+      + "</tbody></table>" : '<p style="margin:0;color:var(--ink2)">An diesem Tag wurde nicht gelernt.</p>') + "</div>";
+    s += '<div class="el-box" data-testid="el-fehler"><h3>Fehler (' + t.fehler.length + ")</h3>" + (t.fehler.length ? '<table class="el-tab"><thead><tr><th>Zeit</th><th>Aufgabe</th><th>Gegeben</th><th>Richtig</th><th>Skill</th></tr></thead><tbody>'
+      + t.fehler.map(function (x) { return "<tr><td>" + uhr(x.t) + "</td><td>" + h(x.q || "—") + "</td><td>" + h(x.g || "—") + "</td><td>" + h(x.r || "—") + "</td><td>" + h(x.s ? titelVon(x.s) : x.f) + "</td></tr>"; }).join("")
+      + "</tbody></table>" : '<p style="margin:0;color:var(--ink2)">Keine Fehler.</p>') + "</div>";
+    return s;
+  }
+
+  function htmlWoche(ev) {
+    var mo = zustand.woche || montag(Date.now()), w = woche(ev, mo);
+    var s = '<div class="el-knoepfe"><button class="btn" data-el="woche-zurueck">← Vorwoche</button><span style="align-self:center;font-weight:700">Woche ab ' + tagText(mo)
+      + '</span><button class="btn" data-el="woche-vor">Nächste Woche →</button></div>';
+    s += '<div class="el-box"><table class="el-tab" data-testid="el-woche"><thead><tr><th>Fach</th>' + w.tage.map(function (tg) { return "<th>" + tagText(tg) + "</th>"; }).join("") + "<th>Summe</th></tr></thead><tbody>";
+    if (!w.raster.length) s += '<tr><td colspan="9" style="color:var(--ink2)">In dieser Woche wurde nicht gelernt.</td></tr>';
+    w.raster.forEach(function (r, i) {
+      s += "<tr><th>" + h(r.f) + "</th>" + r.tage.map(function (z, j) {
+        return '<td><button class="el-zelle ' + zellKlasse(z) + '" data-el-tag="' + w.tage[j] + '" aria-label="' + h(r.f) + ", " + tagText(w.tage[j]) + ": " + z.minuten + " Minuten, " + quoteText(z.quote) + '">'
+          + (z.n ? z.minuten + " Min.<br>" + quoteText(z.quote) : "—") + "</button></td>";
+      }).join("") + "<td><b>" + w.summeFach[i].minuten + " Min.</b></td></tr>";
+    });
+    s += "<tr><th>Summe</th>" + w.summeTag.map(function (m) { return "<td><b>" + m + " Min.</b></td>"; }).join("") + "<td></td></tr></tbody></table>";
+    s += '<p style="margin:10px 0 0;color:var(--ink2)">Richtig diese Woche: <b>' + quoteText(w.quote) + "</b>" + (w.vergleichPP != null ? " · " + (w.vergleichPP >= 0 ? "+" : "") + w.vergleichPP + " Prozentpunkte zur Vorwoche" : " · kein Vergleich (Vorwoche ohne Aufgaben)")
+      + ". Zellen: grün ab 80 %, gelb ab 55 %, rot darunter; Tipp auf eine Zelle öffnet den Tag.</p></div>";
+    return s;
+  }
+
+  function htmlMonat(ev) {
+    var jetzt = new Date(), jm = zustand.monat || [jetzt.getFullYear(), jetzt.getMonth() + 1];
+    var m = monat(ev, jm[0], jm[1]);
+    var start = new Date(jm[0], jm[1] - 1, 1).getTime() - 1, ende = Math.min(Date.now(), new Date(jm[0], jm[1], 1).getTime() - 1);
+    var neuGemeistert = [], verloren = [];
+    m.skills.forEach(function (sk) { var a = masteryAm(sk, start), b = masteryAm(sk, ende); if (a < 75 && b >= 75) neuGemeistert.push(sk); if (a >= 75 && b < 75) verloren.push(sk); });
+    var max = Math.max.apply(null, m.heat.map(function (x) { return x.minuten; }).concat([1]));
+    var versatz = (new Date(jm[0], jm[1] - 1, 1).getDay() + 6) % 7;
+    var s = '<div class="el-knoepfe"><button class="btn" data-el="monat-zurueck">← Vormonat</button><span style="align-self:center;font-weight:700">'
+      + new Date(jm[0], jm[1] - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" }) + '</span><button class="btn" data-el="monat-vor">Nächster Monat →</button></div>';
+    s += '<div class="el-box"><h3>Lernminuten je Tag</h3><div class="el-heat" data-testid="el-heat">' + ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(function (d) { return '<span style="font-size:12px;color:var(--ink2);text-align:center">' + d + "</span>"; }).join("")
+      + new Array(versatz + 1).join("<span></span>")
+      + m.heat.map(function (x) {
+        var stufe = !x.minuten ? 0 : x.minuten < max / 3 ? 1 : x.minuten < (2 * max) / 3 ? 2 : 3;
+        return '<button class="el-h' + stufe + '" data-el-tag="' + x.tag + '" aria-label="' + tagText(x.tag) + ": " + x.minuten + ' Minuten">' + Number(x.tag.slice(8)) + "</button>";
+      }).join("") + "</div></div>";
+    s += '<div class="el-box"><h3>Verlauf je Fach (Trefferquote)</h3>' + (m.verlauf.length ? m.verlauf.map(function (v) {
+      var pkt = v.punkte.map(function (q, i) { return q == null ? null : [i * 10, 60 - q * 0.6]; }).filter(Boolean);
+      return '<div style="display:flex;align-items:center;gap:10px;margin:6px 0"><span style="width:110px">' + h(v.f) + '</span><svg width="310" height="64" viewBox="-4 -4 310 68" role="img" aria-label="' + h(v.f) + ' Trefferquote im Monat">'
+        + '<polyline fill="none" stroke="var(--brand)" stroke-width="2.5" points="' + pkt.map(function (p) { return p.join(","); }).join(" ") + '"/>'
+        + pkt.map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3" fill="var(--brand)"/>'; }).join("") + "</svg></div>";
+    }).join("") : '<p style="margin:0;color:var(--ink2)">In diesem Monat wurde nicht gelernt.</p>') + "</div>";
+    s += '<div class="el-karten"><div><b>' + m.skills.length + '</b><span>Skills bearbeitet</span></div><div><b>' + neuGemeistert.length + '</b><span>neu gemeistert' + (neuGemeistert.length ? ": " + h(neuGemeistert.map(titelVon).join(", ")) : "") + "</span></div>"
+      + '<div><b>' + verloren.length + '</b><span>Sicherheit verloren' + (verloren.length ? ": " + h(verloren.map(titelVon).join(", ")) : "") + "</span></div></div>";
+    return s;
+  }
+
+  function bericht(ev, name) {
+    var jetzt = Date.now(), w = woche(ev, montag(jetzt)), tr = trends(ev, jetzt), l = listen(tr, masteryJetzt());
+    var wmin = w.summeTag.reduce(function (a, b) { return a + b; }, 0), n = w.raster.reduce(function (a, r) { return a + r.tage.reduce(function (b, z) { return b + z.n; }, 0); }, 0);
+    var besser = tr.filter(function (x) { return x.zeichen === "↑"; }).slice(0, 3), schlechter = tr.filter(function (x) { return x.zeichen === "↓"; }).slice(0, 3);
+    var baustellen = l.brauchtUebung.slice(0, 3);
+    var empfehlung = baustellen.length ? "Übt diese Woche vor allem „" + titelVon(baustellen[0].skill) + "“ — im Lernpfad die passende Station mit „Geführt üben“, jeden Tag ein paar Minuten."
+      : "Weiter so: jeden Tag der Plan unter „Heute“ reicht.";
+    return { titel: "Wochenbericht für " + name + " · Woche ab " + tagText(montag(jetzt)),
+      zeilen: [
+        "Gelernt: " + wmin + " Minuten, " + n + " Aufgaben, " + quoteText(w.quote) + " richtig" + (w.vergleichPP != null ? " (" + (w.vergleichPP >= 0 ? "+" : "") + w.vergleichPP + " Pkt. zur Vorwoche)" : "") + ".",
+        "Verbessert: " + (besser.length ? besser.map(function (x) { return titelVon(x.skill); }).join(", ") : "—"),
+        "Verschlechtert: " + (schlechter.length ? schlechter.map(function (x) { return titelVon(x.skill); }).join(", ") : "—"),
+        "Größte Baustellen: " + (baustellen.length ? baustellen.map(function (x) { return titelVon(x.skill) + " (" + quoteText(x.quote) + ")"; }).join(", ") : "—"),
+        "Empfehlung: " + empfehlung
+      ] };
+  }
+  function htmlBericht(ev, name) {
+    var b = bericht(ev, name);
+    return '<div class="el-knoepfe"><button class="btn btn-primary" data-el="drucken">🖨️ Drucken</button><button class="btn" data-el="kopieren">📋 Als Text kopieren</button></div>'
+      + '<div class="el-box el-bericht" data-testid="el-bericht"><h3>' + h(b.titel) + "</h3><ul style=\"margin:0;padding-left:18px;line-height:1.8\">" + b.zeilen.map(function (z) { return "<li>" + h(z) + "</li>"; }).join("") + "</ul></div>"
+      + htmlWoche(ev);
+  }
+
+  var REITER = [["uebersicht", "Übersicht"], ["tag", "Tag"], ["woche", "Woche"], ["monat", "Monat"], ["bericht", "Wochenbericht"]];
+  function htmlDashboard() {
+    var p = profil(), ev = ereignisse(), name = p ? p.name : "";
+    var s = '<div class="el"><button class="back" data-el="zurueck">← Eltern</button><h2 class="hb-titel">📈 Eltern-Überblick · ' + h(name) + "</h2>"
+      + '<div class="el-reiter" role="tablist">' + REITER.map(function (r) {
+        return '<button role="tab" aria-selected="' + (zustand.ansicht === r[0]) + '" class="' + (zustand.ansicht === r[0] ? "an" : "") + '" data-el-ansicht="' + r[0] + '">' + r[1] + "</button>";
+      }).join("") + "</div>"
+      /* CSV nicht in der Reiterleiste — ein tablist darf nur Reiter enthalten (axe). */
+      + '<div class="el-knoepfe"><button class="btn" data-el="csv">⬇️ Rohdaten als CSV</button></div>';
+    if (!ev.length) s += '<div class="el-box"><p style="margin:0">Noch keine Aufgaben aufgezeichnet. Sobald ' + h(name) + " übt, erscheint hier, was, wie lange und wie gut gelernt wurde.</p></div>";
+    if (zustand.ansicht === "uebersicht") s += htmlUebersicht(ev, name);
+    if (zustand.ansicht === "tag") s += htmlTag(ev, name);
+    if (zustand.ansicht === "woche") s += htmlWoche(ev);
+    if (zustand.ansicht === "monat") s += htmlMonat(ev);
+    if (zustand.ansicht === "bericht") s += htmlBericht(ev, name);
+    return s + "</div>";
+  }
+
+  function csvSpeichern() {
+    var p = profil(), inhalt = "﻿" + csv(ereignisse());
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([inhalt], { type: "text/csv;charset=utf-8" }));
+    a.download = "lernplattform-ereignisse-" + (p ? p.name : "profil").replace(/[^\wÄÖÜäöüß]+/g, "-") + "-" + datum(Date.now()) + ".csv";
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1000);
+  }
+
+  /* ---------- Routing ---------- */
+  var renderVorher = render;
+  var renderNeu = function () {
+    var p = profil();
+    if (p && p.type !== "baby" && kstate.tab === "eltern-dashboard" && !(typeof showProfiles !== "undefined" && showProfiles)) {
+      stil();
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) view.innerHTML = htmlDashboard();
+      return;
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+
+  function oeffnen() {
+    var schutz = window.__PROFILSCHUTZ;
+    (schutz && schutz.elternOk ? schutz.elternOk("Der Eltern-Überblick ist mit der Eltern-PIN geschützt.") : Promise.resolve(true)).then(function (ok) {
+      if (!ok) return;
+      zustand.ansicht = "uebersicht";
+      kstate.tab = "eltern-dashboard";
+      neu();
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    if (kstate.tab !== "eltern-dashboard") return;
+    var t = e.target && e.target.closest ? e.target.closest("[data-el],[data-el-ansicht],[data-el-tag]") : null;
+    if (!t) return;
+    e.stopPropagation();
+    var a;
+    if ((a = t.getAttribute("data-el-ansicht"))) { zustand.ansicht = a; return neu(); }
+    if ((a = t.getAttribute("data-el-tag"))) { zustand.tag = a; zustand.ansicht = "tag"; return neu(); }
+    a = t.getAttribute("data-el");
+    var tagMs = 86400000;
+    if (a === "zurueck") { kstate.tab = "hub-eltern"; return neu(); }
+    if (a === "csv") return csvSpeichern();
+    if (a === "woche-zurueck" || a === "woche-vor") {
+      var mo = new Date((zustand.woche || montag(Date.now())) + "T12:00:00").getTime();
+      zustand.woche = datum(mo + (a === "woche-vor" ? 7 : -7) * tagMs); return neu();
+    }
+    if (a === "monat-zurueck" || a === "monat-vor") {
+      var j = new Date(), jm = zustand.monat || [j.getFullYear(), j.getMonth() + 1];
+      var d = new Date(jm[0], jm[1] - 1 + (a === "monat-vor" ? 1 : -1), 1);
+      zustand.monat = [d.getFullYear(), d.getMonth() + 1]; return neu();
+    }
+    if (a === "drucken") {
+      document.body.classList.add("el-druck");
+      try { window.print(); } catch (x) {}
+      setTimeout(function () { document.body.classList.remove("el-druck"); }, 500);
+      return;
+    }
+    if (a === "kopieren") {
+      var p = profil(), b = bericht(ereignisse(), p ? p.name : "");
+      var text = b.titel + "\n\n" + b.zeilen.map(function (z) { return "• " + z; }).join("\n");
+      try { navigator.clipboard.writeText(text); t.textContent = "✔ Kopiert"; } catch (x) {}
+      return;
+    }
+  }, true);
+  document.addEventListener("change", function (e) {
+    if (kstate.tab !== "eltern-dashboard") return;
+    var w = e.target && e.target.getAttribute ? e.target.getAttribute("data-el-wahl") : null;
+    if (!w) return;
+    if (w === "tag") zustand.tag = e.target.value || null;
+    if (w === "sort") zustand.sort = e.target.value;
+    if (w === "fach") zustand.fach = e.target.value;
+    neu();
+  }, true);
+
+  window.__ELTERN = { oeffnen: oeffnen, ereignisse: ereignisse, hinzufuegen: hinzufuegen, serie: function () { return serie(ereignisse(), Date.now()); } };
 })();
 
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
@@ -44509,7 +45168,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 08:36")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 08:51")}}catch(e){}
 })();
 
 </script>
