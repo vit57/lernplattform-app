@@ -577,7 +577,7 @@ html[data-theme] .m137-modes button.on, html[data-theme] .k46-modes button.on { 
 
 const ZEITEN = 'egl-zeiten';
 /** Gerätebezogen — wird weder abgeglichen noch überschrieben. */
-const NUR_LOKAL = ['egl-cur', 'egl-tab', 'egl-editmode', 'egl-sync', 'egl-sync-rollback', 'egl-darstellung', ZEITEN];
+const NUR_LOKAL = ['egl-cur', 'egl-tab', 'egl-editmode', 'egl-sync', 'egl-sync-rollback', 'egl-darstellung', 'egl-schema', ZEITEN];
 const istLokal = (k) => NUR_LOKAL.includes(k);
 /* Geräteunabhängig vergleichen — localeCompare hinge von der Spracheinstellung
    ab, und zwei verschieden eingestellte Geräte sortierten dann verschieden
@@ -39723,6 +39723,177 @@ try{
 (function(){
 if(typeof render!=="function")return;
 
+// @ts-check
+/**
+ * Speicherschicht (AUFTRAG-v2.md §4.4, M5) — reine Funktionen.
+ *
+ * Schema egl-v2: EINE strukturierte Sicht über alle egl-*-Schlüssel —
+ *
+ *   { schemaVersion: 2,
+ *     profile:  [...],                               egl-profiles
+ *     jeProfil: { <p>: { lernpfad, tagesplan, ereignisse, textrotation,
+ *                        m127, v17, uni, fc, fcstreak, fchide, mywords-<lang> } },
+ *     mastery:  { <p>: { <skill>: { v, h } } },      aus lernpfad.m (Sicht)
+ *     schutz, engine: { egl-pdata, … }, geraet: { egl-cur, … },
+ *     abgleich: { egl-zeiten, … }, sonstige: { unbekannte egl-* },
+ *     quelle:   { <schlüssel>: { roh? } } }
+ *
+ * Warum eine Sicht und keine zweite Ablage: Die eingefrorene Engine liest
+ * und schreibt ihre Schlüssel selbst; sie bleiben deshalb die gelebte
+ * Ablage. Eine vollständige Kopie unter egl-v2 verdoppelte den Speicher —
+ * mit den Ereignis-Logs sprengte das auf dem iPad das localStorage-Limit
+ * (~5 MB). Die Migration schreibt nur eine kleine Marke mit Protokoll; die
+ * Altschlüssel bleiben unangetastet — das ist der Rückweg.
+ *
+ * `zurueck(lesen(x))` ergibt x byte-gleich (Werte, deren JSON-Form nicht
+ * kanonisch ist, behält `quelle` roh). `pruefeDaten` benennt kaputte Werte,
+ * bevor eine Sicherung eingespielt wird.
+ */
+
+const SCHEMA_VERSION = 2;
+const MARKE = 'egl-schema';
+
+/** Feste Schlüssel → Bereich und erwartete Form. */
+const FEST = {
+  'egl-profiles': ['profile', 'profile'],
+  'egl-schutz': ['schutz', 'objekt'],
+  'egl-cur': ['geraet', 'text'], 'egl-tab': ['geraet', 'text'], 'egl-editmode': ['geraet', 'text'],
+  'egl-darstellung': ['geraet', 'objekt'], [MARKE]: ['geraet', 'objekt'],
+  'egl-zeiten': ['abgleich', 'objekt'], 'egl-sync': ['abgleich', 'objekt'], 'egl-sync-rollback': ['abgleich', 'objekt'],
+  'egl-pdata': ['engine', 'objekt'], 'egl-progress': ['engine', 'json'], 'egl-grades': ['engine', 'json'],
+  'egl-stats': ['engine', 'json'], 'egl-vocab-custom': ['engine', 'json'], 'egl-m139types': ['engine', 'json'],
+};
+/** Schlüssel je Profil: Präfix → Teil und Form. Längste Präfixe zuerst (fcstreak vor fc). */
+const JE_PROFIL = [
+  ['egl-textrotation-', 'textrotation', 'objekt'], ['egl-ereignisse-', 'ereignisse', 'liste'],
+  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'],
+  ['egl-fcstreak-', 'fcstreak', 'json'], ['egl-mywords-', 'mywords', 'json'], ['egl-fchide-', 'fchide', 'json'],
+  ['egl-m127-', 'm127', 'json'], ['egl-v17-', 'v17', 'json'], ['egl-uni-', 'uni', 'json'], ['egl-fc-', 'fc', 'json'],
+];
+
+/**
+ * @param {string} k
+ * @returns {{ bereich: string, typ: string, profil?: string, teil?: string } | null}
+ */
+function familie(k) {
+  if (FEST[k]) return { bereich: FEST[k][0], typ: FEST[k][1] };
+  for (const [praefix, teil, typ] of JE_PROFIL) {
+    if (!k.startsWith(praefix) || k.length === praefix.length) continue;
+    let rest = k.slice(praefix.length), t = teil;
+    if (teil === 'mywords') {           /* egl-mywords-<profil>-<sprache> */
+      const i = rest.lastIndexOf('-');
+      if (i <= 0) return null;
+      t = 'mywords-' + rest.slice(i + 1); rest = rest.slice(0, i);
+    }
+    return { bereich: 'profil', profil: rest, teil: t, typ };
+  }
+  return null;
+}
+
+function parse(roh) {
+  try { return { ok: true, wert: JSON.parse(roh) }; } catch (e) { return { ok: false, wert: roh }; }
+}
+const vergleiche = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * @param {Record<string, string>} daten Schlüssel → gespeicherter Text
+ */
+function lesen(daten) {
+  const v2 = { schemaVersion: SCHEMA_VERSION, profile: [], jeProfil: {}, mastery: {}, schutz: null, engine: {}, geraet: {}, abgleich: {}, sonstige: {}, quelle: {} };
+  const protokoll = { uebernommen: 0, jeBereich: {}, unbekannt: [], fremd: [] };
+  for (const k of Object.keys(daten).sort(vergleiche)) {
+    if (!k.startsWith('egl-')) { protokoll.fremd.push(k); continue; }
+    const roh = String(daten[k]), p = parse(roh);
+    v2.quelle[k] = p.ok && JSON.stringify(p.wert) === roh ? {} : { roh };
+    const f = familie(k);
+    const bereich = f ? f.bereich : 'sonstige';
+    if (k !== MARKE) { protokoll.uebernommen++; protokoll.jeBereich[bereich] = (protokoll.jeBereich[bereich] || 0) + 1; }
+    if (!f) { protokoll.unbekannt.push(k); v2.sonstige[k] = p.wert; continue; }
+    if (f.bereich === 'profile') v2.profile = Array.isArray(p.wert) ? p.wert : [];
+    else if (f.bereich === 'schutz') v2.schutz = p.wert;
+    else if (f.bereich === 'profil') {
+      const jp = v2.jeProfil[f.profil] || (v2.jeProfil[f.profil] = {});
+      jp[f.teil] = p.wert;
+      if (f.teil === 'lernpfad' && p.wert && typeof p.wert === 'object' && p.wert.m) v2.mastery[f.profil] = p.wert.m;
+    } else v2[f.bereich][k] = p.wert;
+  }
+  return { v2, protokoll };
+}
+
+/**
+ * Rückweg: die Sicht zurück in Schlüssel — byte-gleich zum Gelesenen.
+ * @param {any} v2
+ * @returns {Record<string, string>}
+ */
+function zurueck(v2) {
+  const out = {};
+  for (const k of Object.keys(v2.quelle || {})) {
+    const f = familie(k), q = v2.quelle[k];
+    let wert;
+    if (!f) wert = v2.sonstige[k];
+    else if (f.bereich === 'profile') wert = v2.profile;
+    else if (f.bereich === 'schutz') wert = v2.schutz;
+    else if (f.bereich === 'profil') wert = (v2.jeProfil[f.profil] || {})[f.teil];
+    else wert = v2[f.bereich][k];
+    out[k] = q && q.roh != null ? q.roh : JSON.stringify(wert);
+  }
+  return out;
+}
+
+/**
+ * Kaputte Werte benennen, bevor sie eingespielt werden.
+ * @param {Record<string, string>} daten
+ * @returns {{ schluessel: string, grund: string }[]}
+ */
+function pruefeDaten(daten) {
+  const befunde = [];
+  const typ = (w) => (Array.isArray(w) ? 'liste' : w === null ? 'null' : typeof w);
+  if (!('egl-profiles' in daten)) befunde.push({ schluessel: 'egl-profiles', grund: 'Profile fehlen' });
+  for (const k of Object.keys(daten).sort(vergleiche)) {
+    const f = familie(k);
+    if (!f || f.typ === 'text') continue;
+    const p = parse(String(daten[k]));
+    if (!p.ok) { befunde.push({ schluessel: k, grund: 'kein gültiges JSON' }); continue; }
+    const w = p.wert;
+    if (f.typ === 'objekt' && typ(w) !== 'object') befunde.push({ schluessel: k, grund: 'erwartet ein Objekt, gefunden: ' + typ(w) });
+    else if (f.typ === 'liste' && typ(w) !== 'liste') befunde.push({ schluessel: k, grund: 'erwartet eine Liste, gefunden: ' + typ(w) });
+    else if (f.typ === 'profile') {
+      if (typ(w) !== 'liste') befunde.push({ schluessel: k, grund: 'erwartet eine Liste von Profilen' });
+      else if (w.some((x) => !x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id)) befunde.push({ schluessel: k, grund: 'ein Profil hat keine Kennung' });
+    }
+  }
+  return befunde;
+}
+
+/** Profile mit dem, was zu ihnen gespeichert ist — für den Einspiel-Dialog. @param {any} v2 */
+function uebersicht(v2) {
+  return (v2.profile || []).map((p) => {
+    const jp = v2.jeProfil[p.id] || {};
+    return {
+      id: p.id, name: p.name || '', typ: p.type || '',
+      ereignisse: Array.isArray(jp.ereignisse) ? jp.ereignisse.length : 0,
+      lernpfad: v2.mastery[p.id] ? Object.keys(v2.mastery[p.id]).length : 0,
+      teile: Object.keys(jp).length,
+    };
+  });
+}
+
+/**
+ * Migration beim Start: idempotent, schreibt nur die Marke mit Protokoll.
+ * @param {Record<string, string>} daten
+ * @param {number} jetzt
+ * @returns {{ neu: boolean, schreiben: Record<string, string> }}
+ */
+function migriere(daten, jetzt) {
+  const alt = daten[MARKE] != null ? parse(String(daten[MARKE])) : null;
+  if (alt && alt.ok && alt.wert && alt.wert.schemaVersion === SCHEMA_VERSION) return { neu: false, schreiben: {} };
+  const { protokoll } = lesen(daten);
+  const marke = { schemaVersion: SCHEMA_VERSION, am: jetzt, uebernommen: protokoll.uebernommen, jeBereich: protokoll.jeBereich,
+    unbekannt: protokoll.unbekannt, befunde: pruefeDaten(daten).length };
+  return { neu: true, schreiben: { [MARKE]: JSON.stringify(marke) } };
+}
+
+
 var PRAEFIX="egl-";
 var CFG="egl-sync";
 var ROLLBACK="egl-sync-rollback";
@@ -39741,7 +39912,7 @@ function schluessel(){
     var k=localStorage.key(i);
     /* Die Abgleich-Einstellungen enthalten den Familien-Code — der
        gehört weder in eine Sicherungsdatei noch auf den Server. */
-    if(k&&k.indexOf(PRAEFIX)===0&&k!==ROLLBACK&&k!==CFG)out.push(k);
+    if(k&&k.indexOf(PRAEFIX)===0&&k!==ROLLBACK&&k!==CFG&&k!==MARKE)out.push(k);
   }}catch(e){}
   return out.sort();
 }
@@ -39757,10 +39928,13 @@ function sammeln(){
   festschreiben();
   var d={};
   schluessel().forEach(function(k){try{d[k]=localStorage.getItem(k)}catch(e){}});
+  /* M5: Format 2 — versioniert (Schema egl-v2), mit Übersicht der Profile.
+     Die Daten bleiben die Schlüssel selbst, damit der Rückweg exakt ist. */
+  var profile=[];try{profile=uebersicht(lesen(d).v2)}catch(e){}
   return {
-    meta:{app:"lernplattform",format:1,
+    meta:{app:"lernplattform",format:2,schemaVersion:SCHEMA_VERSION,
           version:(window.__INHALT&&window.__INHALT.stand&&window.__INHALT.stand.version)||"?",
-          geraet:geraetName(),gespeichert:new Date().toISOString()},
+          geraet:geraetName(),gespeichert:new Date().toISOString(),profile:profile},
     daten:d
   };
 }
@@ -39778,7 +39952,19 @@ function pruefePaket(p){
   if(!n)return "Die Sicherung ist leer.";
   var fremd=Object.keys(p.daten).filter(function(k){return k.indexOf(PRAEFIX)!==0});
   if(fremd.length)return "Die Sicherung enthält fremde Einträge ("+fremd[0]+").";
+  /* M5: Format und Werte prüfen, bevor irgendetwas geschrieben wird. */
+  if(p.meta.format>2)return "Diese Sicherung stammt aus einer neueren Fassung der App. Bitte die Seite neu laden und es noch einmal versuchen.";
+  var b=pruefeDaten(p.daten);
+  if(b.length)return "Die Sicherung ist beschädigt — „"+b[0].schluessel+"“: "+b[0].grund+(b.length>1?" (und "+(b.length-1)+" weitere)":"")+". Es wurde nichts verändert.";
   return null;
+}
+/* Wer steckt in der Sicherung? Für die Rückfrage vor dem Einspielen. */
+function inhaltText(p){
+  try{
+    var u=uebersicht(lesen(p.daten).v2);
+    if(!u.length)return "";
+    return "\n\nEnthält: "+u.map(function(x){return x.name+(x.typ==="kid"?" (Kind":" (Erwachsen")+(x.ereignisse?", "+x.ereignisse+" Aufgaben im Verlauf":"")+")"}).join(", ")+".";
+  }catch(e){return ""}
 }
 function einspielen(p,rollbackAnlegen){
   var fehler=pruefePaket(p);
@@ -39885,7 +40071,7 @@ function herunterladen(){
       if(fehler)throw new Error(fehler);
       var wann=p.meta.gespeichert?new Date(p.meta.gespeichert).toLocaleString("de-DE"):"unbekannt";
       var text="Gespeicherter Stand vom "+wann+" von „"+(p.meta.geraet||"?")+"“ mit "
-        +Object.keys(p.daten).length+" Einträgen.\n\nDer Fortschritt auf DIESEM Gerät wird dadurch ersetzt. "
+        +Object.keys(p.daten).length+" Einträgen."+inhaltText(p)+"\n\nDer Fortschritt auf DIESEM Gerät wird dadurch ersetzt. "
         +"Der jetzige Stand wird vorher als Rücksprung gesichert.\n\nWirklich einspielen?";
       if(!window.confirm(text))return;
       var f=einspielen(p,true);
@@ -40130,7 +40316,7 @@ document.addEventListener("change",function(e){
     var fehler=pruefePaket(p);
     if(fehler)return melden(fehler,true);
     var text="Sicherung vom "+wann(p.meta.gespeichert)+" („"+(p.meta.geraet||"?")+"“) mit "
-      +Object.keys(p.daten).length+" Einträgen.\n\nDer Fortschritt auf diesem Gerät wird ersetzt. "
+      +Object.keys(p.daten).length+" Einträgen."+inhaltText(p)+"\n\nDer Fortschritt auf diesem Gerät wird ersetzt. "
       +"Der jetzige Stand wird vorher als Rücksprung gesichert.\n\nWirklich einspielen?";
     if(!window.confirm(text))return;
     var f=einspielen(p,true);
@@ -40169,6 +40355,26 @@ render=window.render=function(){
 };
 
 try{window.__SYNC={sammeln:sammeln,einspielen:einspielen,pruefePaket:pruefePaket,cfg:cfg,abgleichEinlesen:abgleichEinlesen}}catch(e){}
+
+/* ---------- M5: Speicherschicht (app/kern/speicher.js) ----------
+   Beim Start einmal migrieren: Das Schema egl-v2 ist eine Sicht über die
+   egl-*-Schlüssel; geschrieben wird nur die Marke egl-schema mit Protokoll,
+   die Altschlüssel bleiben unangetastet (Rückweg). */
+function alleDaten(){
+  var d={};
+  try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf(PRAEFIX)===0&&k!==ROLLBACK)d[k]=localStorage.getItem(k)}}catch(e){}
+  return d;
+}
+try{
+  var mig=migriere(alleDaten(),Date.now());
+  Object.keys(mig.schreiben).forEach(function(k){localStorage.setItem(k,mig.schreiben[k])});
+}catch(e){}
+try{window.__SPEICHER={
+  v2:function(){return lesen(alleDaten()).v2},
+  protokoll:function(){try{return JSON.parse(localStorage.getItem(MARKE)||"null")}catch(e){return null}},
+  pruefe:pruefeDaten,uebersicht:function(){return uebersicht(lesen(alleDaten()).v2)},
+  zurueck:zurueck,SCHEMA_VERSION:SCHEMA_VERSION
+}}catch(e){}
 
 /* Nach einem Abgleich (Neuladen) direkt wieder auf dieser Seite landen,
    damit Bericht und „Abgeglichene Datei speichern“ sichtbar sind. */
@@ -46045,7 +46251,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 09:37")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 09:45")}}catch(e){}
 })();
 
 </script>
