@@ -44665,8 +44665,12 @@ function tagVon(d) {
     /* Nach einem Fachwechsel auf der Bereichsseite springt die Engine auf
        ihre Startseite (kstate.tab = "m132home") — dann bleibt die
        Bereichsseite stehen, mit dem neuen Fach. */
-    if (nachFachwechsel && kstate.tab === "m132home") { kstate.tab = nachFachwechsel; }
-    nachFachwechsel = null;
+    /* Bei Erwachsenen zeichnet die Engine beim Fachwechsel ZWEIMAL — erst mit
+       der Bereichsseite, dann mit ihrer Startseite. Die Merkung gilt deshalb
+       für die Dauer des Wechsels (ein Zeitfenster), nicht nur für das erste
+       Zeichnen. */
+    if (nachFachwechsel && Date.now() > nachFachwechsel.bis) nachFachwechsel = null;
+    if (nachFachwechsel && kstate.tab === "m132home") { kstate.tab = nachFachwechsel.tab; nachFachwechsel = null; }
     var p = profil(), t = String(kstate.tab || "");
     if (p && !picker() && p.type !== "baby" && t.indexOf("hub-") === 0) {
       try { renderTabs(); } catch (e) {}
@@ -44714,7 +44718,7 @@ function tagVon(d) {
     if (fach) {
       /* Die Engine springt beim Fachwechsel auf ihre Startseite — danach
          zurück auf die Bereichsseite. */
-      nachFachwechsel = kstate.tab;
+      nachFachwechsel = { tab: kstate.tab, bis: Date.now() + 1000 };
       return;
     }
     var el = t.closest("[data-eltern]");
@@ -45392,6 +45396,16 @@ function woranEsHakt(ereignisse) {
       }).join("") + "</ul>" : '<p style="margin:0;color:var(--ink2)">Keine Fehler in diesem Zeitraum.</p>') + "</div>";
   }
 
+  /* Übungen ohne Wertung (p67, M3.6): nie als Lücke zeigen — „wird nicht
+     gemessen“ heißt nicht „nicht geübt“. */
+  function htmlOhneWertung() {
+    var ow = window.__OHNE_WERTUNG || [];
+    if (!ow.length) return "";
+    return '<div class="el-box" data-testid="el-ohne-wertung"><h3>ℹ️ Übungen ohne Wertung</h3><p style="margin:0;color:var(--ink2)">'
+      + h(ow.map(function (x) { return x.was.split(" — ")[0]; }).join(", "))
+      + " " + (ow.length === 1 ? "wird" : "werden") + " nicht gemessen. Fehlt dazu eine Zahl, heißt das „nicht messbar“ — nicht „nicht geübt“.</p></div>";
+  }
+
   function htmlUebersicht(ev, name) {
     var jetzt = Date.now(), heute = tag(ev, datum(jetzt)), w = woche(ev, montag(jetzt));
     var tr = trends(ev, jetzt), l = listen(tr, masteryJetzt());
@@ -45407,6 +45421,7 @@ function woranEsHakt(ereignisse) {
     };
     s += '<div class="el-listen">' + liste("🎯 Braucht Übung", "uebung", l.brauchtUebung) + liste("🛠️ In Arbeit", "arbeit", l.inArbeit) + liste("✅ Sitzt", "sitzt", l.sitzt) + "</div>";
     s += htmlHakt(ev, 30);
+    s += htmlOhneWertung();
     var faecher = Array.from(new Set(tr.map(function (x) { return x.fach; }))).sort();
     var zeilen = tr.filter(function (x) { return !zustand.fach || x.fach === zustand.fach; }).slice();
     if (zustand.sort === "zuletzt") zeilen.sort(function (a, b) { return b.letzte - a.letzte; });
@@ -45623,7 +45638,8 @@ function woranEsHakt(ereignisse) {
      in jedem Seitenkopf, mal links, mal rechts. Ein Fortschritt „1 / 10“
      im Abzeichen bleibt stehen, nur der Stern-Teil fällt weg.
    * Technische Reste im Text: Versionsnummer im Titel („Übungswelt 1.24“),
-     Stufenkennung in der Aufgabenmarke („… · low“).
+     Stufenkennung in der Aufgabenmarke („… · low“), der Typname „daily“
+     als Titel der Aufgabe des Tages.
    * Stufenwahl bei Diktat und Lesen: Karten wie überall, Farbe als Streifen
      aus den Tokens statt Ampel-Emojis.
    * Beschriftung für zwei Bedienelemente, die keine hatten (Lautstärke in
@@ -45657,6 +45673,14 @@ function woranEsHakt(ereignisse) {
       var rest = t.replace(STERN, "").trim();
       if (rest) { a.textContent = rest; a.classList.add("sx-fortschritt"); }
       else a.parentNode.removeChild(a);
+    }
+
+    /* Technische Namen im Titel („🧩 daily“ auf der Aufgabe des Tages) */
+    var ROH = { daily: "Aufgabe des Tages" };
+    var kopf = view.querySelectorAll(".kid-head h2");
+    for (var r = 0; r < kopf.length; r++) {
+      var tn = kopf[r].lastChild, m = tn && tn.nodeType === 3 && /^(\S+\s+)?([a-z]+)\s*$/.exec(tn.nodeValue);
+      if (m && ROH[m[2]]) tn.nodeValue = (m[1] || "") + ROH[m[2]];
     }
 
     /* Versionsnummer im Titel */
@@ -46251,7 +46275,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 09:45")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 27.09.2026 15:08")}}catch(e){}
 })();
 
 </script>
