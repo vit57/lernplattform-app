@@ -43595,6 +43595,28 @@ function stationen(skills, wahl) {
   return liste;
 }
 
+/**
+ * Themenpfad (M16): Wo der Skill-Graph grob ist — Sachfächer, Englisch und
+ * Studium der Erwachsenen —, wird jedes Thema eine Station. Die Themen
+ * werden zu Skills „thema:<id>“, damit stationen(), Mastery und Tagesplan
+ * sie wie jeden anderen Skill behandeln.
+ * @param {{ stufe: string, klasse: number, themen: { id?: string, title?: string, name?: string, ex?: any[] }[] }[]} gruppen
+ * @param {string} fach eindeutiger Fachname des Pfads, z. B. "Pfad:Biologie"
+ * @returns {Record<string, Skill & { masteryItems: number, thema: string }>}
+ */
+function themenSkills(gruppen, fach) {
+  const out = {};
+  for (const g of gruppen || []) for (const t of g.themen || []) {
+    if (!t || !t.id) continue;
+    const id = 'thema:' + t.id;
+    if (out[id]) continue;
+    const n = Array.isArray(t.ex) ? t.ex.length : 0;
+    out[id] = { titel: t.title || t.name || t.id, fach, stufe: g.stufe, klassenstufen: [String(g.klasse || 0)], voraussetzungen: [],
+      masteryItems: n ? Math.min(8, n) : 8, thema: t.id };
+  }
+  return out;
+}
+
 
   if (typeof kstate === "undefined" || typeof render !== "function" || typeof PROFILES === "undefined") return;
   var INHALT = window.__INHALT_DATEN;
@@ -43615,13 +43637,73 @@ function stationen(skills, wahl) {
       Object.keys(o).forEach(function (s) { geh(o[s], tiefe + 1); });
     })(INHALT[k], 0);
   });
+  /* ---------- M16: Themenpfade ----------
+     Wo der Skill-Graph grob ist, wird jedes Thema eine Station
+     (app/kern/lernpfad.js → themenSkills): die Sachfächer und Wissen der
+     Kinder, Englisch, Deutsch und Studium der Erwachsenen. Die Themen werden
+     als Skills „thema:<id>“ in SKILLS eingetragen — so gelten Mastery,
+     Tagesplan, Wiederholung und Eltern-Überblick ohne Sonderweg. */
+  var FACH_KERN = { de: 1, en: 1, math: 1 };
+  var THEMA = {}, PFADE = {};
+  var BANKFACH = { erdkunde: ["m127erd", "Erdkunde"], biologie: ["m127bio", "Biologie"], geschichte: ["m127ges", "Geschichte"],
+    musik: ["m127mus", "Musik"], chemie: ["m127che", "Chemie"], physik: ["m127phy", "Physik"] };
+  function ohneTags(x) { return String(x == null ? "" : x).replace(/<[^>]+>/g, ""); }
+  function uebersetzung(x, i, t) {
+    var a = Array.isArray(x.answers) ? x.answers : [];
+    return { t: "txt", q: "Übersetze: „" + ohneTags(x.de) + "“", a: a, why: a.length ? "Zum Beispiel: " + a[0] : "", id: x.id || (t.id + "-" + i), skill: "thema:" + t.id };
+  }
+  function themaMerken(t, uebersetzen) {
+    if (!t || !t.id || THEMA[t.id]) return;
+    var ex = uebersetzen ? (t.exercises || []).map(function (x, i) { return uebersetzung(x, i, t); }) : (t.ex || t.items || []);
+    THEMA[t.id] = {
+      id: t.id, title: t.title || t.name || t.id,
+      rules: (t.rules && t.rules.length ? t.rules : (t.intro ? [t.intro] : (t.lead ? [t.lead] : []))),
+      examples: (t.examples || []).map(function (e) { return e && e.en ? { q: e.en, a: e.de } : e; }),
+      ex: ex
+    };
+  }
+  function pfadAnlegen(su, fuer, titel, gruppen, uebersetzen) {
+    var fach = "Pfad:" + titel + (fuer === "erwachsen" ? " (Erwachsene)" : "");
+    gruppen.forEach(function (g) { (g.themen || []).forEach(function (t) { themaMerken(t, uebersetzen); }); });
+    var geordnet = gruppen.map(function (g) { return { stufe: g.stufe, klasse: g.klasse, themen: (g.themen || []).map(function (t) { return THEMA[t.id] || t; }) }; });
+    var sk = themenSkills(geordnet, fach);
+    Object.keys(sk).forEach(function (k) { if (!SKILLS[k]) SKILLS[k] = sk[k]; });
+    PFADE[su + "|" + fuer] = { fach: fach, titel: titel };
+  }
+  try {
+    var BANKS_ = INHALT.BANKS || {};
+    Object.keys(BANKFACH).forEach(function (su) {
+      var b = BANKS_[BANKFACH[su][0]], d = b && (b.data || b);
+      if (!d || !d.einstieg) return;
+      /* Stufen wie in der Engine beschriftet: Einstieg = Klasse 5–7, Abschluss = Klasse 8–10 */
+      pfadAnlegen(su, "kind", BANKFACH[su][1], [{ stufe: "Klasse 5–7", klasse: 5, themen: d.einstieg.topics || [] },
+        { stufe: "Klasse 8–10", klasse: 8, themen: (d.abschluss && d.abschluss.topics) || [] }]);
+    });
+    if (Array.isArray(INHALT.GK)) pfadAnlegen("wissen", "kind", "Allgemeinwissen", [{ stufe: "Wissen", klasse: 1, themen: INHALT.GK }]);
+    var SPR = INHALT.SPRACHTHEMEN;
+    if (SPR) pfadAnlegen("en", "erwachsen", "Englisch", Object.keys(SPR).map(function (lv) {
+      return { stufe: lv + (SPR[lv].label ? " · " + SPR[lv].label : ""), klasse: 0, themen: SPR[lv].topics || [] };
+    }), true);
+    try {
+      var DD = typeof FOREIGN_PACKS !== "undefined" && FOREIGN_PACKS.de && FOREIGN_PACKS.de.DATA;
+      if (DD) pfadAnlegen("de", "erwachsen", "Deutsch", Object.keys(DD).filter(function (lv) { return DD[lv] && Array.isArray(DD[lv].topics); }).map(function (lv) {
+        return { stufe: lv + (DD[lv].label ? " · " + DD[lv].label : ""), klasse: 0, themen: DD[lv].topics.filter(function (t) { return Array.isArray(t.exercises); }) };
+      }), true);
+    } catch (e) {}
+    if (Array.isArray(INHALT.UNI)) pfadAnlegen("studium", "erwachsen", "Studium", INHALT.UNI.map(function (f) {
+      return { stufe: f.name || f.id, klasse: 0, themen: f.topics || [] };
+    }));
+  } catch (e) {}
+
   function themenVon(skill) {
-    return ((SKILLS[skill] || {}).themen || []).map(function (id) { return THEMEN[id]; }).filter(Boolean);
+    var s = SKILLS[skill] || {};
+    if (s.thema) return THEMA[s.thema] ? [THEMA[s.thema]] : [];
+    return (s.themen || []).map(function (id) { return THEMEN[id]; }).filter(Boolean);
   }
   function aufgabenVon(skill) {
-    var out = [];
+    var out = [], s = SKILLS[skill] || {};
     themenVon(skill).forEach(function (t) {
-      t.ex.forEach(function (e) { if (TYPEN[e.t] && e.skill === skill && e.q) out.push(e); });
+      t.ex.forEach(function (e) { if (e && TYPEN[e.t] && e.q && (s.thema || e.skill === skill)) out.push(e); });
     });
     return out;
   }
@@ -43671,12 +43753,21 @@ function stationen(skills, wahl) {
   /* subjOf liegt in einem abgekapselten Bereich der Engine. Das Fach steht
      aber sichtbar in der Seitenleiste (markierter Fach-Knopf) und im
      gespeicherten Profilstand egl-m127-<Profil>. */
+  function istKindProfil() { var p = profil(); return !!(p && p.type === "kid"); }
+  /* Welcher Pfad gehört zu einem Fach-Kürzel — für das aktuelle Profil? */
+  function pfadFuer(su) {
+    if (!su) return null;
+    if (istKindProfil()) return FACH_KERN[su] ? { fach: FACH[su], titel: FACH[su], kern: true } : PFADE[su + "|kind"] || null;
+    return PFADE[su + "|erwachsen"] || null;
+  }
   function fachJetzt() {
+    if (kstate && kstate.lpFach && pfadFuer(kstate.lpFach)) return kstate.lpFach;   /* M16: gewählter Pfad (z. B. Studium) */
     var su = null;
     try { var on = document.querySelector("#tabs [data-m132subj].on"); if (on) su = on.getAttribute("data-m132subj"); } catch (e) {}
     if (!su) try { var p = profil(); su = JSON.parse(localStorage.getItem("egl-m127-" + (p ? p.id : "")) || "{}").subject || null; } catch (e) {}
     if (!su && kstate && (kstate.fach === "de" || kstate.fach === "en")) su = kstate.fach;
-    return FACH[su] ? su : null;
+    if (!su || !pfadFuer(su)) try { var O = window.__OBERFLAECHE, k = O && O.fachKuerzel && O.fachKuerzel(); if (k && pfadFuer(k)) su = k; } catch (e) {}
+    return pfadFuer(su) ? su : null;
   }
 
   /* ---------- HTML ---------- */
@@ -43708,9 +43799,9 @@ function stationen(skills, wahl) {
   }
 
   function htmlPfad(su) {
-    var fach = FACH[su];
-    if (!klasse()) {
-      return '<div class="lp-kopf"><h2>🧭 Lernpfad · ' + h(fach) + "</h2></div>"
+    var pf = pfadFuer(su), fach = pf.fach, titel = pf.titel, kind = istKindProfil();
+    if (kind && !klasse()) {
+      return '<div class="lp-kopf"><h2>🧭 Lernpfad · ' + h(titel) + "</h2></div>"
         + '<div class="lp-box"><h3 style="margin:0 0 8px">In welche Klasse gehst du?</h3>'
         + '<p style="margin:0 0 12px;color:var(--ink2)">Danach zeigt dir der Lernpfad, was für deine Klasse dran ist. Ändern können es später deine Eltern.</p>'
         + '<div class="lp-knoepfe">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (k) {
@@ -43719,9 +43810,10 @@ function stationen(skills, wahl) {
     }
     var liste = pfad(fach), v = lade();
     var dran = liste.filter(function (s) { return s.jetzt; })[0];
-    var out = '<div class="lp-kopf"><h2>🧭 Lernpfad · ' + h(fach) + "</h2>"
-      + '<span class="lp-klasse">Klasse ' + klasse() + (freigabeBis() > klasse() ? " · freigegeben bis " + freigabeBis() : "")
-      + ' · <button class="btn" data-lp="klasse-aendern" style="min-height:36px;padding:4px 10px">ändern (Eltern)</button></span></div>';
+    var out = '<div class="lp-kopf"><h2>🧭 Lernpfad · ' + h(titel) + "</h2>"
+      + (kind ? '<span class="lp-klasse">Klasse ' + klasse() + (freigabeBis() > klasse() ? " · freigegeben bis " + freigabeBis() : "")
+        + ' · <button class="btn" data-lp="klasse-aendern" style="min-height:36px;padding:4px 10px">ändern (Eltern)</button></span>'
+        : '<span class="lp-klasse">Alle Stationen frei wählbar</span>') + "</div>";
     if (dran) {
       out += '<button class="lp-hero" data-lp-start="' + h(dran.skill) + '" data-testid="lp-weiter"><span style="font-size:28px">▶</span><span>'
         + '<span class="k">Weiter geht’s' + (dran.zustand === "wiederholung-faellig" ? " — Wiederholung" : "") + '</span><br><span class="t">' + h(dran.titel)
@@ -43919,7 +44011,7 @@ function stationen(skills, wahl) {
     kstate.lp = { art: "diagnose", fach: fach, liste: liste, i: 0, auswahl: [], ergebnis: {}, fb: null };
   }
   function htmlDiagnose(d) {
-    var s = '<button class="back" data-lp="zurueck">← Lernpfad</button><div class="lp-kopf"><h2>🔎 Einstufungstest · ' + h(d.fach) + "</h2></div>";
+    var s = '<button class="back" data-lp="zurueck">← Lernpfad</button><div class="lp-kopf"><h2>🔎 Einstufungstest · ' + h(String(d.fach).replace(/^Pfad:/, "")) + "</h2></div>";
     if (d.i < d.liste.length) {
       var l = { liste: d.liste.map(function (x) { return x.q; }), i: d.i, auswahl: d.auswahl, fb: d.fb, stufe: 5, eingabe: d.eingabe };
       s += '<p style="color:var(--ink2)">Was du schon sicher kannst, überspringst du im Lernpfad. <button class="btn" data-lp="zurueck" style="min-height:36px">Test überspringen</button></p>' + frageHtml(l);
@@ -43970,7 +44062,7 @@ function stationen(skills, wahl) {
     var p = profil();
     /* Runden (Aufwärmen, M7-Wiederholung) gibt es auch für Erwachsene. */
     var runde = kstate.lp && kstate.lp.art === "runde";
-    if (p && (p.type === "kid" || runde) && !(typeof showProfiles !== "undefined" && showProfiles) && kstate.tab === "lernpfad") {
+    if (p && p.type !== "baby" && !(typeof showProfiles !== "undefined" && showProfiles) && kstate.tab === "lernpfad") {
       stil();
       try { renderTabs(); } catch (e) {}
       var su = fachJetzt(), view = document.getElementById("view");
@@ -44094,7 +44186,7 @@ function stationen(skills, wahl) {
       return rerenderLp();
     }
     if (a === "klasse-aendern") return klasseAendern();
-    if (a === "diagnose") { diagnoseStarten(FACH[fachJetzt()]); return rerenderLp(); }
+    if (a === "diagnose") { var pfD = pfadFuer(fachJetzt()); if (pfD) diagnoseStarten(pfD.fach); return rerenderLp(); }
     if (!l) return;
     if (a === "aufloesen") { l.aufgeloest = true; return rerenderLp(); }
     if (a === "stufe") { stufeSetzen(l, l.stufe + 1); return rerenderLp(); }
@@ -44129,6 +44221,18 @@ function stationen(skills, wahl) {
     }
   }, true);
 
+  /* M16: Lernpfad-Karten der Erwachsenen (data-lp-pfad) und der Menüeintrag
+     der Kinder (data-m132nav="lernpfad"). Auf window in der Capture-Phase. */
+  if (typeof window.addEventListener === "function") window.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-lp-pfad],[data-m132nav="lernpfad"]') : null;
+    if (!t) return;
+    var su = t.getAttribute("data-lp-pfad");
+    kstate.lpFach = su || null;
+    if (!su) return;                             /* Kinder: die Engine öffnet den Pfad selbst */
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    kstate.lp = null; kstate.tab = "lernpfad"; rerenderLp();
+  }, true);
+
   /* ---------- Klassenbindung auch in den Themenlisten ----------
      Auf window in der Capture-Phase: Ein Behandler der Engine sitzt schon
      auf document und käme sonst vor dieser Sperre dran. */
@@ -44160,8 +44264,18 @@ function stationen(skills, wahl) {
     kstate.tab = "lernpfad";
     rerenderLp();
   }
+  /* M16: Fächer für den Tagesplan — Kinder: Deutsch, Englisch, Mathe (Fokus);
+     Erwachsene: Englisch und Studium. */
+  function faecherHeute() {
+    var kind = istKindProfil(), out = [];
+    (kind ? ["de", "en", "math"] : ["en", "studium"]).forEach(function (su) { var pf = pfadFuer(su); if (pf) out.push({ su: su, fach: pf.fach, titel: pf.titel }); });
+    return out;
+  }
+  /* Fächer mit Lernpfad für die Karte unter „Lernen“ */
+  function hatPfad(su) { return !!pfadFuer(su); }
   window.__LERNPFAD = { pfad: pfad, aufgabenVon: aufgabenVon, bewerte: bewerte, lade: lade, stand: stand, starte: starte,
-    FACH: FACH, klasse: klasse, SKILLS: SKILLS, klasseAendern: klasseAendern, themenVon: themenVon };
+    FACH: FACH, klasse: klasse, SKILLS: SKILLS, klasseAendern: klasseAendern, themenVon: themenVon,
+    pfadFuer: pfadFuer, faecherHeute: faecherHeute, hatPfad: hatPfad, PFADE: PFADE, fachJetzt: fachJetzt };
 })();
 
 /* =====================================================================
@@ -44302,6 +44416,8 @@ function tagVon(d) {
 
   function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
   function istKind() { var p = profil(); return !!(p && p.type === "kid"); }
+  /* M16: „Heute“ für Kinder und Erwachsene */
+  function lernprofil() { var p = profil(); return !!(p && p.type !== "baby"); }
   function schluessel() { var p = profil(); return "egl-tagesplan-" + (p ? p.id : "anon"); }
   function lade() { try { return JSON.parse(localStorage.getItem(schluessel()) || "null") || {}; } catch (e) { return {}; } }
   function speichere(v) { try { localStorage.setItem(schluessel(), JSON.stringify(v)); } catch (e) {} }
@@ -44312,14 +44428,15 @@ function tagVon(d) {
   /* ---------- Plan: einmal je Tag ---------- */
   function lageErheben() {
     var v = LP.lade(), faecher = [];
-    Object.keys(LP.FACH).forEach(function (su) {
-      var fach = LP.FACH[su], stationen = LP.pfad(fach), zuletzt = null;
+    /* M16: Kinder Deutsch/Englisch/Mathe, Erwachsene Englisch und Studium */
+    (LP.faecherHeute ? LP.faecherHeute() : Object.keys(LP.FACH).map(function (su) { return { su: su, fach: LP.FACH[su] }; })).forEach(function (f) {
+      var su = f.su, fach = f.fach, stationen = LP.pfad(fach), zuletzt = null;
       stationen.forEach(function (s) {
         var e = v.m && v.m[s.skill];
         var t = e && e.v && e.v.length ? e.v[e.v.length - 1][0] : 0;
         if (t && (!zuletzt || t > zuletzt.t)) zuletzt = { skill: s.skill, t: t };
       });
-      faecher.push({ fach: fach, su: su, stationen: stationen, zuletzt: zuletzt });
+      faecher.push({ fach: f.titel || fach, su: su, stationen: stationen, zuletzt: zuletzt });   /* fach: der Anzeigename */
     });
     return faecher;
   }
@@ -44350,7 +44467,7 @@ function tagVon(d) {
   });
   function zeitTakt() {
     try {
-      if (!istKind() || document.visibilityState !== "visible" || Date.now() - zuletztAktiv > 60000) return;
+      if (!lernprofil() || document.visibilityState !== "visible" || Date.now() - zuletztAktiv > 60000) return;
       var st = lade(), tag = heute();
       if (st.datum !== tag) return;          /* Plan des Tages entsteht beim ersten Öffnen von „Heute“ */
       st.sek = (st.sek || 0) + 15;
@@ -44382,13 +44499,14 @@ function tagVon(d) {
       + '<svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="22" fill="none" stroke="var(--line)" stroke-width="7"/>'
       + '<circle cx="28" cy="28" r="22" fill="none" stroke="var(--good)" stroke-width="7" stroke-linecap="round" stroke-dasharray="' + (u * anteil).toFixed(1) + " " + u.toFixed(1)
       + '" transform="rotate(-90 28 28)"/></svg><span><b>' + min + " von " + ziel + " Min.</b><br>Tagesziel</span></span>"
-      + '<button class="btn" data-heute="ziel" style="min-height:32px;padding:2px 8px;font-size:12.5px">ändern (Eltern)</button></div>';
+      + '<button class="btn" data-heute="ziel" style="min-height:32px;padding:2px 8px;font-size:12.5px">ändern' + (istKind() ? " (Eltern)" : "") + "</button></div>";
   }
   var kuerOffen = false;
+  function blockText(b) { return b.art === "kuer" && !istKind() ? "Du wählst: Vokabeln, Aufgabenwelt oder Karteikarten" : String(b.text || "").replace(/^Pfad:/, ""); }
   function htmlHeute() {
     var p = profil(), name = p ? p.name : "";
     var kopf = '<div class="ht-kopf"><h2 data-testid="ht-gruss">' + gruss() + ", " + h(name) + "</h2>";
-    if (!LP.klasse()) {
+    if (istKind() && !LP.klasse()) {
       return kopf + "</div>" + '<button class="ht-hero" data-heute="einrichten" data-testid="ht-weiter"><span style="font-size:30px">🧭</span><span>'
         + '<span class="k">Los geht’s</span><span class="t">Sag uns, in welche Klasse du gehst</span></span></button>'
         + '<p style="color:var(--ink2)">Danach bekommst du jeden Tag einen kleinen Plan: etwas Neues, etwas zum Wiederholen und etwas zum Aussuchen.</p>';
@@ -44400,7 +44518,7 @@ function tagVon(d) {
     if (offen.length) {
       var b = offen[0];
       out += '<button class="ht-hero" data-heute-block="' + b.id + '" data-testid="ht-weiter"><span style="font-size:30px">▶</span><span>'
-        + '<span class="k">Weiter: ' + h(b.titel) + " · " + b.minuten + ' Min.</span><span class="t">' + h(b.text) + "</span></span></button>";
+        + '<span class="k">Weiter: ' + h(b.titel) + " · " + b.minuten + ' Min.</span><span class="t">' + h(blockText(b)) + "</span></span></button>";
     } else {
       out += '<div class="lp-box" data-testid="ht-fertig" role="status" style="background:var(--good-soft)"><h3 style="margin:0 0 6px">🎉 Geschafft für heute!</h3>'
         + '<p style="margin:0">Dein Plan ist erledigt. Morgen gibt es einen neuen. Wenn du Lust hast, kannst du weitermachen — musst du aber nicht.</p>'
@@ -44408,14 +44526,16 @@ function tagVon(d) {
     }
     if (kuerOffen) {
       out += '<div class="ht-kuer" data-testid="ht-kuer"><span style="align-self:center;font-weight:700">Deine Wahl:</span>'
-        + '<button class="btn" data-heute-kuer="v17">🧩 Übungswelt</button><button class="btn" data-heute-kuer="read">📚 Lesen</button>'
-        + '<button class="btn" data-heute-kuer="m127games">🎮 Spiel</button></div>';
+        + (istKind() ? '<button class="btn" data-heute-kuer="v17">🧩 Übungswelt</button><button class="btn" data-heute-kuer="read">📚 Lesen</button>'
+          + '<button class="btn" data-heute-kuer="m127games">🎮 Spiel</button></div>'
+          : '<button class="btn" data-heute-kuer="Vokabeln">🧠 Vokabeln</button><button class="btn" data-heute-kuer="Aufgaben">🧩 Aufgabenwelt</button>'
+          + '<button class="btn" data-heute-kuer="Karten">🃏 Karteikarten</button></div>');
     }
     out += '<h3 style="margin:18px 0 8px;font-size:16px">Dein Plan für heute</h3><div data-testid="ht-plan">';
     st.bloecke.forEach(function (b) {
       var fertig = !!erledigt[b.id];
       out += '<button class="ht-block' + (fertig ? " fertig" : "") + '" data-heute-block="' + b.id + '" data-ht-art="' + b.art + '"' + (fertig ? ' aria-label="' + h(b.titel) + ' — erledigt"' : "") + ">"
-        + '<span class="ic" aria-hidden="true">' + (fertig ? "✔" : SYMBOL[b.art]) + '</span><span><span class="ti">' + h(b.titel) + '</span><span class="me">' + h(b.text) + "</span></span>"
+        + '<span class="ic" aria-hidden="true">' + (fertig ? "✔" : SYMBOL[b.art]) + '</span><span><span class="ti">' + h(b.titel) + '</span><span class="me">' + h(blockText(b)) + "</span></span>"
         + '<span class="zu">' + (fertig ? "erledigt" : b.minuten + " Min.") + "</span></button>";
     });
     return out + "</div>";
@@ -44466,8 +44586,8 @@ function tagVon(d) {
     var offen = !(typeof showProfiles !== "undefined" && showProfiles);
     /* Beim Öffnen eines Kinderprofils zuerst „Heute“ — einmal je Profil und
        Sitzung, danach bleibt die Engine-Startseite über „Lernwelt“ erreichbar. */
-    if (p && p.type === "kid" && offen && kstate.tab == null && gezeigtFuer !== p.id) { kstate.tab = "heute"; }
-    if (p && p.type === "kid" && offen && kstate.tab === "heute") {
+    if (p && p.type !== "baby" && offen && kstate.tab == null && gezeigtFuer !== p.id) { kstate.tab = "heute"; }
+    if (p && p.type !== "baby" && offen && kstate.tab === "heute") {
       gezeigtFuer = p.id;
       stil();
       try { renderTabs(); } catch (e) {}
@@ -44488,7 +44608,7 @@ function tagVon(d) {
     var aktivierenVorher = activateProfile;
     var aktivierenNeu = function () {
       var r = aktivierenVorher.apply(this, arguments);
-      try { if (istKind()) { kstate.tab = "heute"; gezeigtFuer = null; rerender(); } } catch (e) {}
+      try { if (lernprofil()) { kstate.tab = "heute"; gezeigtFuer = null; rerender(); } } catch (e) {}
       return r;
     };
     activateProfile = aktivierenNeu;
@@ -44521,6 +44641,15 @@ function tagVon(d) {
   }
 
   /* ---------- Klicks ---------- */
+  /* „☀️ Heute“ in der Leiste — für Kinder und Erwachsene (M16). Auf window in
+     der Capture-Phase: vor den Behandlern der Engine. */
+  var ziel0 = typeof window.addEventListener === "function" ? window : document;
+  ziel0.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-m132nav="heute"]') : null;
+    if (!t || !lernprofil()) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    kstate.lp = null; kstate.tab = "heute"; rerender();
+  }, true);
   document.addEventListener("click", function (e) {
     if (!kstate || kstate.tab !== "heute") return;
     var t = e.target && e.target.closest ? e.target.closest("[data-heute],[data-heute-block],[data-heute-kuer]") : null;
@@ -44537,6 +44666,12 @@ function tagVon(d) {
     }
     if ((a = t.getAttribute("data-heute-kuer")) != null) {
       abhaken("kuer"); kuerOffen = false;
+      /* Erwachsene: über die Karte im Bereich „Üben“ (ihr Menü nutzt data-tab) */
+      if (!istKind()) {
+        var hub = document.querySelector('[data-hub="ueben"]');
+        if (hub) { hub.click(); var karte = document.querySelector('#view [data-hb-karte][data-tab="' + a + '"]'); if (karte) karte.click(); }
+        return;
+      }
       var sel = a === "v17" ? '#tabs [data-v17-tab="v17practice"]' : '#tabs [data-m132nav="' + a + '"]';
       var knopf = document.querySelector(sel);
       if (knopf) { knopf.click(); return; }
@@ -44611,7 +44746,8 @@ function tagVon(d) {
       }
       if (attrs["data-m130t"] || attrs["data-act"] === "prof-switch" || !Object.keys(attrs).length) continue;
       var text = textVon(innen);
-      var icon = ic ? textVon(ic) : (text.match(/^\S+/) || [""])[0];
+      /* Nur das Emoji am Anfang — bei „🎓Studium“ ohne Leerzeichen war sonst das ganze Wort das Symbol. */
+      var icon = ic ? textVon(ic) : ((text.match(/^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})[\uFE0F\u200D\p{Extended_Pictographic}\u20E3]*/u) || text.match(/^\S+/) || [""])[0]);
       var name = textVon(ic ? innen.replace(/<span class="ic">[\s\S]*?<\/span>/, "") : innen).replace(/^[^\wÄÖÜäöü]+\s*/, "");
       eintraege.push({ attrs: attrs, icon: icon, name: name, abschnitt: abschnitt });
     }
@@ -44678,7 +44814,6 @@ function tagVon(d) {
   function istKind() { var p = profil(); return !!(p && p.type === "kid"); }
   function bereichsName(id) {
     if (id === "eltern" && !istKind()) return "Einstellungen";
-    if (id === "heute" && !istKind()) return "Übersicht";
     return (BEREICHE.filter(function (b) { return b.id === id; })[0] || {}).name || "";
   }
   function bereichsIcon(id) { return id === "eltern" && !istKind() ? "⚙️" : (BEREICHE.filter(function (b) { return b.id === id; })[0] || {}).icon; }
@@ -44691,7 +44826,7 @@ function tagVon(d) {
     BEREICHE.forEach(function (b) {
       var aktiv = aktiverBereich === b.id;
       /* „Heute“: Kinder → Tagesplan (p73), Erwachsene → ihre Übersicht. */
-      var ziel = b.id === "heute" ? (istKind() ? 'data-m132nav="heute"' : 'data-m132nav="m132home"') : 'data-hub="' + b.id + '"';
+      var ziel = b.id === "heute" ? 'data-m132nav="heute"' : 'data-hub="' + b.id + '"';   /* M16: „Heute“ für alle */
       s += '<button class="nv-item' + (aktiv ? " aktiv" : "") + '" ' + ziel + ' data-nv="' + b.id + '"' + (aktiv ? ' aria-current="page"' : "") + ">"
         + '<span class="nv-ic" aria-hidden="true">' + bereichsIcon(b.id) + "</span>" + h(bereichsName(b.id)) + "</button>";
     });
@@ -44721,7 +44856,7 @@ function tagVon(d) {
   function bereichBestimmen() {
     var t = String(kstate.tab || "");
     if (t.indexOf("hub-") === 0) { aktiverBereich = t.slice(4); return; }
-    if (t === "heute" || (!istKind() && t === "m132home")) { aktiverBereich = "heute"; return; }
+    if (t === "heute") { aktiverBereich = "heute"; return; }
     if (t === "lernpfad") { aktiverBereich = "lernen"; return; }
     if (t === "eltern-dashboard") { aktiverBereich = "eltern"; return; }
     var treffer = MODELL.eintraege.filter(function (e) { return e.attrs["data-m132nav"] && e.attrs["data-m132nav"] === t; })[0];
@@ -44781,6 +44916,22 @@ function tagVon(d) {
   }
   function eintraegeFuer(bereich) { return MODELL.eintraege.filter(function (e) { return bereichVon(e) === bereich; }); }
 
+  /* M16: Lernpfad-Karten für Erwachsene — Englisch/Deutsch nach dem gewählten
+     Fach und das Studium. */
+  function pfadKarten() {
+    var LP = window.__LERNPFAD;
+    if (!LP || !LP.pfadFuer || istKind()) return "";
+    var an = (MODELL && MODELL.faecher || []).filter(function (f) { return f.an; })[0];
+    var su = (an && an.su) || "en", out = "";
+    var k = function (ziel, titel, text, gross) {
+      return '<button class="hb-karte' + (gross ? " gross" : "") + '" data-lp-pfad="' + h(ziel) + '" data-testid="lp-pfad-' + h(ziel) + '"><span class="hb-ic" aria-hidden="true">🧭</span>'
+        + '<span class="hb-tx"><span class="hb-ti">' + h(titel) + '</span><span class="hb-me">' + h(text) + "</span></span></button>";
+    };
+    var pf = LP.pfadFuer(su);
+    if (pf) out += k(su, "Lernpfad · " + pf.titel, "Thema für Thema: entdecken, verstehen, üben, nachweisen — auf jedem Niveau.", true);
+    if (LP.pfadFuer("studium")) out += k("studium", "Lernpfad · Studium", "Die Studienfächer Thema für Thema, mit Nachweis je Thema.");
+    return out ? '<div class="hb-raster">' + out + "</div>" : "";
+  }
   function htmlBereich(id) {
     var s = '<div class="hb"><h2 class="hb-titel">' + bereichsIcon(id) + " " + h(bereichsName(id)) + "</h2>"
       + '<p class="hb-sub">' + h(UNTERTITEL[id] || "") + "</p>";
@@ -44789,6 +44940,7 @@ function tagVon(d) {
     if (id === "lernen") {
       var pfad = liste.filter(function (e) { return e.attrs["data-m132nav"] === "lernpfad"; })[0];
       if (pfad) s += '<div class="hb-raster">' + karte(pfad, true) + "</div>";
+      else s += pfadKarten();   /* M16: Erwachsene (ihr Menü kennt den Eintrag nicht) */
       liste = liste.filter(function (e) { return e !== pfad; });
     }
     if (id === "ueben") {
@@ -44809,13 +44961,13 @@ function tagVon(d) {
     try { sterne = (typeof K !== "undefined" && K && K.stars) || 0; } catch (e) {}
     try {
       var LP = window.__LERNPFAD;
-      if (LP && istKind()) Object.keys(LP.FACH).forEach(function (su) { gemeistert += LP.pfad(LP.FACH[su]).filter(function (s) { return s.zustand === "gemeistert"; }).length; });
+      if (LP && LP.faecherHeute) LP.faecherHeute().forEach(function (f) { gemeistert += LP.pfad(f.fach).filter(function (s) { return s.zustand === "gemeistert"; }).length; });
     } catch (e) {}
     /* Kindersicht (§9.6): Serie und gemeisterte Stationen, keine Prozentzahlen. */
     var serie = 0;
     try { serie = window.__ELTERN ? window.__ELTERN.serie() : 0; } catch (e) {}
     return '<div class="hb-zahlen"><div><b>' + sterne + '</b><span>Sterne</span></div>'
-      + (istKind() ? '<div><b>' + gemeistert + "</b><span>Stationen gemeistert</span></div>" : "")
+      + '<div><b>' + gemeistert + "</b><span>Stationen gemeistert</span></div>"
       + '<div><b>' + (serie ? "🔥 " + serie : "0") + "</b><span>" + (serie === 1 ? "Tag gelernt" : "Tage hintereinander gelernt") + "</span></div></div>";
   }
   function elternKopf() {
@@ -44909,6 +45061,8 @@ function tagVon(d) {
   }, true);
 
   window.__OBERFLAECHE = { modell: function () { return MODELL; }, bereichVon: bereichVon,
+    /* Kürzel des gewählten Fachs (de, en, math, biologie …) */
+    fachKuerzel: function () { var an = (MODELL && MODELL.faecher || []).filter(function (f) { return f.an; })[0]; return an ? an.su : null; },
     fach: function () { var f = MODELL.faecher.filter(function (x) { return x.an; })[0]; return f ? f.name : ""; } };
 })();
 
@@ -44944,7 +45098,7 @@ function tagVon(d) {
   var FRAGEN = {};   /* normierter Fragetext → { thema, skill } */
   var THEMA_VON_SKILL = {};
   (function geh(o, thema, tiefe) {
-    if (!o || typeof o !== "object" || tiefe > 7) return;
+    if (!o || typeof o !== "object" || tiefe > 10) return;
     if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) geh(o[i], thema, tiefe + 1); return; }
     var istThema = o.id && Array.isArray(o.ex) && Array.isArray(o.rules);
     if (istThema) thema = o;
@@ -44999,9 +45153,14 @@ function tagVon(d) {
     if (!e) return;
     var thema = e.thema || THEMA_VON_SKILL[e.skill];
     var LP = window.__LERNPFAD;
-    var lektion = !!(LP && LP.SKILLS && LP.SKILLS[e.skill] && LP.FACH && (function () {
-      var fach = LP.SKILLS[e.skill].fach; return Object.keys(LP.FACH).some(function (su) { return LP.FACH[su] === fach; });
-    })()) && typeof curProf === "function" && curProf() && curProf().type === "kid";
+    /* Lektion zur Aufgabe: das Thema als Station (M16-Themenpfad) oder der
+       Skill eines Kernfachs (Deutsch, Englisch, Mathe). */
+    var zielSkill = null;
+    if (LP && LP.SKILLS && thema && thema.id && LP.SKILLS["thema:" + thema.id]) zielSkill = "thema:" + thema.id;
+    else if (LP && LP.SKILLS && LP.SKILLS[e.skill] && LP.faecherHeute && (function () {
+      var fach = LP.SKILLS[e.skill].fach; return LP.faecherHeute().some(function (f) { return f.fach === fach; });
+    })()) zielSkill = e.skill;
+    var lektion = !!zielSkill;
     var regeln = thema && thema.rules ? thema.rules.slice(0, 6) : [];
     var hinter = document.createElement("div");
     hinter.className = "ps-hinter";
@@ -45021,7 +45180,7 @@ function tagVon(d) {
       ev.stopPropagation();
       if (b.getAttribute("data-hi") === "lernwelt") {
         zu();
-        LP.starte({ typ: "lektion", skill: e.skill, stufe: 2, ruecksprung: kstate.tab || null });
+        LP.starte({ typ: "lektion", skill: zielSkill, stufe: 2, ruecksprung: kstate.tab || null });
         return;
       }
       zu();
@@ -46565,7 +46724,7 @@ function hinweisStufen(q, regeln = []) {
     return false;
   }
   (function geh(o, tiefe) {
-    if (!o || typeof o !== "object" || tiefe > 8) return;
+    if (!o || typeof o !== "object" || tiefe > 10) return;
     if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) geh(o[i], tiefe + 1); return; }
     if (typeof o.q === "string" && zeigbar(o)) {
       if (o.id && !NACH_ID[o.id]) NACH_ID[o.id] = o;
@@ -47020,7 +47179,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 28.09.2026 08:30")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 28.09.2026 08:52")}}catch(e){}
 })();
 
 </script>
