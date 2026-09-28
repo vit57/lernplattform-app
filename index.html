@@ -40036,10 +40036,17 @@ function festschreiben(){
   try{if(typeof save127==="function")save127()}catch(e){}
   try{if(typeof v17Save==="function")v17Save()}catch(e){}
 }
-function sammeln(){
+function sammeln(nurSpiegel){
   festschreiben();
   var d={};
   schluessel().forEach(function(k){try{d[k]=localStorage.getItem(k)}catch(e){}});
+  /* M6: Das vollständige Lernverlauf-Log steht in IndexedDB; der localStorage
+     hält nur die jüngsten Einträge. Datei und Abgleich tragen alles —
+     der Rücksprung im localStorage nur den Spiegel (Speicherlimit). */
+  var E=window.__ELTERN;
+  if(!nurSpiegel&&E&&typeof E.alleLogs==="function"){
+    try{var L=E.alleLogs();Object.keys(L).forEach(function(pid){if(L[pid]&&L[pid].length)d["egl-ereignisse-"+pid]=JSON.stringify(L[pid])})}catch(e){}
+  }
   /* M5: Format 2 — versioniert (Schema egl-v2), mit Übersicht der Profile.
      Die Daten bleiben die Schlüssel selbst, damit der Rückweg exakt ist. */
   var profile=[];try{profile=uebersicht(lesen(d).v2)}catch(e){}
@@ -40055,6 +40062,21 @@ function geraetName(){
   if(c.geraet)return c.geraet;
   var n="Gerät "+Math.random().toString(36).slice(2,6);
   c.geraet=n;cfgSet(c);return n;
+}
+/* M6: Lernverlauf aus Datei/Abgleich ins Archiv (p76). Gibt true zurück,
+   wenn der Schlüssel ein Log war und übernommen ist. */
+function logUebernehmen(k,roh){
+  var E=window.__ELTERN;
+  if(k.indexOf("egl-ereignisse-")!==0||!E||typeof E.logUebernehmen!=="function")return false;
+  var liste=null;try{liste=JSON.parse(roh)}catch(e){return false}
+  if(!Array.isArray(liste))return false;
+  E.logUebernehmen(k.slice(15),liste,false);
+  return true;
+}
+/* Erst neu laden, wenn das Archiv alles geschrieben hat. */
+function neuLaden(){
+  var E=window.__ELTERN,fertig=function(){window.location.reload()};
+  try{Promise.resolve(E&&E.warten?E.warten():null).then(fertig,fertig)}catch(e){fertig()}
 }
 function pruefePaket(p){
   if(!p||typeof p!=="object")return "Die Datei enthält keine Sicherung.";
@@ -40082,10 +40104,11 @@ function einspielen(p,rollbackAnlegen){
   var fehler=pruefePaket(p);
   if(fehler)return fehler;
   try{
-    if(rollbackAnlegen!==false)localStorage.setItem(ROLLBACK,JSON.stringify(sammeln()));
+    if(rollbackAnlegen!==false)localStorage.setItem(ROLLBACK,JSON.stringify(sammeln(true)));
     schluessel().forEach(function(k){localStorage.removeItem(k)});
     Object.keys(p.daten).forEach(function(k){
       if(k===CFG||k===ROLLBACK)return;   /* eigene Abgleich-Einstellungen behalten */
+      if(logUebernehmen(k,p.daten[k]))return;   /* M6: Verlauf wird vereinigt, nie ersetzt */
       localStorage.setItem(k,p.daten[k]);
     });
   }catch(e){return "Beim Schreiben ist etwas schiefgegangen: "+e.message}
@@ -40137,8 +40160,10 @@ function abgleichEinlesen(p){
   if(!ab||typeof ab.abgleichen!=="function")return melden("Der Abgleich ist in dieser Fassung nicht verfügbar.",true);
   try{
     var lokal=sammeln();
-    localStorage.setItem(ROLLBACK,JSON.stringify(lokal));
+    localStorage.setItem(ROLLBACK,JSON.stringify(sammeln(true)));
     var r=ab.abgleichen(lokal,p);
+    /* M6: vereinigte Logs ins Archiv; in den localStorage nur der Spiegel */
+    Object.keys(r.daten).forEach(function(k){if(logUebernehmen(k,r.daten[k]))r.daten[k]=localStorage.getItem(k)});
     ab.schreibeRoh(r.daten);
     var c=cfg();c.lastSync=new Date().toISOString();cfgSet(c);
     sessionStorage.setItem(ABGLEICH_BERICHT,JSON.stringify({neu:r.bericht.neu.length,aktualisiert:r.bericht.aktualisiert.length,
@@ -40146,7 +40171,7 @@ function abgleichEinlesen(p){
   }catch(e){return melden("Abgleich fehlgeschlagen: "+e.message,true)}
   /* Neu laden, damit kein alter Stand aus dem Arbeitsspeicher den
      abgeglichenen überschreibt. Danach öffnet sich diese Seite mit Bericht. */
-  window.location.reload();
+  neuLaden();
 }
 
 /* ---------- Abgleich über einen eigenen Dienst ---------- */
@@ -40189,7 +40214,7 @@ function herunterladen(){
       var f=einspielen(p,true);
       if(f)return melden(f,true);
       var c=cfg();c.lastDown=new Date().toISOString();cfgSet(c);
-      window.location.reload();
+      neuLaden();
     })
     .catch(function(e){melden("Herunterladen fehlgeschlagen: "+e.message,true)});
 }
@@ -40394,7 +40419,7 @@ document.addEventListener("click",function(e){
     var fehler=einspielen(rb,false);
     if(fehler)return melden(fehler,true);
     try{localStorage.removeItem(ROLLBACK)}catch(e3){}
-    window.location.reload();
+    neuLaden();
   }
 },true);
 
@@ -40433,7 +40458,7 @@ document.addEventListener("change",function(e){
     if(!window.confirm(text))return;
     var f=einspielen(p,true);
     if(f)return melden(f,true);
-    window.location.reload();
+    neuLaden();
   };
   leser.onerror=function(){melden("Die Datei ließ sich nicht lesen.",true)};
   leser.readAsText(datei);
@@ -43701,6 +43726,8 @@ function stationen(skills, wahl) {
     mischen(skills).forEach(function (sk) { mischen(aufgabenVon(sk)).slice(0, 2).forEach(function (q) { liste.push(q); }); });
     kstate.lp = { art: "runde", titel: titel, liste: mischen(liste).slice(0, anzahl || 5), i: 0, auswahl: [], fb: null, stufe: 4, richtig: 0, hinweise: 0 };
   }
+  /* M6: reine Bearbeitungszeit aus der gemeinsamen Uhr (p76); ohne sie die Uhrzeit. */
+  function jetztAktiv() { var E = window.__ELTERN; return E && E.aktiveZeit ? E.aktiveZeit() : Date.now(); }
   function melde(name, detail) {
     try { document.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch (e) {}
   }
@@ -43916,7 +43943,7 @@ function stationen(skills, wahl) {
       try { renderTabs(); } catch (e) {}
       var su = fachJetzt(), view = document.getElementById("view");
       var l = kstate.lp;
-      if (l && l.liste && l.i < l.liste.length && !l.fb && !l.qStart) l.qStart = Date.now();   /* Bearbeitungszeit (M10) */
+      if (l && l.liste && l.i < l.liste.length && !l.fb && l.qStart == null) l.qStart = jetztAktiv();   /* Bearbeitungszeit (M10), seit M6 rein aktiv */
       /* Eine laufende Lektion/Runde braucht kein Fach aus der Seitenleiste
          (aus dem Tagesplan kann sie für ein anderes Fach gestartet sein). */
       if (!su && !l) { kstate.tab = null; return renderVorher.apply(this, arguments); }
@@ -43973,7 +44000,7 @@ function stationen(skills, wahl) {
       var LM = window.__LERNMODELL, skillQ = q.skill || l.skill;
       var vorher = LM && skillQ && (l.stufe === 3 || l.stufe === 4) && !istDiagnose && l.art === "lektion" ? LM.levelVon(skillQ, klasse()).level : 0;
       melde("lp:antwort", { skill: skillQ, fach: (SKILLS[skillQ] || {}).fach || "", ok: ok,
-        frage: String(q.q || "").replace(/<[^>]+>/g, ""), gegeben: gegeben, richtig: loesungText(q), dauer: l.qStart ? Date.now() - l.qStart : 0,
+        frage: String(q.q || "").replace(/<[^>]+>/g, ""), gegeben: gegeben, richtig: loesungText(q), dauer: l.qStart != null ? Math.max(0, jetztAktiv() - l.qStart) : 0,
         aufgabe: q.id || null, hinweise: l.hinweise || 0, level: LM ? LM.aufgabenLevel(q) : 0 });
       /* M7 (§6.4): Stufenwechsel sichtbar und freundlich; die restlichen
          Aufgaben der Runde rücken nach der neuen Stufe. */
@@ -43985,7 +44012,7 @@ function stationen(skills, wahl) {
         }
       }
     } catch (e) {}
-    l.qStart = 0;
+    l.qStart = null;
     if (istDiagnose) {
       var sk = l.liste[l.i].skill, e = l.ergebnis[sk] || (l.ergebnis[sk] = { ok: 0, n: 0 });
       e.n++; if (ok) e.ok++;
@@ -45354,6 +45381,122 @@ function woranEsHakt(ereignisse) {
 }
 
 
+  // @ts-check
+/**
+ * Ereignis-Log ohne Kappung (AUFTRAG-v2.md §4.3, M6) — reine Funktionen.
+ *
+ * Ablage: Das vollständige Log liegt in IndexedDB (p76), der localStorage
+ * hält nur einen SPIEGEL der jüngsten Ereignisse — für den schnellen Start,
+ * als Rückfallebene ohne IndexedDB und für den Geräte-Abgleich über die
+ * egl-*-Schlüssel. Die Sicherungsdatei trägt das vollständige Log.
+ *
+ * Verdichtung: Ereignisse, die älter als VERDICHTEN_NACH_MONATEN sind,
+ * werden zu Tagessummen je Fach und Skill ({ tag, f, s, n, ok, d }). Summe
+ * der Aufgaben und der richtigen bleibt erhalten, nur die Einzelheiten
+ * (Frage, Antwort) gehen. Ein Tag, der schon verdichtet ist, nimmt keine
+ * rohen Kopien mehr auf — sonst zählte ein Geräte-Abgleich ihn doppelt.
+ */
+
+const SPIEGEL = 2000;
+const VERDICHTEN_NACH_MONATEN = 24;
+
+const vergleicheLog = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const ordnung = (a, b) => a.t - b.t || vergleicheLog(String(a.i), String(b.i));
+
+/** Lokales Datum JJJJ-MM-TT. @param {number} t */
+function tagDatum(t) {
+  const d = new Date(t), z = (x) => String(x).padStart(2, '0');
+  return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+}
+
+/** Vereinigung über die Kennung, zeitlich geordnet. @param {...(readonly any[]|null|undefined)} listen */
+function vereinigen(...listen) {
+  const m = new Map();
+  for (const l of listen) for (const e of l || []) if (e && e.i != null && !m.has(e.i)) m.set(e.i, e);
+  return [...m.values()].sort(ordnung);
+}
+
+/** Die jüngsten n Ereignisse für den localStorage. @param {readonly any[]} ev */
+function spiegel(ev, n = SPIEGEL) {
+  const s = (ev || []).slice().sort(ordnung);
+  return s.length > n ? s.slice(s.length - n) : s;
+}
+
+/**
+ * @param {readonly any[]} ev rohe Ereignisse
+ * @param {readonly any[]} tage schon vorhandene Tagessummen
+ * @param {number} jetzt
+ * @returns {{ roh: any[], tage: any[], verdichtet: number }}
+ */
+function verdichten(ev, tage, jetzt, monate = VERDICHTEN_NACH_MONATEN) {
+  const grenze = new Date(jetzt); grenze.setMonth(grenze.getMonth() - monate);
+  const g = grenze.getTime();
+  const schon = new Map((tage || []).map((x) => [x.tag + '|' + x.f + '|' + (x.s || ''), { ...x }]));
+  const vorher = new Set(schon.keys());
+  const roh = [];
+  let verdichtet = 0;
+  for (const e of vereinigen(ev)) {
+    if (e.t >= g) { roh.push(e); continue; }
+    const k = tagDatum(e.t) + '|' + e.f + '|' + (e.s || '');
+    if (vorher.has(k)) continue;                 /* dieser Tag ist schon gezählt */
+    const a = schon.get(k) || { tag: tagDatum(e.t), f: e.f, s: e.s || null, n: 0, ok: 0, d: 0 };
+    a.n++; a.ok += e.ok ? 1 : 0; a.d += e.d || 0;
+    schon.set(k, a);
+    verdichtet++;
+  }
+  const liste = [...schon.values()].sort((a, b) => vergleicheLog(a.tag, b.tag) || vergleicheLog(a.f, b.f) || vergleicheLog(String(a.s), String(b.s)));
+  return { roh, tage: liste, verdichtet };
+}
+
+
+  // @ts-check
+/**
+ * Reine Bearbeitungszeit (AUFTRAG-v2.md §4.3, M6) — reine Funktionen.
+ *
+ * Die Uhr läuft nur, wenn die Seite sichtbar ist, kein Hilfe-Fenster offen
+ * ist und die letzte Aktion (Tippen, Taste) höchstens LEERLAUF_MS zurückliegt.
+ * Gemessen wird die Summe; eine Aufgabe nimmt die Differenz zwischen Anzeige
+ * und Antwort.
+ *
+ * Ereignisse: 'aktion' | 'versteckt' | 'sichtbar' | 'dialog-auf' | 'dialog-zu'
+ */
+
+const LEERLAUF_MS = 60000;
+
+/** @typedef {{ summe: number, seit: number, letzteAktion: number, sichtbar: boolean, dialog: boolean }} Uhr */
+
+/** @param {number} t @returns {Uhr} */
+function neueUhr(t) {
+  return { summe: 0, seit: t, letzteAktion: t, sichtbar: true, dialog: false };
+}
+
+/** Zeit bis t aufaddieren. @param {Uhr} u @param {number} t @returns {Uhr} */
+function fortschreiben(u, t) {
+  let summe = u.summe;
+  if (u.sichtbar && !u.dialog) {
+    const ende = Math.min(t, u.letzteAktion + LEERLAUF_MS);
+    if (ende > u.seit) summe += ende - u.seit;
+  }
+  return { ...u, summe, seit: Math.max(u.seit, t) };
+}
+
+/** @param {Uhr} u @param {string} ereignis @param {number} t @returns {Uhr} */
+function schritt(u, ereignis, t) {
+  const v = fortschreiben(u, t);
+  if (ereignis === 'aktion') return { ...v, letzteAktion: t };
+  if (ereignis === 'versteckt') return { ...v, sichtbar: false };
+  if (ereignis === 'sichtbar') return { ...v, sichtbar: true, letzteAktion: t };
+  if (ereignis === 'dialog-auf') return { ...v, dialog: true };
+  if (ereignis === 'dialog-zu') return { ...v, dialog: false, letzteAktion: t };
+  return v;
+}
+
+/** Aktive Millisekunden bis t. @param {Uhr} u @param {number} t */
+function aktiv(u, t) {
+  return fortschreiben(u, t).summe;
+}
+
+
   if (typeof kstate === "undefined" || typeof render !== "function") return;
 
   function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
@@ -45361,17 +45504,157 @@ function woranEsHakt(ereignisse) {
   function neu() { try { render(); } catch (e) {} }
   function kurz(s, n) { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
-  /* ---------- Speicher ---------- */
-  function schluessel() { var p = profil(); return "egl-ereignisse-" + (p ? p.id : "anon"); }
-  function ereignisse() { try { var v = JSON.parse(localStorage.getItem(schluessel()) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  /* ---------- Speicher (M6: ohne Kappung) ----------
+     Vollständig in IndexedDB („lernplattform“ → „ereignisse“, „tage“); im
+     localStorage nur ein SPIEGEL der jüngsten Ereignisse — schneller Start,
+     Rückfallebene, Geräte-Abgleich über die egl-*-Schlüssel. Die
+     Sicherungsdatei trägt das vollständige Log (p60 fragt alleLogs()).
+     Ohne IndexedDB (privates Fenster, alte Umgebung) bleibt es beim alten
+     Verhalten: bis zu 5 000 im localStorage, nichts wird unter diese Grenze
+     gekürzt. Logik: app/kern/ereignislog.js. */
+  var OHNE_ARCHIV_MAX = 5000;
+  var ARCHIV = {}, TAGE = {}, GESCHRIEBEN = {}, db = null, archivOk = false, offen = [];
+  function schluesselVon(pid) { return "egl-ereignisse-" + pid; }
+  function schluessel() { var p = profil(); return schluesselVon(p ? p.id : "anon"); }
+  function spiegelRoh(pid) { try { return localStorage.getItem(schluesselVon(pid)); } catch (e) { return null; } }
+  function spiegelLesen(pid) {
+    try { var v = JSON.parse(spiegelRoh(pid) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function spiegelSchreiben(pid, liste) {
+    var s = archivOk ? spiegel(liste) : (liste.length > OHNE_ARCHIV_MAX ? liste.slice(-OHNE_ARCHIV_MAX) : liste);
+    var roh = JSON.stringify(s);
+    try { localStorage.setItem(schluesselVon(pid), roh); GESCHRIEBEN[pid] = roh; } catch (x) {}
+  }
+  /* Der Spiegel kann sich auch von außen ändern (ein zweiter Tab, ein Werkzeug).
+     Dann wird er eingelesen; bei gleicher Kennung gilt seine Fassung. */
+  function logVon(pid) {
+    var roh = spiegelRoh(pid);
+    if (!ARCHIV[pid] || roh !== GESCHRIEBEN[pid]) {
+      var vorher = ARCHIV[pid] || [], bekannt = {};
+      vorher.forEach(function (e) { bekannt[e.i] = 1; });
+      var aussen = spiegelLesen(pid);
+      ARCHIV[pid] = vereinigen(aussen, vorher);
+      GESCHRIEBEN[pid] = roh;
+      /* was von außen kam, gehört auch ins Archiv */
+      if (db) idbSchreiben(pid, aussen.filter(function (e) { return e && !bekannt[e.i]; }));
+    }
+    return ARCHIV[pid];
+  }
+  function ereignisse() { var p = profil(); return p ? logVon(p.id) : []; }
+  function merke(pr) { offen.push(pr); pr.then(function () { offen.splice(offen.indexOf(pr), 1); }, function () { offen.splice(offen.indexOf(pr), 1); }); return pr; }
+  function idbSchreiben(pid, liste) {
+    if (!db || !liste.length) return Promise.resolve();
+    return merke(new Promise(function (ok) {
+      try {
+        var tx = db.transaction("ereignisse", "readwrite"), st = tx.objectStore("ereignisse");
+        liste.forEach(function (e) { st.put({ k: pid + "|" + e.i, p: pid, e: e }); });
+        tx.oncomplete = tx.onerror = tx.onabort = function () { ok(); };
+      } catch (x) { ok(); }
+    }));
+  }
   function hinzufuegen(e) {
     var p = profil();
     if (!p || p.type === "baby") return;
-    var liste = ereignisse();
+    var liste = logVon(p.id);
     liste.push(e);
-    if (liste.length > 5000) liste = liste.slice(-5000);
-    try { localStorage.setItem(schluessel(), JSON.stringify(liste)); } catch (x) {}
+    spiegelSchreiben(p.id, liste);
+    idbSchreiben(p.id, [e]);
   }
+  /* Übernahme aus Sicherung oder Abgleich: vereinigen (ersetzen: nur die Datei). */
+  function logUebernehmen(pid, liste, ersetzen) {
+    var neu = ersetzen ? vereinigen(liste) : vereinigen(logVon(pid), liste);
+    ARCHIV[pid] = neu;
+    spiegelSchreiben(pid, neu);
+    if (!db) return Promise.resolve();
+    if (!ersetzen) return idbSchreiben(pid, neu);
+    return merke(new Promise(function (ok) {
+      try {
+        var tx = db.transaction("ereignisse", "readwrite"), st = tx.objectStore("ereignisse");
+        var r = st.index("p").openCursor(IDBKeyRange.only(pid));
+        r.onsuccess = function () { var c = r.result; if (c) { c.delete(); c.continue(); } else neu.forEach(function (e) { st.put({ k: pid + "|" + e.i, p: pid, e: e }); }); };
+        tx.oncomplete = tx.onerror = tx.onabort = function () { ok(); };
+      } catch (x) { ok(); }
+    }));
+  }
+  function alleLogs() {
+    var out = {};
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("egl-ereignisse-") === 0) out[k.slice(15)] = 1; } } catch (e) {}
+    Object.keys(ARCHIV).forEach(function (pid) { out[pid] = 1; });
+    Object.keys(out).forEach(function (pid) { out[pid] = logVon(pid); });
+    return out;
+  }
+  function warten() { return Promise.all(offen.slice()); }
+
+  /* Beim Start: Spiegel ins Archiv, Archiv laden, verdichten, Spiegel kürzen. */
+  function archivStarten() {
+    if (typeof indexedDB === "undefined" || !indexedDB || typeof indexedDB.open !== "function") return;
+    var anfrage;
+    try { anfrage = indexedDB.open("lernplattform", 1); } catch (e) { return; }
+    anfrage.onupgradeneeded = function () {
+      var d = anfrage.result;
+      if (!d.objectStoreNames.contains("ereignisse")) d.createObjectStore("ereignisse", { keyPath: "k" }).createIndex("p", "p");
+      if (!d.objectStoreNames.contains("tage")) d.createObjectStore("tage", { keyPath: "k" }).createIndex("p", "p");
+    };
+    anfrage.onerror = function () {};
+    anfrage.onsuccess = function () {
+      db = anfrage.result;
+      var spiegelnd = alleLogs();
+      Promise.all(Object.keys(spiegelnd).map(function (pid) { return idbSchreiben(pid, spiegelnd[pid]); })).then(function () {
+        var tx = db.transaction(["ereignisse", "tage"], "readonly"), roh = {}, tage = {};
+        tx.objectStore("ereignisse").openCursor().onsuccess = function (ev) {
+          var c = ev.target.result; if (!c) return; (roh[c.value.p] = roh[c.value.p] || []).push(c.value.e); c.continue();
+        };
+        tx.objectStore("tage").openCursor().onsuccess = function (ev) {
+          var c = ev.target.result; if (!c) return; (tage[c.value.p] = tage[c.value.p] || []).push(c.value.t); c.continue();
+        };
+        tx.oncomplete = function () {
+          archivOk = true;
+          var jetzt = Date.now();
+          Object.keys(roh).forEach(function (pid) {
+            /* frisch lesen (logVon): Während IndexedDB lud, kann der Spiegel gewachsen sein */
+            var v = verdichten(vereinigen(logVon(pid), roh[pid]), tage[pid] || [], jetzt);
+            ARCHIV[pid] = v.roh;
+            TAGE[pid] = v.tage;
+            if (v.verdichtet) verdichtungSchreiben(pid, v);
+            spiegelSchreiben(pid, v.roh);
+          });
+          try { window.__ELTERN.bereit = true; document.dispatchEvent(new CustomEvent("log:bereit")); } catch (e) {}
+          if (kstate && kstate.tab === "eltern-dashboard") neu();
+        };
+      });
+    };
+  }
+  function verdichtungSchreiben(pid, v) {
+    try {
+      var behalten = {}; v.roh.forEach(function (e) { behalten[e.i] = 1; });
+      var tx = db.transaction(["ereignisse", "tage"], "readwrite"), st = tx.objectStore("ereignisse");
+      var r = st.index("p").openCursor(IDBKeyRange.only(pid));
+      r.onsuccess = function () { var c = r.result; if (!c) return; if (!behalten[c.value.e.i]) c.delete(); c.continue(); };
+      v.tage.forEach(function (t) { tx.objectStore("tage").put({ k: pid + "|" + t.tag + "|" + t.f + "|" + (t.s || ""), p: pid, t: t }); });
+    } catch (e) {}
+  }
+
+  /* ---------- Reine Bearbeitungszeit (M6) ----------
+     Eine Uhr für die ganze App: läuft nur, wenn die Seite sichtbar ist,
+     kein Hilfe-Fenster offen ist und die letzte Aktion höchstens 60 s
+     zurückliegt (app/kern/aktivzeit.js). Aufgaben messen die Differenz. */
+  var zeitUhr = neueUhr(Date.now());
+  function ticken(was) { zeitUhr = schritt(zeitUhr, was, Date.now()); }
+  try {
+    if (typeof document.addEventListener === "function") {
+      ["pointerdown", "keydown", "touchstart"].forEach(function (n) { document.addEventListener(n, function () { ticken("aktion"); }, true); });
+      document.addEventListener("visibilitychange", function () { ticken(document.visibilityState === "hidden" ? "versteckt" : "sichtbar"); });
+    }
+    if (typeof MutationObserver === "function") {
+      var dialogOffen = false;
+      new MutationObserver(function () {
+        var jetzt = !!document.querySelector(".ps-hinter");
+        if (jetzt !== dialogOffen) { dialogOffen = jetzt; ticken(jetzt ? "dialog-auf" : "dialog-zu"); }
+      }).observe(document.body, { childList: true });
+    }
+  } catch (e) {}
+  function aktiveZeit() { return aktiv(zeitUhr, Date.now()); }
+
   function kennung() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function titelVon(skill) {
     var LP = window.__LERNPFAD;
@@ -45396,7 +45679,7 @@ function woranEsHakt(ereignisse) {
   /* ---------- Erfassung: Übungen der Engine ---------- */
   var OHNE = { lernpfad: 1, heute: 1, "eltern-dashboard": 1 };
   var gesehen = typeof WeakSet === "function" ? new WeakSet() : null;
-  var frageJetzt = "", frageSeit = 0, letzte = { q: "", t: 0 }, letzteFrage = null;
+  var frageJetzt = "", frageSeit = -1, letzte = { q: "", t: 0 }, letzteFrage = null;
   function aktuelleFrage(view) {
     var el = view.querySelector("[data-hilfe-an]");
     if (!el) return null;
@@ -45409,7 +45692,7 @@ function woranEsHakt(ereignisse) {
     var view = document.getElementById("view");
     if (!view) return;
     var f = aktuelleFrage(view);
-    if (f && f.text !== frageJetzt) { frageJetzt = f.text; frageSeit = Date.now(); }
+    if (f && f.text !== frageJetzt) { frageJetzt = f.text; frageSeit = aktiveZeit(); }   /* M6: reine Bearbeitungszeit */
     /* Beim Prüfen zeichnet die Engine neu; das Merkmal der Frage setzt p75
        erst kurz danach. Deshalb gilt die zuletzt erkannte Frage. */
     if (f) letzteFrage = f; else f = letzteFrage;
@@ -45436,7 +45719,7 @@ function woranEsHakt(ereignisse) {
       var gegeben = ok ? "" : (falsch ? falsch.textContent : eingabe ? eingabe.value : "");
       var skill = f && f.treffer ? f.treffer.skill : null;
       hinzufuegen({ i: kennung(), t: Date.now(), f: fachVon(skill), s: skill, ok: ok, q: kurz(frage, 160), g: kurz(gegeben, 80),
-        r: ok ? "" : kurz(r, 80), d: frageSeit ? Math.min(Date.now() - frageSeit, 600000) : 0, w: "app" });
+        r: ok ? "" : kurz(r, 80), d: frageSeit >= 0 ? Math.min(aktiveZeit() - frageSeit, 600000) : 0, w: "app" });
     }
   }
   try {
@@ -45606,6 +45889,15 @@ function woranEsHakt(ereignisse) {
         + '<polyline fill="none" stroke="var(--brand)" stroke-width="2.5" points="' + pkt.map(function (p) { return p.join(","); }).join(" ") + '"/>'
         + pkt.map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3" fill="var(--brand)"/>'; }).join("") + "</svg></div>";
     }).join("") : '<p style="margin:0;color:var(--ink2)">In diesem Monat wurde nicht gelernt.</p>') + "</div>";
+    /* M6: Monate, die älter als 24 Monate sind, stehen nur noch als Tagessummen da. */
+    var monatText = jm[0] + "-" + String(jm[1]).padStart(2, "0");
+    var verdichtet = (TAGE[(profil() || {}).id] || []).filter(function (x) { return x.tag.slice(0, 7) === monatText; });
+    if (verdichtet.length) {
+      var vn = verdichtet.reduce(function (a, x) { return a + x.n; }, 0), vok = verdichtet.reduce(function (a, x) { return a + x.ok; }, 0);
+      var vt = {}; verdichtet.forEach(function (x) { vt[x.tag] = 1; });
+      s += '<div class="el-box" data-testid="el-verdichtet"><h3>Verdichteter Zeitraum</h3><p style="margin:0">' + vn + " Aufgaben an " + Object.keys(vt).length
+        + " Tagen, " + Math.round((100 * vok) / vn) + ' % richtig. Einzelheiten (Fragen, Antworten) werden nach 24 Monaten zu Tagessummen zusammengefasst.</p></div>';
+    }
     s += '<div class="el-karten"><div><b>' + m.skills.length + '</b><span>Skills bearbeitet</span></div><div><b>' + neuGemeistert.length + '</b><span>neu gemeistert' + (neuGemeistert.length ? ": " + h(neuGemeistert.map(titelVon).join(", ")) : "") + "</span></div>"
       + '<div><b>' + verloren.length + '</b><span>Sicherheit verloren' + (verloren.length ? ": " + h(verloren.map(titelVon).join(", ")) : "") + "</span></div></div>";
     return s;
@@ -45734,8 +46026,12 @@ function woranEsHakt(ereignisse) {
   }, true);
 
   window.__ELTERN = { oeffnen: oeffnen, ereignisse: ereignisse, hinzufuegen: hinzufuegen, serie: function () { return serie(ereignisse(), Date.now()); },
+    /* M6: vollständige Logs, Übernahme aus Sicherung/Abgleich, ausstehende Schreibvorgänge, aktive Zeit */
+    alleLogs: alleLogs, logUebernehmen: logUebernehmen, warten: warten, aktiveZeit: aktiveZeit,
+    tage: function () { var p = profil(); return p ? (TAGE[p.id] || []) : []; }, bereit: false,
     /* für pruefen.js: die eingebettete Fehlertypologie (M7) */
     fehlerarten: fehlerarten, woranEsHakt: woranEsHakt };
+  try { archivStarten(); } catch (e) {}
 })();
 
 /* =====================================================================
@@ -46387,7 +46683,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 28.09.2026 07:48")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 28.09.2026 08:03")}}catch(e){}
 })();
 
 </script>
