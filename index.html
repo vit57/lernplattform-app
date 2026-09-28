@@ -534,6 +534,13 @@ html[data-theme] .m137-modes button.on, html[data-theme] .k46-modes button.on { 
 .lm-liste li { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
 .lm-q { font-weight: 650; color: var(--ink); }
 .lm-me { font-size: 13.5px; color: var(--ink2); }
+
+/* Inhaltspakete (p79) */
+.pk-liste { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; }
+.pk-liste li { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper); color: var(--ink); }
+.pk-fehler { color: var(--bad); font-weight: 650; }
+.pk-meldung { min-height: 1.4em; margin: 8px 0; color: var(--ink2); }
+.pk-meldung.schlecht { color: var(--bad); font-weight: 650; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -44790,6 +44797,7 @@ function tagVon(d) {
     var s = '<div class="hb-raster">';
     if (window.__ELTERN && istKind()) s += '<button class="hb-karte gross" data-eltern="dashboard"><span class="hb-ic" aria-hidden="true">📈</span><span class="hb-tx"><span class="hb-ti">Eltern-Überblick</span><span class="hb-me">Tag, Woche, Monat, Tendenzen und Wochenbericht.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="pin"><span class="hb-ic" aria-hidden="true">🔒</span><span class="hb-tx"><span class="hb-ti">PINs</span><span class="hb-me">Profile und Elternbereich schützen.</span></span></button>';
+    s += '<button class="hb-karte" data-eltern="pakete"><span class="hb-ic" aria-hidden="true">📦</span><span class="hb-tx"><span class="hb-ti">Inhaltspakete</span><span class="hb-me">Zusätzliche Aufgaben, nur auf diesem Gerät.</span></span></button>';
     if (istKind()) {
       s += '<button class="hb-karte" data-eltern="klasse"><span class="hb-ic" aria-hidden="true">🎒</span><span class="hb-tx"><span class="hb-ti">Klasse und Freigabe</span><span class="hb-me">Welche Stufen sichtbar sind.</span></span></button>';
       s += '<button class="hb-karte" data-eltern="ziel"><span class="hb-ic" aria-hidden="true">⏱️</span><span class="hb-tx"><span class="hb-ti">Tagesziel</span><span class="hb-me">Wie viele Minuten am Tag.</span></span></button>';
@@ -44867,6 +44875,7 @@ function tagVon(d) {
       if (was === "pin") { var v = document.querySelector("[data-ps-verwalten]"); if (window.__PROFILSCHUTZ && window.__PROFILSCHUTZ.verwaltung) window.__PROFILSCHUTZ.verwaltung(); else if (v) v.click(); }
       if (was === "klasse" && window.__LERNPFAD && window.__LERNPFAD.klasseAendern) window.__LERNPFAD.klasseAendern();
       if (was === "ziel" && window.__HEUTE && window.__HEUTE.zielAendern) window.__HEUTE.zielAendern();
+      if (was === "pakete" && window.__PAKETE) window.__PAKETE.verwaltung();
       if (was === "dashboard" && window.__ELTERN) window.__ELTERN.oeffnen();
       return;
     }
@@ -46678,12 +46687,254 @@ function hinweisStufen(q, regeln = []) {
     findbar: function (q) { return aufgabeVon({ a: q.id, q: q.q }) === q; } };
 })();
 
+/* =====================================================================
+   M17 — Private Inhaltspakete.
+
+   Eine JSON-Datei mit zusätzlichen Aufgaben, Themen oder Texten, im
+   Elternbereich eingespielt (Eltern-PIN). Sie liegt NUR auf diesem Gerät
+   (IndexedDB „lernplattform-pakete“): nicht in der öffentlichen App, nicht
+   in der Sicherungsdatei, nicht im Abgleich. Damit lassen sich Inhalte
+   nutzen, die nur privat verwendet werden dürfen (QUELLEN.md).
+
+   Beim Start werden alle Pakete geprüft und in die Inhalte gemischt
+   (app/kern/inhaltspaket.js). Format und Regeln: PAKETFORMAT.md.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/**
+ * Private Inhaltspakete (M17) — reine Funktionen.
+ *
+ * Ein Paket ist eine JSON-Datei, die im Elternbereich eingespielt wird und
+ * NUR auf dem Gerät liegt (IndexedDB): nicht in der öffentlichen App, nicht
+ * in der Sicherung, nicht im Abgleich. So lassen sich Inhalte nutzen, die
+ * nur privat verwendet werden dürfen (siehe QUELLEN.md).
+ *
+ *   { paket: { id, name, version?, lizenz?, quelle? },
+ *     inhalt: { DEU|ENG|MATH: { <klasse>: { topics: [Thema] } },
+ *               GK|SACH: [Thema],
+ *               V17_BANK: { <typ>: [Aufgabe] },
+ *               READ_KIDS|DIKT_KIDS|HOER_KIDS: { <sprache>: { <stufe>: [Text] } } } }
+ *
+ * Thema: { id, title, rules?, examples?, ex: [Aufgabe] } — gibt es die id
+ * schon, werden nur die Aufgaben ergänzt. Aufgaben: mc (o, c), multi (o, c[]),
+ * txt (a), num (a); Übungswelt: q, o, a (Indexliste). Kein HTML-Skript.
+ * Jedes gemischte Stück trägt `paket: <id>`.
+ */
+
+const KLASSEN = ['DEU', 'ENG', 'MATH'];
+const LISTEN = ['GK', 'SACH'];
+const TEXTE = ['READ_KIDS', 'DIKT_KIDS', 'HOER_KIDS'];
+const ERLAUBT = new Set([...KLASSEN, ...LISTEN, 'V17_BANK', ...TEXTE]);
+
+const istListe = Array.isArray;
+const obj = (x) => x && typeof x === 'object' && !istListe(x);
+const SKRIPT = /<\s*script|javascript:|\son\w+\s*=/i;
+
+/** Fehler einer Aufgabe oder null. */
+function aufgabeFehler(x, uebungswelt) {
+  if (!obj(x) || typeof x.q !== 'string' || !x.q.trim()) return 'Aufgabe ohne Frage';
+  const kurz = '„' + x.q.slice(0, 40) + '“';
+  if (SKRIPT.test(JSON.stringify(x))) return kurz + ': enthält ein Skript';
+  const idx = (i) => Number.isInteger(i) && istListe(x.o) && i >= 0 && i < x.o.length;
+  if (uebungswelt) {
+    if (!istListe(x.o) || x.o.length < 2 || !istListe(x.a) || !x.a.length || !x.a.every(idx)) return kurz + ': Optionen oder Lösung (a) fehlerhaft';
+    return null;
+  }
+  if (x.t === 'mc') return istListe(x.o) && x.o.length >= 2 && idx(x.c) ? null : kurz + ': mc ohne Lösung (o, c)';
+  if (x.t === 'multi') return istListe(x.o) && istListe(x.c) && x.c.length && x.c.every(idx) ? null : kurz + ': multi ohne Lösung (o, c[])';
+  if (x.t === 'txt') return (typeof x.a === 'string' && x.a.trim()) || (istListe(x.a) && x.a.length) ? null : kurz + ': txt ohne Lösung (a)';
+  if (x.t === 'num') return Number.isFinite(Number(x.a)) && x.a !== '' && x.a != null ? null : kurz + ': num ohne Lösung (a)';
+  return kurz + ': unbekannter Typ „' + x.t + '“ (erlaubt: mc, multi, txt, num)';
+}
+function themaFehler(t, fehler) {
+  if (!obj(t) || typeof t.id !== 'string' || !t.id) { fehler.push('Thema ohne id'); return 0; }
+  if (!istListe(t.ex)) { fehler.push('Thema ' + t.id + ': ex fehlt'); return 0; }
+  if (SKRIPT.test(JSON.stringify({ title: t.title, rules: t.rules, examples: t.examples }))) fehler.push('Thema ' + t.id + ': enthält ein Skript');
+  t.ex.forEach((x) => { const f = aufgabeFehler(x, false); if (f) fehler.push(f); });
+  return t.ex.length;
+}
+
+/** @param {any} p @returns {{ fehler: string[], zahlen: { aufgaben: number, texte: number, themen: number } }} */
+function pruefePaket(p) {
+  const fehler = [], zahlen = { aufgaben: 0, texte: 0, themen: 0 };
+  if (!obj(p) || !obj(p.paket) || typeof p.paket.id !== 'string' || !p.paket.id.trim()) return { fehler: ['paket.id fehlt — ein Paket braucht eine Kennung'], zahlen };
+  if (!obj(p.inhalt)) return { fehler: ['inhalt fehlt'], zahlen };
+  for (const k of Object.keys(p.inhalt)) {
+    const v = p.inhalt[k];
+    if (!ERLAUBT.has(k)) { fehler.push('unbekannter Bereich „' + k + '“'); continue; }
+    if (KLASSEN.includes(k)) for (const g of Object.keys(v || {})) for (const t of (v[g] && v[g].topics) || []) { zahlen.themen++; zahlen.aufgaben += themaFehler(t, fehler); }
+    if (LISTEN.includes(k)) for (const t of istListe(v) ? v : []) { zahlen.themen++; zahlen.aufgaben += themaFehler(t, fehler); }
+    if (k === 'V17_BANK') for (const typ of Object.keys(v || {})) for (const x of v[typ] || []) { zahlen.aufgaben++; const f = aufgabeFehler(x, true); if (f) fehler.push(f); }
+    if (TEXTE.includes(k)) for (const s of Object.keys(v || {})) for (const st of Object.keys(v[s] || {})) for (const tx of v[s][st] || []) {
+      zahlen.texte++;
+      if (!obj(tx) || typeof tx.t !== 'string' || !tx.t.trim()) fehler.push('Text ohne t');
+      else if (SKRIPT.test(JSON.stringify(tx))) fehler.push('Text „' + tx.t.slice(0, 30) + '“: enthält ein Skript');
+    }
+  }
+  return { fehler, zahlen };
+}
+
+const schluesselAufgabe = (x) => (x.id ? 'id:' + x.id : 'q:' + x.q);
+function themaMischen(liste, t, paketId, z) {
+  const da = liste.find((x) => x && x.id === t.id);
+  if (!da) { liste.push({ ...t, paket: paketId, ex: t.ex.map((x) => ({ ...x, paket: paketId })) }); z.themen++; z.aufgaben += t.ex.length; return; }
+  const bekannt = new Set((da.ex || []).map(schluesselAufgabe));
+  da.ex = da.ex || [];
+  for (const x of t.ex) if (!bekannt.has(schluesselAufgabe(x))) { da.ex.push({ ...x, paket: paketId }); z.aufgaben++; }
+}
+
+/**
+ * In die lebenden Inhaltsobjekte mischen (an Ort und Stelle).
+ * @param {Record<string, any>} ziele
+ * @param {any} inhalt
+ * @param {string} paketId
+ */
+function mischen(ziele, inhalt, paketId) {
+  const z = { aufgaben: 0, texte: 0, themen: 0 };
+  for (const k of Object.keys(inhalt || {})) {
+    const v = inhalt[k], ziel = ziele[k];
+    if (!ERLAUBT.has(k) || !ziel) continue;
+    if (KLASSEN.includes(k)) for (const g of Object.keys(v || {})) {
+      if (!ziel[g] || !istListe(ziel[g].topics)) continue;           /* keine Klassenstufe erfinden */
+      for (const t of (v[g] && v[g].topics) || []) themaMischen(ziel[g].topics, t, paketId, z);
+    }
+    if (LISTEN.includes(k) && istListe(ziel)) for (const t of v || []) themaMischen(ziel, t, paketId, z);
+    if (k === 'V17_BANK') for (const typ of Object.keys(v || {})) {
+      if (!istListe(ziel[typ])) continue;
+      const bekannt = new Set(ziel[typ].map(schluesselAufgabe));
+      for (const x of v[typ] || []) if (!bekannt.has(schluesselAufgabe(x))) { ziel[typ].push({ ...x, paket: paketId }); z.aufgaben++; }
+    }
+    if (TEXTE.includes(k)) for (const s of Object.keys(v || {})) for (const st of Object.keys(v[s] || {})) {
+      if (!ziel[s] || !istListe(ziel[s][st])) continue;
+      const bekannt = new Set(ziel[s][st].map((x) => x && x.t));
+      for (const tx of v[s][st] || []) if (!bekannt.has(tx.t)) { ziel[s][st].push({ ...tx, paket: paketId }); z.texte++; }
+    }
+  }
+  return z;
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+
+  var DBNAME = "lernplattform-pakete", stand = { geladen: false, pakete: [] };
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s == null ? "" : s); }
+  function ziele() {
+    var z = {};
+    try { z.DEU = DEU; } catch (e) {}
+    try { z.ENG = ENG; } catch (e) {}
+    try { z.MATH = MATH; } catch (e) {}
+    try { z.GK = GK; } catch (e) {}
+    try { z.SACH = SACH; } catch (e) {}
+    try { z.V17_BANK = window.V17_BANK; } catch (e) {}
+    try { z.READ_KIDS = READ_KIDS; } catch (e) {}
+    try { z.DIKT_KIDS = DIKT_KIDS; } catch (e) {}
+    try { z.HOER_KIDS = HOER_KIDS; } catch (e) {}
+    return z;
+  }
+  function oeffnen() {
+    return new Promise(function (ok, nein) {
+      if (typeof indexedDB === "undefined" || !indexedDB) return nein(new Error("Dieses Gerät kann keine Pakete speichern (IndexedDB fehlt)."));
+      var r = indexedDB.open(DBNAME, 1);
+      r.onupgradeneeded = function () { if (!r.result.objectStoreNames.contains("pakete")) r.result.createObjectStore("pakete", { keyPath: "id" }); };
+      r.onsuccess = function () { ok(r.result); };
+      r.onerror = function () { nein(r.error || new Error("IndexedDB")); };
+    });
+  }
+  function alle(db) {
+    return new Promise(function (ok) {
+      var out = [], c = db.transaction("pakete", "readonly").objectStore("pakete").openCursor();
+      c.onsuccess = function () { var x = c.result; if (x) { out.push(x.value); x.continue(); } else ok(out); };
+      c.onerror = function () { ok(out); };
+    });
+  }
+  function schreiben(db, wert, loeschen) {
+    return new Promise(function (ok, nein) {
+      var tx = db.transaction("pakete", "readwrite"), st = tx.objectStore("pakete");
+      if (loeschen) st.delete(wert); else st.put(wert);
+      tx.oncomplete = function () { ok(); };
+      tx.onerror = tx.onabort = function () { nein(tx.error || new Error("Speichern fehlgeschlagen")); };
+    });
+  }
+
+  /* ---------- Beim Start einmischen ---------- */
+  function laden() {
+    oeffnen().then(alle).then(function (liste) {
+      var z = ziele();
+      stand.pakete = liste.map(function (p) {
+        var pr = pruefePaket(p.daten);
+        if (pr.fehler.length) return { id: p.id, name: (p.daten.paket || {}).name || p.id, fehler: pr.fehler.length, zahlen: pr.zahlen, eingespielt: p.eingespielt };
+        var m = mischen(z, p.daten.inhalt, p.id);
+        return { id: p.id, name: p.daten.paket.name || p.id, lizenz: p.daten.paket.lizenz || "", zahlen: pr.zahlen, neu: m, eingespielt: p.eingespielt };
+      });
+      stand.geladen = true;
+      if (liste.length) { try { render(); } catch (e) {} }
+      try { document.dispatchEvent(new CustomEvent("pakete:geladen")); } catch (e) {}
+    }, function () { stand.geladen = true; });
+  }
+
+  /* ---------- Verwaltung (Elternbereich) ---------- */
+  function verwaltung() {
+    var schutz = window.__PROFILSCHUTZ;
+    (schutz && schutz.elternOk ? schutz.elternOk("Inhaltspakete verwalten die Eltern.") : Promise.resolve(true)).then(function (ok) {
+      if (!ok) return;
+      var alt = document.querySelector('[data-testid="pk-dialog"]');
+      if (alt) alt.remove();
+      var hinter = document.createElement("div");
+      hinter.className = "ps-hinter"; hinter.setAttribute("role", "dialog"); hinter.setAttribute("aria-modal", "true");
+      hinter.setAttribute("aria-labelledby", "pk-titel"); hinter.setAttribute("data-testid", "pk-dialog");
+      var liste = stand.pakete.length ? '<ul class="pk-liste">' + stand.pakete.map(function (p) {
+        return '<li><b>' + h(p.name) + "</b> — " + (p.fehler ? '<span class="pk-fehler">' + p.fehler + " Fehler, nicht geladen</span>"
+          : p.zahlen.aufgaben + " Aufgaben, " + p.zahlen.themen + " Themen, " + p.zahlen.texte + " Texte" + (p.lizenz ? " · " + h(p.lizenz) : ""))
+          + ' <button class="btn" data-pk-weg="' + h(p.id) + '">Entfernen</button></li>';
+      }).join("") + "</ul>" : '<p class="ps-text">Noch kein Paket eingespielt.</p>';
+      hinter.innerHTML = '<div class="ps-box"><h3 id="pk-titel">📦 Inhaltspakete</h3>'
+        + '<p class="ps-text">Zusätzliche Aufgaben, Themen oder Texte als Datei. Ein Paket bleibt <b>nur auf diesem Gerät</b> — es wird nicht veröffentlicht, nicht gesichert und nicht abgeglichen. Auf dem iPad und dem Mac also jeweils einspielen.</p>'
+        + liste + '<div class="pk-meldung" role="status" data-testid="pk-meldung"></div>'
+        + '<label class="btn btn-primary" style="display:inline-flex;align-items:center">Paket einspielen …<input type="file" accept=".json,application/json" data-testid="pk-datei" style="position:absolute;width:1px;height:1px;opacity:0"></label>'
+        + '<div class="ps-knoepfe"><button class="btn" data-pk="zu">Schließen</button></div></div>';
+      document.body.appendChild(hinter);
+      var melde = function (t, schlecht) { var m = hinter.querySelector(".pk-meldung"); m.textContent = t; m.className = "pk-meldung" + (schlecht ? " schlecht" : ""); };
+      hinter.addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest("[data-pk],[data-pk-weg]") : null;
+        if (!b) return;
+        e.stopPropagation();
+        if (b.getAttribute("data-pk") === "zu") { hinter.remove(); return; }
+        var id = b.getAttribute("data-pk-weg");
+        if (id && window.confirm("Paket entfernen? Die Aufgaben daraus verschwinden nach dem Neuladen.")) {
+          oeffnen().then(function (db) { return schreiben(db, id, true); }).then(function () { window.location.reload(); }, function (x) { melde(String(x.message || x), true); });
+        }
+      });
+      hinter.querySelector('[data-testid="pk-datei"]').addEventListener("change", function (e) {
+        var f = e.target.files && e.target.files[0];
+        e.target.value = "";
+        if (!f) return;
+        var r = new FileReader();
+        r.onload = function () {
+          var daten = null;
+          try { daten = JSON.parse(String(r.result)); } catch (x) { return melde("Die Datei ist kein gültiges JSON.", true); }
+          var pr = pruefePaket(daten);
+          if (pr.fehler.length) return melde("Nicht eingespielt — " + pr.fehler.length + " Fehler: " + pr.fehler.slice(0, 3).join("; ") + (pr.fehler.length > 3 ? " …" : ""), true);
+          oeffnen().then(function (db) { return schreiben(db, { id: daten.paket.id, daten: daten, eingespielt: new Date().toISOString() }); })
+            .then(function () { melde("Eingespielt: " + pr.zahlen.aufgaben + " Aufgaben. Die App lädt neu …"); setTimeout(function () { window.location.reload(); }, 600); },
+              function (x) { melde(String(x.message || x), true); });
+        };
+        r.readAsText(f);
+      });
+    });
+  }
+
+  window.__PAKETE = { stand: stand, verwaltung: verwaltung };
+  try { laden(); } catch (e) {}
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 28.09.2026 08:03")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 28.09.2026 08:12")}}catch(e){}
 })();
 
 </script>
