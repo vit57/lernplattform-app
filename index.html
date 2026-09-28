@@ -541,6 +541,15 @@ html[data-theme] .m137-modes button.on, html[data-theme] .k46-modes button.on { 
 .pk-fehler { color: var(--bad); font-weight: 650; }
 .pk-meldung { min-height: 1.4em; margin: 8px 0; color: var(--ink2); }
 .pk-meldung.schlecht { color: var(--bad); font-weight: 650; }
+
+/* Ladebildschirm, bis die neue Oberfläche steht (thema-kopf.js). Nur Tokens —
+   er folgt Hell/Dunkel und dem gewählten Design. */
+html.lp-start body { visibility: hidden; }
+html.lp-start { background: var(--bg, #f7f6f3); }
+html.lp-start::after {
+  content: "Lernplattform"; position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--bg, #f7f6f3); color: var(--ink2, #55545c); font: 650 18px/1.4 -apple-system, system-ui, sans-serif; letter-spacing: .01em;
+}
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -816,6 +825,21 @@ function abgleichen(lokal, fremd) {
   /* Notfall-Freigabe: Läuft der Dunkel-Übersetzer nicht, darf die Seite
      trotzdem nicht unsichtbar bleiben. */
   setTimeout(function () { r.setAttribute("data-dunkel-bereit", "1"); }, 1500);
+
+  /* Kein Aufblitzen der alten Ansicht (Rückmeldung 2026-09-28): Im HTML der
+     Engine stehen vor den Skripten noch der alte Kopf („Lernplattform · …
+     v16“) und die alte Fußzeile. Safari zeigt sie auf dem iPad, bis das
+     große Skript gelesen ist. Bis die neue Oberfläche steht, zeigt die Seite
+     deshalb nur einen ruhigen Ladebildschirm (thema.css, `lp-start`). */
+  r.classList.add("lp-start");
+  var frei = function () { r.classList.remove("lp-start"); };
+  var fertig = function () {
+    if (window.requestAnimationFrame) window.requestAnimationFrame(function () { window.requestAnimationFrame(frei); });
+    else frei();
+  };
+  if (document.readyState !== "loading") fertig();
+  else document.addEventListener("DOMContentLoaded", fertig);
+  setTimeout(frei, 8000);   /* nie dauerhaft verdeckt, auch wenn ein Skript scheitert */
 })();
 </script>
 <link rel="manifest" href="manifest.webmanifest">
@@ -46934,7 +46958,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 28.09.2026 08:12")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 28.09.2026 08:17")}}catch(e){}
 })();
 
 </script>
