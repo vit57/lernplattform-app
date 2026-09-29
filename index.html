@@ -551,6 +551,25 @@ html.lp-start::after {
   background: var(--bg, #f7f6f3); color: var(--ink2, #55545c); font: 650 18px/1.4 -apple-system, system-ui, sans-serif; letter-spacing: .01em;
 }
 .ql-autoren { font-size: 13px; color: var(--ink2); }
+/* Schwerpunkt-Dialog (p73) */
+.ht-fokus-liste { max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; display: grid; gap: 6px; background: var(--paper); }
+.ht-fokus-liste label { display: flex; gap: 8px; align-items: flex-start; color: var(--ink); }
+
+/* Abzeichen (p81) */
+.az-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 0 0 16px; }
+.az { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 16px; border: 1px dashed var(--line); background: var(--paper2); color: var(--ink2); }
+.az.an { border: 1px solid var(--brand-line); background: var(--brand-soft); color: var(--ink); }
+.az .az-ic { font-size: 26px; filter: grayscale(1); opacity: .55; }
+.az.an .az-ic { filter: none; opacity: 1; }
+.az-ti { font-weight: 700; font-size: 14px; }
+.az-me { font-size: 12.5px; color: var(--ink2); }
+.ht-abzeichen { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; margin: 0 0 14px; border-radius: 16px; background: var(--warn-soft); color: var(--ink); border: 1px solid var(--line); }
+.ht-abzeichen .az-ic { font-size: 26px; }
+/* Vorlesen (p82) */
+.vl-knopf { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; min-width: 30px; margin-left: 8px; border-radius: 999px;
+  border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); font-size: 15px; cursor: pointer; vertical-align: middle; }
+.vl-knopf::before { content: "🔊"; }
+.vl-knopf:hover { border-color: var(--brand-line); }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -39910,7 +39929,7 @@ const FEST = {
 /** Schlüssel je Profil: Präfix → Teil und Form. Längste Präfixe zuerst (fcstreak vor fc). */
 const JE_PROFIL = [
   ['egl-textrotation-', 'textrotation', 'objekt'], ['egl-ereignisse-', 'ereignisse', 'liste'],
-  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'],
+  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'],
   ['egl-fcstreak-', 'fcstreak', 'json'], ['egl-mywords-', 'mywords', 'json'], ['egl-fchide-', 'fchide', 'json'],
   ['egl-m127-', 'm127', 'json'], ['egl-v17-', 'v17', 'json'], ['egl-uni-', 'uni', 'json'], ['egl-fc-', 'fc', 'json'],
 ];
@@ -43254,7 +43273,9 @@ function neuerRuecksetzCode() {
       + feld("dz-schrift", "normal", "Normal", s === "normal") + feld("dz-schrift", "gross", "Groß", s === "gross")
       + feld("dz-schrift", "sehr-gross", "Sehr groß", s === "sehr-gross") + "</fieldset>"
       + '<fieldset class="dz-gruppe"><legend>Lesen</legend><label><input type="checkbox" name="dz-lese"' + (d.lese ? " checked" : "")
-      + "> Lesefreundliche Schrift (mehr Abstand, klare Buchstaben — hilft bei Legasthenie)</label></fieldset>"
+      + "> Lesefreundliche Schrift (mehr Abstand, klare Buchstaben — hilft bei Legasthenie)</label>"
+      /* M19 (A2): Vorlesemodus — Aufgaben und Antworten automatisch vorlesen (p82) */
+      + '<label><input type="checkbox" name="dz-vorlesen"' + (d.vorlesen ? " checked" : "") + "> Aufgaben automatisch vorlesen (für Kinder, die noch nicht sicher lesen)</label></fieldset>"
       + '<div class="ps-knoepfe"><button class="btn btn-primary" data-dz="zu">Fertig</button></div></div>';
     document.body.appendChild(hinter);
     function uebernehmen() {
@@ -43263,6 +43284,7 @@ function neuerRuecksetzCode() {
       n.theme = th ? th.value : "system";
       n.schrift = sc && sc.value !== "normal" ? sc.value : undefined;
       n.lese = hinter.querySelector('input[name="dz-lese"]').checked || undefined;
+      n.vorlesen = hinter.querySelector('input[name="dz-vorlesen"]').checked || undefined;
       speichere(n); anwenden(n);
     }
     function schliessen() { hinter.remove(); try { knopf && knopf.focus(); } catch (e) {} }
@@ -44358,8 +44380,17 @@ function saat(s) {
 
 const WIEDERHOLUNG_JE_TAG = 8;
 
+/** Kalendertage von a bis b (JJJJ-MM-TT), unabhängig von der Zeitumstellung. */
+function tageBis(a, b) {
+  const utc = (d) => { const [j, m, t] = String(d).split('-').map(Number); return Date.UTC(j, m - 1, t); };
+  return Math.round((utc(b) - utc(a)) / 86400000);
+}
+
 /**
- * @param {{ datum: string, profil: string, faecher: FachLage[], wiederholung?: number }} lage
+ * @param {{ datum: string, profil: string, faecher: FachLage[], wiederholung?: number,
+ *           fokus?: { skills: string[], titel?: string, datum?: string } | null }} lage
+ *   `fokus` (M19): Schwerpunkt der Eltern; mit `datum` eine Klassenarbeit —
+ *   Countdown, am Vortag und am Tag selbst eine Probearbeit.
  *   `wiederholung`: Anzahl fälliger Wiederholungen (app/kern/lernmodell.js)
  * @returns {{ datum: string, bloecke: Block[] }}
  */
@@ -44382,6 +44413,28 @@ function tagesplan(lage) {
     ziel: { typ: 'wiederholung', titel: '🔁 Wiederholen', anzahl: faellig, skills: geuebt } });
   else if (geuebt.length) bloecke.push({ id: 'aufwaermen', art: 'aufwaermen', titel: 'Aufwärmen', text: '5 Aufgaben aus dem, was du schon geübt hast', minuten: 5,
     ziel: { typ: 'runde', titel: '🔁 Aufwärmen', skills: geuebt, anzahl: 5 } });
+
+  /* 1b Schwerpunkt / Klassenarbeit (M19): die schwächste offene Station
+     aus der Auswahl der Eltern; am Vortag und am Tag selbst eine Probearbeit. */
+  const fokus = lage.fokus && Array.isArray(lage.fokus.skills) && lage.fokus.skills.length ? lage.fokus : null;
+  const rest = fokus && fokus.datum ? tageBis(lage.datum, fokus.datum) : null;
+  if (fokus && !(rest != null && rest < 0)) {
+    const alle = [];
+    for (const f of reihe) for (const s of f.stationen) if (fokus.skills.includes(s.skill) && s.zustand !== 'gesperrt') alle.push({ f, s });
+    const offen = alle.filter((x) => x.s.zustand !== 'gemeistert')
+      .sort((a, b) => a.s.score - b.s.score || fokus.skills.indexOf(a.s.skill) - fokus.skills.indexOf(b.s.skill));
+    const wann = rest == null ? '' : rest === 0 ? ' · heute' : rest === 1 ? ' · morgen' : ' · noch ' + rest + ' Tage';
+    if (offen.length) {
+      const { f, s } = offen[0];
+      vergeben.add(s.skill);
+      bloecke.push({ id: 'fokus', art: 'fokus', titel: rest == null ? 'Schwerpunkt' : 'Klassenarbeit vorbereiten',
+        text: (fokus.titel || f.fach) + wann + ' · ' + s.titel, minuten: 10,
+        ziel: { typ: 'lektion', skill: s.skill, stufe: s.zustand === 'verfuegbar' ? 1 : 3, su: f.su } });
+    }
+    if (rest != null && rest <= 1 && alle.length) bloecke.push({ id: 'probe', art: 'probe', titel: 'Probearbeit',
+      text: (fokus.titel || 'Klassenarbeit') + ' · 10 Aufgaben ohne Hilfe', minuten: 10,
+      ziel: { typ: 'runde', titel: '📝 Probearbeit', skills: alle.map((x) => x.s.skill), anzahl: 10 } });
+  }
 
   /* 2 Neu lernen: die Station „jetzt dran“ im ersten Fach der Reihe. */
   const neuLernen = (f, nr) => {
@@ -44425,7 +44478,7 @@ function tagesplan(lage) {
   bloecke.push({ id: 'kuer', art: 'kuer', titel: 'Kür', text: 'Du wählst: Übungswelt, Lesen oder ein Spiel', minuten: 5, ziel: { typ: 'kuer' } });
 
   /* Reihenfolge nach §8. */
-  const rang = { aufwaermen: 1, neu: 2, festigen: 3, schwach: 4, kuer: 5 };
+  const rang = { aufwaermen: 1, fokus: 1.5, probe: 1.6, neu: 2, festigen: 3, schwach: 4, kuer: 5 };
   bloecke.sort((a, b) => rang[a.art] - rang[b.art]);
   return { datum: lage.datum, bloecke };
 }
@@ -44473,7 +44526,7 @@ function tagVon(d) {
     /* M7: fällige Wiederholungen (p78) werden das Aufwärmen. */
     var wdh = 0;
     try { wdh = window.__LERNMODELL ? window.__LERNMODELL.faellig().length : 0; } catch (e) {}
-    var plan = tagesplan({ datum: tag, profil: p ? p.id : "anon", faecher: lageErheben(), wiederholung: wdh });
+    var plan = tagesplan({ datum: tag, profil: p ? p.id : "anon", faecher: lageErheben(), wiederholung: wdh, fokus: (p && p.fokus) || null });
     var neu = { datum: tag, bloecke: plan.bloecke, erledigt: {}, sek: st.datum === tag ? st.sek || 0 : 0 };
     speichere(neu);
     return neu;
@@ -44516,7 +44569,7 @@ function tagVon(d) {
     + ".ht-kuer{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}";
   function stil() { try { if (!document.getElementById("ht-stil")) { var s = document.createElement("style"); s.id = "ht-stil"; s.textContent = STIL; document.head.appendChild(s); } } catch (e) {} }
 
-  var SYMBOL = { aufwaermen: "🔁", neu: "✨", festigen: "🧱", schwach: "🎯", kuer: "🎈" };
+  var SYMBOL = { aufwaermen: "🔁", fokus: "📌", probe: "📝", neu: "✨", festigen: "🧱", schwach: "🎯", kuer: "🎈" };
   function gruss() { var s = new Date().getHours(); return s < 11 ? "Guten Morgen" : s < 18 ? "Guten Tag" : "Guten Abend"; }
   function ring(min, ziel) {
     var anteil = Math.max(0, Math.min(1, min / ziel)), u = 2 * Math.PI * 22;
@@ -44542,6 +44595,12 @@ function tagVon(d) {
     var min = Math.floor((st.sek || 0) / 60);
     var offen = st.bloecke.filter(function (b) { return !erledigt[b.id]; });
     var out = kopf + ring(min, ziel) + "</div>";
+    /* M19: neue Abzeichen einmal zeigen — gesehen, sobald „Fortschritt“ geöffnet oder hier bestätigt */
+    try {
+      var neuAz = window.__ABZEICHEN ? window.__ABZEICHEN.neue() : [];
+      if (neuAz.length) out += '<div class="ht-abzeichen" role="status" data-testid="ht-abzeichen"><span class="az-ic" aria-hidden="true">' + neuAz.map(function (a) { return a.icon; }).join(" ")
+        + "</span><span><b>Neues Abzeichen!</b> " + h(neuAz.map(function (a) { return a.titel; }).join(" · ")) + '</span><button class="btn" data-heute="abzeichen">Super!</button></div>';
+    } catch (e) {}
     if (offen.length) {
       var b = offen[0];
       out += '<button class="ht-hero" data-heute-block="' + b.id + '" data-testid="ht-weiter"><span style="font-size:30px">▶</span><span>'
@@ -44593,16 +44652,69 @@ function tagVon(d) {
     });
   }
 
+  /* ---------- M19: Schwerpunkt und Klassenarbeit ----------
+     Die Eltern wählen Stationen (und optional ein Datum); „Heute“ bereitet
+     gezielt darauf vor (app/kern/tagesplan.js). Profilfeld `fokus`
+     { su, skills, titel, datum } — wird mit den Profilen abgeglichen. */
+  function fokusAendern() {
+    var schutz = window.__PROFILSCHUTZ, p = profil();
+    if (!p) return;
+    var frage = istKind() ? (schutz && schutz.elternOk ? schutz.elternOk("Schwerpunkte stellen die Eltern ein.") : Promise.resolve(true)) : Promise.resolve(true);
+    frage.then(function (ok) {
+      if (!ok) return;
+      var faecher = LP.faecherHeute ? LP.faecherHeute() : [];
+      var alt = p.fokus || {}, su = alt.su || (faecher[0] && faecher[0].su);
+      var hinter = document.createElement("div");
+      hinter.className = "ps-hinter"; hinter.setAttribute("role", "dialog"); hinter.setAttribute("aria-modal", "true");
+      hinter.setAttribute("aria-labelledby", "ht-fokus-titel"); hinter.setAttribute("data-testid", "ht-fokusdialog");
+      var zeichnen = function () {
+        var f = faecher.filter(function (x) { return x.su === su; })[0] || faecher[0];
+        var st = f ? LP.pfad(f.fach).filter(function (x) { return x.zustand !== "gesperrt"; }) : [];
+        var gewaehlt = alt.su === su ? (alt.skills || []) : [];
+        hinter.innerHTML = '<div class="ps-box"><h3 id="ht-fokus-titel">📌 Schwerpunkt & Klassenarbeit</h3>'
+          + '<p class="ps-text">Was gerade in der Schule dran ist: „Heute“ übt diese Stationen zuerst. Mit Datum zählt es bis zur Arbeit herunter und bietet am Vortag eine Probearbeit an.</p>'
+          + '<label style="display:block;margin:8px 0">Fach <select data-ht-fokus="fach">' + faecher.map(function (x) { return '<option value="' + h(x.su) + '"' + (x.su === su ? " selected" : "") + ">" + h(x.titel) + "</option>"; }).join("") + "</select></label>"
+          + '<div class="ht-fokus-liste" role="group" aria-label="Stationen">' + st.map(function (x) {
+            return '<label><input type="checkbox" data-ht-fokus-skill="' + h(x.skill) + '"' + (gewaehlt.indexOf(x.skill) >= 0 ? " checked" : "") + "> " + h(x.titel) + "</label>";
+          }).join("") + "</div>"
+          + '<label style="display:block;margin:8px 0">Titel (optional) <input type="text" data-ht-fokus="titel" value="' + h(alt.su === su ? alt.titel || "" : "") + '" placeholder="z. B. Mathearbeit"></label>'
+          + '<label style="display:block;margin:8px 0">Datum der Arbeit (optional) <input type="date" data-ht-fokus="datum" value="' + h(alt.su === su ? alt.datum || "" : "") + '"></label>'
+          + '<div class="ps-knoepfe"><button class="btn" data-ht-fdlg="weg">Schwerpunkt entfernen</button><button class="btn" data-ht-fdlg="nein">Abbrechen</button><button class="btn btn-primary" data-ht-fdlg="ja">Speichern</button></div></div>';
+      };
+      zeichnen();
+      document.body.appendChild(hinter);
+      hinter.addEventListener("change", function (e) { if (e.target.getAttribute("data-ht-fokus") === "fach") { su = e.target.value; zeichnen(); } });
+      hinter.addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest("[data-ht-fdlg]") : null;
+        if (!b) return;
+        e.stopPropagation();
+        var was = b.getAttribute("data-ht-fdlg");
+        if (was === "ja") {
+          var skills = [].map.call(hinter.querySelectorAll("[data-ht-fokus-skill]:checked"), function (x) { return x.getAttribute("data-ht-fokus-skill"); });
+          var titel = hinter.querySelector('[data-ht-fokus="titel"]').value.trim(), datum = hinter.querySelector('[data-ht-fokus="datum"]').value;
+          p.fokus = skills.length ? { su: su, skills: skills, titel: titel || undefined, datum: datum || undefined } : undefined;
+          if (!p.fokus) delete p.fokus;
+        }
+        if (was === "weg") delete p.fokus;
+        if (was === "ja" || was === "weg") {
+          save("egl-profiles", PROFILES);
+          var stand = lade(); stand.datum = null; speichere(stand);   /* Plan für heute neu bilden */
+        }
+        hinter.remove(); rerender();
+      });
+    });
+  }
+
   /* ---------- Rückmeldungen aus dem Lernpfad ---------- */
   document.addEventListener("lp:stufe-fertig", function (e) {
     var d = e.detail || {}, st = lade();
     (st.bloecke || []).forEach(function (b) {
       if (!b.ziel || b.ziel.skill !== d.skill) return;
-      var zielStufe = b.art === "neu" ? 5 : b.ziel.stufe;
+      var zielStufe = b.art === "neu" ? 5 : b.art === "fokus" ? 4 : b.ziel.stufe;   /* Schwerpunkt: bis „Frei üben“ */
       if (d.stufe >= zielStufe) abhaken(b.id);
     });
   });
-  document.addEventListener("lp:runde-fertig", function () { abhaken("aufwaermen"); });
+  document.addEventListener("lp:runde-fertig", function (e) { abhaken(e && e.detail && /Probearbeit/.test(e.detail.titel || "") ? "probe" : "aufwaermen"); });
 
   /* ---------- Routing ---------- */
   function rerender() { try { render(); } catch (e) {} }
@@ -44707,9 +44819,10 @@ function tagVon(d) {
     a = t.getAttribute("data-heute");
     if (a === "einrichten" || a === "weitermachen") { kstate.tab = "lernpfad"; return rerender(); }
     if (a === "ziel") return zielAendern();
+    if (a === "abzeichen") { if (window.__ABZEICHEN) window.__ABZEICHEN.alleGesehen(); return rerender(); }
   }, true);
 
-  window.__HEUTE = { lade: lade, planFuerHeute: planFuerHeute, abhaken: abhaken, zielAendern: zielAendern };
+  window.__HEUTE = { lade: lade, planFuerHeute: planFuerHeute, abhaken: abhaken, zielAendern: zielAendern, fokusAendern: fokusAendern };
 })();
 
 /* =====================================================================
@@ -44977,7 +45090,7 @@ function tagVon(d) {
       if (testen.length) s += '<h3 class="hb-zw">Testen und wiederholen</h3><div class="hb-raster">' + testen.map(function (e) { return karte(e); }).join("") + "</div>";
       return s + "</div>";
     }
-    if (id === "fortschritt") s += fortschrittKopf();
+    if (id === "fortschritt") { s += fortschrittKopf(); if (window.__ABZEICHEN) { try { s += window.__ABZEICHEN.html(); window.__ABZEICHEN.alleGesehen(); } catch (e) {} } }
     if (id === "eltern") s += elternKopf();
     s += '<div class="hb-raster">' + liste.map(function (e) { return karte(e); }).join("") + "</div>";
     return s + "</div>";
@@ -45001,6 +45114,8 @@ function tagVon(d) {
     var s = '<div class="hb-raster">';
     if (window.__ELTERN && istKind()) s += '<button class="hb-karte gross" data-eltern="dashboard"><span class="hb-ic" aria-hidden="true">📈</span><span class="hb-tx"><span class="hb-ti">Eltern-Überblick</span><span class="hb-me">Tag, Woche, Monat, Tendenzen und Wochenbericht.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="pin"><span class="hb-ic" aria-hidden="true">🔒</span><span class="hb-tx"><span class="hb-ti">PINs</span><span class="hb-me">Profile und Elternbereich schützen.</span></span></button>';
+    s += '<button class="hb-karte" data-eltern="fokus"><span class="hb-ic" aria-hidden="true">📌</span><span class="hb-tx"><span class="hb-ti">Schwerpunkt & Klassenarbeit</span><span class="hb-me">Was in der Schule dran ist — „Heute“ übt es zuerst.</span></span></button>';
+    s += '<button class="hb-karte" data-eltern="csv"><span class="hb-ic" aria-hidden="true">📥</span><span class="hb-tx"><span class="hb-ti">Eigene Wörter (CSV)</span><span class="hb-me">Wortlisten in „Meine Wörter“ übernehmen.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="quellen"><span class="hb-ic" aria-hidden="true">ℹ️</span><span class="hb-tx"><span class="hb-ti">Quellen & Lizenzen</span><span class="hb-me">Woher die Inhalte stammen.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="pakete"><span class="hb-ic" aria-hidden="true">📦</span><span class="hb-tx"><span class="hb-ti">Inhaltspakete</span><span class="hb-me">Zusätzliche Aufgaben, nur auf diesem Gerät.</span></span></button>';
     if (istKind()) {
@@ -45082,6 +45197,8 @@ function tagVon(d) {
       if (was === "ziel" && window.__HEUTE && window.__HEUTE.zielAendern) window.__HEUTE.zielAendern();
       if (was === "pakete" && window.__PAKETE) window.__PAKETE.verwaltung();
       if (was === "quellen" && window.__QUELLEN) window.__QUELLEN.zeigen();
+      if (was === "fokus" && window.__HEUTE && window.__HEUTE.fokusAendern) window.__HEUTE.fokusAendern();
+      if (was === "csv" && window.__ABZEICHEN) window.__ABZEICHEN.csvDialog();
       if (was === "dashboard" && window.__ELTERN) window.__ELTERN.oeffnen();
       return;
     }
@@ -47201,12 +47318,300 @@ function mischen(ziele, inhalt, paketId) {
   window.__QUELLEN = { zeigen: zeigen, zaehlen: zaehlen };
 })();
 
+/* =====================================================================
+   M19 — Abzeichen (Idee A1) und eigene Wörter per CSV (Idee B3).
+
+   * Abzeichen: berechnet aus dem, was ohnehin gespeichert ist — Lernpfad,
+     Serie, Ereignis-Log, Wiederholung, Sterne (app/kern/abzeichen.js).
+     Abschnitt „🏅 Abzeichen“ unter „Fortschritt“; neue Abzeichen meldet
+     „Heute“ einmal, bis sie angesehen sind (egl-abzeichen-<Profil>).
+   * CSV: „Wort;Übersetzung[;Beispiel]“ in „Meine Wörter“ der gewählten
+     Sprache (egl-mywords-<Profil>-<Sprache>), ohne Dubletten
+     (app/kern/csvwoerter.js).
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/**
+ * Abzeichen (M19, Idee A1) — reine Funktionen.
+ *
+ * Sterne und Lernen bekommen einen sichtbaren Sinn: Abzeichen für
+ * gemeisterte Stationen, Serien, richtige Aufgaben, Aufgaben ohne Hinweis
+ * in Folge, ausgebügelte Fehler, Fächer, frühes Lernen und Sterne.
+ * Berechnet aus dem, was ohnehin gespeichert ist — kein eigener Zähler, der
+ * auseinanderlaufen könnte; nur „gesehen“ merkt sich die App.
+ */
+
+/** @typedef {{ id: string, icon: string, titel: string, ziel: number, art: string }} Abzeichen */
+/** @type {Abzeichen[]} */
+const ABZEICHEN = [
+  { id: 'stationen-1', icon: '🌱', titel: 'Erste Station gemeistert', ziel: 1, art: 'gemeistert' },
+  { id: 'stationen-5', icon: '🌿', titel: '5 Stationen gemeistert', ziel: 5, art: 'gemeistert' },
+  { id: 'stationen-20', icon: '🌳', titel: '20 Stationen gemeistert', ziel: 20, art: 'gemeistert' },
+  { id: 'serie-3', icon: '🔥', titel: '3 Tage hintereinander gelernt', ziel: 3, art: 'serie' },
+  { id: 'serie-7', icon: '📅', titel: 'Eine ganze Woche am Stück', ziel: 7, art: 'serie' },
+  { id: 'serie-30', icon: '🏆', titel: '30 Tage am Stück', ziel: 30, art: 'serie' },
+  { id: 'richtig-100', icon: '💯', titel: '100 Aufgaben richtig', ziel: 100, art: 'richtig' },
+  { id: 'richtig-1000', icon: '🚀', titel: '1000 Aufgaben richtig', ziel: 1000, art: 'richtig' },
+  { id: 'folge-20', icon: '🦉', titel: '20 richtig in Folge ohne Hinweis', ziel: 20, art: 'folge' },
+  { id: 'ausgebuegelt-10', icon: '🧽', titel: '10 Fehler ausgebügelt', ziel: 10, art: 'ausgebuegelt' },
+  { id: 'faecher-3', icon: '🧭', titel: 'In 3 Fächern gelernt', ziel: 3, art: 'faecher' },
+  { id: 'frueh', icon: '🌅', titel: 'Vor 8 Uhr gelernt', ziel: 1, art: 'frueh' },
+  { id: 'sterne-100', icon: '⭐', titel: '100 Sterne gesammelt', ziel: 100, art: 'sterne' },
+  { id: 'sterne-500', icon: '🌟', titel: '500 Sterne gesammelt', ziel: 500, art: 'sterne' },
+];
+
+/**
+ * @param {{ ereignisse?: readonly any[], gemeistert?: number, serie?: number, ausgebuegelt?: number, sterne?: number }} lage
+ */
+function abzeichen(lage) {
+  const ev = (lage.ereignisse || []).slice().sort((a, b) => a.t - b.t);
+  let folge = 0, laengste = 0;
+  for (const e of ev) { if (e.ok && !e.h) { folge++; if (folge > laengste) laengste = folge; } else folge = 0; }
+  const werte = {
+    gemeistert: lage.gemeistert || 0,
+    serie: lage.serie || 0,
+    richtig: ev.filter((e) => e.ok).length,
+    folge: laengste,
+    ausgebuegelt: lage.ausgebuegelt || 0,
+    faecher: new Set(ev.map((e) => e.f).filter(Boolean)).size,
+    frueh: ev.some((e) => new Date(e.t).getHours() < 8) ? 1 : 0,
+    sterne: lage.sterne || 0,
+  };
+  return ABZEICHEN.map((a) => ({ ...a, wert: werte[a.art], erreicht: werte[a.art] >= a.ziel }));
+}
+
+/** Erreicht, aber noch nicht gesehen. @param {ReturnType<typeof abzeichen>} liste @param {readonly string[]} gesehen */
+function neueAbzeichen(liste, gesehen) {
+  const g = new Set(gesehen || []);
+  return liste.filter((a) => a.erreicht && !g.has(a.id));
+}
+
+
+  // @ts-check
+/**
+ * Eigene Wörter aus einer CSV-Datei (M19, Idee B3) — reine Funktionen.
+ *
+ * Eine Zeile: Wort ; Übersetzung [; Beispiel]. Trenner Semikolon, Komma
+ * oder Tabulator (aus der ersten Zeile erkannt), Anführungszeichen erlaubt,
+ * eine Kopfzeile wird übersprungen. Eigene Daten — keine Lizenzfrage.
+ */
+
+const KOPF = /^(wort|word|englisch|english|deutsch|begriff|vorderseite|front|term)$/i;
+
+/** Felder einer Zeile mit Anführungszeichen. @param {string} zeile @param {string} trenner */
+function felder(zeile, trenner) {
+  const out = [];
+  let f = '', drin = false;
+  for (let i = 0; i < zeile.length; i++) {
+    const c = zeile[i];
+    if (drin) {
+      if (c === '"' && zeile[i + 1] === '"') { f += '"'; i++; }
+      else if (c === '"') drin = false;
+      else f += c;
+    } else if (c === '"') drin = true;
+    else if (c === trenner) { out.push(f); f = ''; }
+    else f += c;
+  }
+  out.push(f);
+  return out.map((x) => x.trim());
+}
+
+/** @param {string} text @returns {{ woerter: { w: string, tr: string, ex: string }[], fehler: string[] }} */
+function csvWoerter(text) {
+  const zeilen = String(text || '').replace(/^﻿/, '').split(/\r?\n/);
+  const erste = zeilen.find((z) => z.trim()) || '';
+  const trenner = erste.includes('\t') ? '\t' : erste.includes(';') ? ';' : ',';
+  const woerter = [], fehler = [];
+  zeilen.forEach((z, i) => {
+    if (!z.trim()) return;
+    const [w = '', tr = '', ex = ''] = felder(z, trenner);
+    if (i === zeilen.indexOf(erste) && KOPF.test(w)) return;
+    if (!w) return;
+    if (!tr) { fehler.push('Zeile ' + (i + 1) + ': keine Übersetzung'); return; }
+    woerter.push({ w, tr, ex });
+  });
+  return { woerter, fehler };
+}
+
+/**
+ * In die Liste von „Meine Wörter“ ({ w, tr, def, ex, at }) übernehmen.
+ * @param {readonly any[]} alt @param {{ w: string, tr: string, ex: string }[]} neu @param {number} jetzt
+ */
+function uebernehmen(alt, neu, jetzt) {
+  const liste = (alt || []).map((x) => ({ ...x }));
+  const index = new Map(liste.map((x, i) => [String(x.w || '').trim().toLowerCase(), i]));
+  let n = 0, ergaenzt = 0;
+  for (const x of neu) {
+    const k = x.w.trim().toLowerCase();
+    if (index.has(k)) {
+      const a = liste[index.get(k)];
+      let geaendert = false;
+      if (!a.tr && x.tr) { a.tr = x.tr; geaendert = true; }
+      if (!a.ex && x.ex) { a.ex = x.ex; geaendert = true; }
+      if (geaendert) ergaenzt++;
+      continue;
+    }
+    index.set(k, liste.length);
+    liste.push({ w: x.w, tr: x.tr, def: '', ex: x.ex || '', at: jetzt });
+    n++;
+  }
+  return { liste, neu: n, ergaenzt };
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s == null ? "" : s); }
+  function schluessel() { var p = profil(); return "egl-abzeichen-" + (p ? p.id : "anon"); }
+  function gesehen() { try { return (JSON.parse(localStorage.getItem(schluessel()) || "{}") || {}).gesehen || []; } catch (e) { return []; } }
+
+  function gemeistertGesamt() {
+    var LP = window.__LERNPFAD, p = profil(), n = 0;
+    if (!LP || !p) return 0;
+    var kind = p.type === "kid", faecher = kind ? ["de", "en", "math"] : [];
+    Object.keys(LP.PFADE || {}).forEach(function (k) { var t = k.split("|"); if (t[1] === (kind ? "kind" : "erwachsen")) faecher.push(t[0]); });
+    faecher.forEach(function (su) {
+      var pf = LP.pfadFuer(su);
+      if (pf) try { n += LP.pfad(pf.fach).filter(function (s) { return s.zustand === "gemeistert"; }).length; } catch (e) {}
+    });
+    return n;
+  }
+  function liste() {
+    var E = window.__ELTERN, LM = window.__LERNMODELL, sterne = 0;
+    try { sterne = (typeof K !== "undefined" && K && K.stars) || 0; } catch (e) {}
+    return abzeichen({
+      ereignisse: E ? E.ereignisse() : [], serie: E ? E.serie() : 0, sterne: sterne,
+      ausgebuegelt: LM ? LM.liste().ausgebuegelt : 0, gemeistert: gemeistertGesamt()
+    });
+  }
+  function neue() { return neueAbzeichen(liste(), gesehen()); }
+  function alleGesehen() {
+    try { localStorage.setItem(schluessel(), JSON.stringify({ gesehen: liste().filter(function (a) { return a.erreicht; }).map(function (a) { return a.id; }) })); } catch (e) {}
+  }
+  function html() {
+    var l = liste(), n = l.filter(function (a) { return a.erreicht; }).length;
+    return '<h3 class="hb-zw">🏅 Abzeichen · ' + n + " von " + l.length + '</h3><div class="az-raster" data-testid="az-raster">' + l.map(function (a) {
+      return '<div class="az' + (a.erreicht ? " an" : "") + '" data-az="' + h(a.id) + '"><span class="az-ic" aria-hidden="true">' + a.icon + '</span><span class="az-ti">' + h(a.titel) + "</span>"
+        + '<span class="az-me">' + (a.erreicht ? "geschafft" : Math.min(a.wert, a.ziel) + " von " + a.ziel) + "</span></div>";
+    }).join("") + "</div>";
+  }
+
+  /* ---------- CSV: eigene Wörter ---------- */
+  function csvDialog() {
+    var p = profil();
+    if (!p) return;
+    var hinter = document.createElement("div");
+    hinter.className = "ps-hinter"; hinter.setAttribute("role", "dialog"); hinter.setAttribute("aria-modal", "true");
+    hinter.setAttribute("aria-labelledby", "az-csv-titel"); hinter.setAttribute("data-testid", "csv-dialog");
+    hinter.innerHTML = '<div class="ps-box"><h3 id="az-csv-titel">📥 Eigene Wörter (CSV)</h3>'
+      + '<p class="ps-text">Eine Zeile je Wort: <code>Wort;Übersetzung;Beispiel</code> (Beispiel optional). Komma oder Tabulator gehen auch. Die Wörter landen in „Meine Wörter“ — vorhandene werden nicht doppelt angelegt.</p>'
+      + '<label style="display:block;margin:8px 0">Sprache <select data-csv="sprache"><option value="en">Englisch</option><option value="de">Deutsch</option></select></label>'
+      + '<div class="pk-meldung" role="status" data-testid="csv-meldung"></div>'
+      + '<label class="btn btn-primary" style="display:inline-flex;align-items:center">Datei wählen …<input type="file" accept=".csv,.txt,text/csv,text/plain" data-testid="csv-datei" style="position:absolute;width:1px;height:1px;opacity:0"></label>'
+      + '<div class="ps-knoepfe"><button class="btn" data-csv="zu">Schließen</button></div></div>';
+    document.body.appendChild(hinter);
+    var melde = function (t, schlecht) { var m = hinter.querySelector(".pk-meldung"); m.textContent = t; m.className = "pk-meldung" + (schlecht ? " schlecht" : ""); };
+    hinter.addEventListener("click", function (e) { var b = e.target.closest ? e.target.closest('[data-csv="zu"]') : null; if (b) { e.stopPropagation(); hinter.remove(); } });
+    hinter.querySelector('[data-testid="csv-datei"]').addEventListener("change", function (e) {
+      var f = e.target.files && e.target.files[0]; e.target.value = "";
+      if (!f) return;
+      var r = new FileReader();
+      r.onload = function () {
+        var c = csvWoerter(String(r.result));
+        if (!c.woerter.length) return melde("Keine Wörter gefunden." + (c.fehler.length ? " " + c.fehler.slice(0, 3).join("; ") : ""), true);
+        var k = "egl-mywords-" + p.id + "-" + hinter.querySelector('[data-csv="sprache"]').value, alt = [];
+        try { alt = JSON.parse(localStorage.getItem(k) || "[]") || []; } catch (x) {}
+        var u = uebernehmen(Array.isArray(alt) ? alt : [], c.woerter, Date.now());
+        try { localStorage.setItem(k, JSON.stringify(u.liste)); } catch (x) { return melde("Speichern nicht möglich: " + x.message, true); }
+        melde((u.neu === 1 ? "1 neues Wort" : u.neu + " neue Wörter") + ", " + u.ergaenzt + " ergänzt" + (c.fehler.length ? " · übersprungen: " + c.fehler.length : "") + ".");
+      };
+      r.readAsText(f);
+    });
+  }
+
+  window.__ABZEICHEN = { liste: liste, neue: neue, alleGesehen: alleGesehen, html: html, csvDialog: csvDialog };
+})();
+
+/* =====================================================================
+   M19 (Idee A2) — Vorlesen.
+
+   Jede Aufgabe bekommt einen 🔊-Knopf; im Vorlesemodus (Darstellung →
+   „Aufgaben automatisch vorlesen“, egl-darstellung.vorlesen) werden Frage
+   und Antworten vorgelesen, sobald eine neue Aufgabe erscheint. Stimme:
+   die eingebaute Sprachausgabe des Geräts; englische Teile auf Englisch.
+   ===================================================================== */
+(function () {
+  "use strict";
+  if (typeof document.querySelector !== "function") return;
+  var FRAGE = '#view [data-testid="lp-frage"], #view .m127-qtxt, #view .gex-q, #view [data-hilfe-an]';
+  var OPTION = ".lp-opt, .m127-opt, .v17-opt";
+  function kannSprechen() { return typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance === "function"; }
+  function an() { try { return !!(JSON.parse(localStorage.getItem("egl-darstellung") || "{}") || {}).vorlesen; } catch (e) { return false; } }
+  function englisch(t) { return /^[A-Za-z0-9 ,.;:'’?!()\-–]+$/.test(t) && /\b(the|a|an|is|are|you|I|to|of|and|he|she|it|my|what|do|does|was|have)\b/i.test(t); }
+  function reinerText(el) {
+    var k = el.cloneNode(true);
+    [].forEach.call(k.querySelectorAll("button"), function (b) { b.remove(); });
+    return (k.textContent || "").replace(/\s+/g, " ").trim();
+  }
+  function sprechen(teile) {
+    if (!kannSprechen()) return;
+    window.speechSynthesis.cancel();
+    teile.filter(Boolean).forEach(function (t) {
+      var u = new window.SpeechSynthesisUtterance(t);
+      u.lang = englisch(t) ? "en-GB" : "de-DE"; u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    });
+    try { window.__VORLESEN.zuletzt = teile.filter(Boolean); } catch (e) {}
+  }
+  function vorlesen(frageEl) {
+    var q = reinerText(frageEl), opts = [].map.call(document.querySelectorAll("#view " + OPTION.split(", ").join(", #view ")), function (b) { return reinerText(b); }).filter(Boolean);
+    sprechen([q].concat(opts.length ? ["Antworten:"].concat(opts) : []));
+  }
+  var zuletzt = "";
+  function ordnen() {
+    if (!kannSprechen()) return;
+    var fragen = document.querySelectorAll(FRAGE);
+    for (var i = 0; i < fragen.length; i++) {
+      var f = fragen[i];
+      /* je Frage ein Knopf: nicht doppelt in verschachtelten Treffern */
+      if (f.querySelector(".vl-knopf") || (f.parentNode && f.parentNode.closest && f.parentNode.closest("[data-vl-an]"))) continue;
+      f.setAttribute("data-vl-an", "1");
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "vl-knopf"; b.setAttribute("aria-label", "Aufgabe vorlesen"); b.setAttribute("data-vl", "1");   /* Symbol nur per CSS: p75/p76 lesen den Fragetext über textContent */
+      f.appendChild(b);
+    }
+    var erste = fragen[0];
+    if (erste && an()) {
+      var t = reinerText(erste);
+      if (t && t !== zuletzt) { zuletzt = t; vorlesen(erste); }
+    }
+  }
+  var geplant = false;
+  try {
+    if (typeof MutationObserver === "function") new MutationObserver(function () {
+      if (geplant) return; geplant = true;
+      setTimeout(function () { geplant = false; try { ordnen(); } catch (e) {} }, 120);
+    }).observe(document.body, { childList: true, subtree: true });
+  } catch (e) {}
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest("[data-vl]") : null;
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var f = b.parentNode;
+    if (f) vorlesen(f);
+  }, true);
+  try { window.__VORLESEN = { sprechen: sprechen, zuletzt: [] }; } catch (e) {}
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 29.09.2026 11:05")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 29.09.2026 11:19")}}catch(e){}
 })();
 
 </script>
