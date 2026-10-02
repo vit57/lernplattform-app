@@ -589,6 +589,31 @@ html.lp-start::after {
 .fs-tabelle th { font-size: 13px; color: var(--ink2); font-weight: 600; }
 .fs-hakt { margin: 0 0 16px; padding-left: 20px; }
 @media (max-width: 560px) { .fs-fach { grid-template-columns: 1fr auto; } .fs-leiste { grid-column: 1 / -1; } .fs-balken { gap: 3px; } }
+
+/* Karteikarten (p84) */
+.k2-fach { display: flex; gap: 8px; margin: 0 0 14px; }
+.k2-stand { color: var(--ink2); margin: 6px 0 10px; }
+.k2-karte { max-width: 560px; margin: 0 auto 16px; padding: 34px 24px; border-radius: 22px; border: 1px solid var(--line); background: var(--paper); text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.06); }
+.k2-karte.offen { border-color: var(--brand-line); }
+.k2-em { font-size: 54px; line-height: 1.1; margin-bottom: 8px; }
+.k2-wort { font-size: clamp(26px, 5vw, 38px); font-weight: 800; color: var(--ink); }
+.k2-uebers { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); font-size: clamp(20px, 4vw, 28px); font-weight: 700; color: var(--brand); }
+.k2-tipp { color: var(--ink2); margin: 14px 0 0; }
+.k2-knoepfe { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 560px; margin: 0 auto; }
+.k2-gross { font-size: 17px; padding: 14px 26px; }
+.k2-gross kbd { font: inherit; font-size: 12px; opacity: .75; margin-left: 6px; }
+.k2-note { flex: 1 1 150px; display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; font-weight: 700; }
+.k2-note small { font-weight: 500; font-size: 12px; color: var(--ink2); }
+.k2-note.n0 { border-color: var(--line); }
+.k2-note.n1 { border-color: var(--brand-line); }
+.k2-verw { margin: 18px 0 0; }
+.k2-verw summary { cursor: pointer; color: var(--ink2); font-weight: 600; padding: 8px 0; }
+.k2-liste { list-style: none; margin: 0 0 12px; padding: 0; max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.k2-liste li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.k2-liste li:last-child { border-bottom: none; }
+.k2-liste li.aus .k2-w { text-decoration: line-through; color: var(--ink2); }
+.k2-w { font-weight: 600; flex: 1; min-width: 0; }
+.k2-t { color: var(--ink2); flex: 1.2; min-width: 0; font-size: 14px; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -31962,7 +31987,8 @@ const vergleiche = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 function wiederholung(ereignisse, wahl) {
   const kind = wahl.art === 'kind';
   const jetzt = wahl.jetzt ?? Date.now();
-  const ev = (ereignisse || []).filter((e) => e && Number.isFinite(e.t) && (e.a || e.q))
+  /* Karteikarten (w: 'karten', M18.2) haben ihren eigenen Termin — nicht doppelt führen. */
+  const ev = (ereignisse || []).filter((e) => e && Number.isFinite(e.t) && (e.a || e.q) && e.w !== 'karten')
     .slice().sort((a, b) => a.t - b.t || vergleiche(String(a.i), String(b.i)));
   const karten = new Map();
   for (const e of ev) {
@@ -32184,6 +32210,13 @@ function hinweisStufen(q, regeln = []) {
     } else {
       s += '<div class="v17-empty" data-testid="lm-leer">🎉 Keine offenen Fehler — stark!</div>';
     }
+    /* M18.2: fällige Karteikarten gehören an dieselbe Stelle */
+    try {
+      var kf = window.__KARTEN ? window.__KARTEN.faellig() : [];
+      if (kf.length) s += '<h3 class="hb-zw">🃏 Karteikarten</h3><div class="hb-raster" data-testid="lm-karten">' + kf.map(function (x) {
+        return '<button class="hb-karte" data-lm="karten" data-lm-sc="' + h(x.sc) + '"><span class="hb-ic" aria-hidden="true">🃏</span><span class="hb-tx"><span class="hb-ti">' + h(x.fach) + ": " + x.n + (x.n === 1 ? " Karte" : " Karten") + ' fällig</span><span class="hb-me">Eine kurze Runde im Karteikasten.</span></span></button>';
+      }).join("") + "</div>";
+    } catch (e) {}
     if (offen.length) {
       s += '<h3 class="hb-zw">Noch offen</h3><ul class="lm-liste" data-testid="lm-liste">' + offen.map(function (x) {
         return "<li><span class=\"lm-q\">" + h(kurz(x.q, 120)) + "</span><span class=\"lm-me\">"
@@ -32247,6 +32280,7 @@ function hinweisStufen(q, regeln = []) {
     if (!t) return;
     e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
     if (t.getAttribute("data-lm") === "start") { starteWiederholung(8, "v17review"); return; }
+    if (t.getAttribute("data-lm") === "karten") { if (window.__KARTEN) window.__KARTEN.oeffnen(t.getAttribute("data-lm-sc")); return; }
     kstate.lp = null;
     kstate.tab = "v17review";
     try { render(); } catch (x) {}
@@ -33176,12 +33210,252 @@ function jeFach(ev, jetzt) {
   window.__FORTSCHRITT = { html: html, ALT: ["m127timer", "m127stats", "v17parents", "Statistik"] };
 })();
 
+/* =====================================================================
+   M18.2 — Karteikarten auf der Kernschicht (ersetzt die Engine-Seite).
+
+   Engine-Fassung (v15 + v1.36): eigene Seite mit Phasen, Streak-Kasten,
+   Wörterliste, Punktabzug bei „Falsch“. Jetzt:
+     * Planung im Kern (app/kern/karten.js), Speicher unverändert
+       (egl-fc-<Profil>-<Bereich>, egl-fchide-…) — kein Umzug;
+     * Wortvorrat weiter aus fcPool (alle Engine-Schichten: Zusatzwörter,
+       garantierte Rückseite, „Meine Wörter“, versteckte Wörter);
+     * jede Antwort landet im Ereignis-Log (w: "karten") — sie zählt für
+       Lernzeit, Serie, Abzeichen und den Eltern-Überblick; eine eigene
+       Karten-Serie gibt es nicht mehr;
+     * kein Punktabzug: Wer sich selbst bewertet, soll ehrlich sein dürfen;
+     * fällige Karten stehen auch unter „🔁 Wiederholen“ (p78).
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/* =====================================================================
+   M18.2: Karteikarten — Planung als reine Funktionen.
+
+   Dasselbe Phasenprinzip wie bisher (Engine v15): Phase 0 = neu, dann
+   Wiederholung nach 1, 2, 4, 7, 15, 30 Tagen. Richtig → nächste Phase,
+   zu leicht → zwei Phasen, falsch → Phase 1 und in 10 Minuten wieder.
+   Gespeichert wird im bisherigen Format je Wort
+     { b: Phase, nx: fällig ab (ms), ls: zuletzt (ms), ok, bad }
+   unter denselben Schlüsseln egl-fc-<Profil>-<Bereich> — kein Umzug,
+   der alte Stand gilt weiter, und zurück geht es ohne Verlust.
+   ===================================================================== */
+
+const PHASEN = [0, 1, 2, 4, 7, 15, 30];
+const NEU_JE_RUNDE = 10;
+const NOCHMAL_MS = 10 * 60 * 1000;
+const TAG = 86400000;
+
+/**
+ * @template {{w: string}} K
+ * @param {readonly K[]} pool
+ * @param {Record<string, {nx?: number}>} stand
+ * @param {number} jetzt
+ */
+function lage(pool, stand, jetzt) {
+  const faellig = [], neu = [];
+  let spaeter = 0;
+  for (const c of pool) {
+    const st = stand && stand[c.w];
+    if (!st) neu.push(c);
+    else if ((st.nx || 0) <= jetzt) faellig.push(c);
+    else spaeter++;
+  }
+  return { faellig, neu, spaeter, gesamt: pool.length };
+}
+
+/**
+ * Eine Runde: alle fälligen (gemischt), dann höchstens `neuJeRunde` neue.
+ * @template K
+ * @param {{faellig: K[], neu: K[]}} l
+ * @param {(a: K[]) => K[]} mischen
+ */
+function runde(l, mischen, neuJeRunde = NEU_JE_RUNDE) {
+  return mischen(l.faellig.slice()).concat(mischen(l.neu.slice()).slice(0, neuJeRunde));
+}
+
+/**
+ * @param {{b?: number, ok?: number, bad?: number} | undefined} st
+ * @param {0|1|2} note  0 falsch · 1 richtig · 2 zu leicht
+ * @param {number} jetzt
+ */
+function bewerte(st, note, jetzt) {
+  const alt = st || {}, neu = { b: alt.b || 0, ok: alt.ok || 0, bad: alt.bad || 0, nx: 0, ls: jetzt };
+  if (note === 0) {
+    neu.bad++; neu.b = 1; neu.nx = jetzt + NOCHMAL_MS;
+    return { st: neu, nochmal: true };
+  }
+  neu.ok++;
+  neu.b = Math.min(PHASEN.length - 1, neu.b + (note === 2 ? 2 : 1));
+  neu.nx = jetzt + PHASEN[neu.b] * TAG;
+  return { st: neu, nochmal: false };
+}
+
+/** Abstand in Tagen, den eine Note bringen würde — für die Knöpfe. */
+function naechsteTage(st, note) {
+  return PHASEN[Math.min(PHASEN.length - 1, ((st && st.b) || 0) + (note === 2 ? 2 : 1))];
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function istKind() { var p = profil(); return !!(p && p.type === "kid"); }
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s == null ? "" : s); }
+  function wer() { try { return (typeof CUR !== "undefined" && CUR) ? CUR : ((profil() || {}).id || "anon"); } catch (e) { return "anon"; } }
+  function sprache() { try { return typeof curLang !== "undefined" && curLang ? curLang : "en"; } catch (e) { return "en"; } }
+  function bereich() { return istKind() ? "kid-" + (kstate.fcFach || "en") : "ad-" + sprache(); }
+  function lang(sc) { return /-de$/.test(sc) ? "de" : "en"; }
+  function fachName(sc) { return lang(sc) === "de" ? "Deutsch" : "Englisch"; }
+  function lies(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || "null"); return v && typeof v === "object" ? v : d; } catch (e) { return d; } }
+  function schreib(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function standKey(sc) { return "egl-fc-" + wer() + "-" + sc; }
+  function versteckKey(sc) { return "egl-fchide-" + wer() + "-" + sc; }
+  function vorrat(sc) { try { var f = window.fcPool || (typeof fcPool === "function" ? fcPool : null); return f ? (f(sc) || []) : []; } catch (e) { return []; } }
+  function mischen(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function aktiv() {
+    var p = profil();
+    if (!p || p.type === "baby" || (typeof showProfiles !== "undefined" && showProfiles)) return false;
+    if (p.type === "kid") return kstate.tab === "cards";
+    return typeof state !== "undefined" && state && state.tab === "Karten" && !kstate.tab;
+  }
+  function faellig(sc) { return lage(vorrat(sc), lies(standKey(sc), {}), Date.now()).faellig.length; }
+
+  /* ---------- Übersicht ---------- */
+  function htmlStart() {
+    var sc = bereich(), l = lage(vorrat(sc), lies(standKey(sc), {}), Date.now());
+    var s = '<div class="hb k2" data-testid="k2-start"><h2 class="hb-titel">🃏 Karteikarten</h2>'
+      + '<p class="hb-sub">Erst überlegen, dann aufdecken. Was sitzt, kommt seltener wieder — nach 1, 2, 4, 7, 15 und 30 Tagen. Was noch nicht sitzt, kommt gleich nochmal.</p>';
+    if (istKind()) s += '<div class="k2-fach" role="group" aria-label="Fach">' + ["en", "de"].map(function (f) {
+      var an = (kstate.fcFach || "en") === f;
+      return '<button class="btn' + (an ? " btn-primary" : "") + '" aria-pressed="' + an + '" data-k2="fach" data-k2-fach="' + f + '">' + (f === "en" ? "🇬🇧 Englisch" : "🇩🇪 Deutsch") + "</button>";
+    }).join("") + "</div>";
+    s += '<div class="hb-zahlen" data-testid="k2-zahlen"><div><b>' + l.faellig.length + "</b><span>jetzt fällig</span></div><div><b>" + l.neu.length
+      + "</b><span>noch neu</span></div><div><b>" + l.spaeter + "</b><span>in Wiederholung</span></div><div><b>" + l.gesamt + "</b><span>Karten gesamt</span></div></div>";
+    var n = Math.min(l.neu.length, NEU_JE_RUNDE);
+    if (l.faellig.length || n) {
+      s += '<div class="hb-raster"><button class="hb-karte gross" data-k2="start" data-testid="k2-los"><span class="hb-ic" aria-hidden="true">▶</span><span class="hb-tx"><span class="hb-ti">Runde starten</span><span class="hb-me">'
+        + h([l.faellig.length ? l.faellig.length + " fällig" : "", n ? n + " neu" : ""].filter(Boolean).join(" + ")) + "</span></span></button></div>";
+    } else s += '<p class="lm-hinweis" data-testid="k2-nichts">🎉 Im Moment ist keine Karte fällig. Komm später wieder!</p>';
+    return s + htmlVerwalten(sc) + "</div>";
+  }
+  function htmlVerwalten(sc) {
+    var weg = lies(versteckKey(sc), {}), nWeg = Object.keys(weg).length;
+    if (!kstate.k2verwalten) return '<details class="k2-verw"><summary data-k2="verwalten">🙈 Wörter verstecken' + (nWeg ? " · " + nWeg + " versteckt" : "") + "</summary></details>";
+    var sichtbar = vorrat(sc);
+    return '<div class="k2-verw offen" data-testid="k2-verwalten"><h3 class="hb-zw">🙈 Wörter verstecken</h3><p class="fs-text">Zu schwer oder passt gerade nicht? Versteckte Wörter kommen in keiner Runde vor — freischalten geht jederzeit.</p>'
+      + '<ul class="k2-liste">' + Object.keys(weg).sort().map(function (w) {
+        return '<li class="aus"><span class="k2-w">' + h(w) + '</span><button class="btn" data-k2="freischalten" data-k2-w="' + h(w) + '">↺ freischalten</button></li>';
+      }).join("") + sichtbar.map(function (c) {
+        return '<li><span class="k2-w">' + h(c.w) + '</span><span class="k2-t">' + h(c.tr || "") + '</span><button class="btn" data-k2="verstecken" data-k2-w="' + h(c.w) + '">verstecken</button></li>';
+      }).join("") + '</ul><button class="btn" data-k2="verwalten-zu">Fertig</button></div>';
+  }
+
+  /* ---------- Runde ---------- */
+  function starten() {
+    var sc = bereich(), karten = runde(lage(vorrat(sc), lies(standKey(sc), {}), Date.now()), mischen);
+    if (!karten.length) return;
+    kstate.k2 = { sc: sc, karten: karten, i: 0, offen: false, ok: 0, bad: 0, seit: Date.now() };
+    try { if (typeof FC !== "undefined") FC = null; } catch (e) {}
+  }
+  function htmlRunde() {
+    var r = kstate.k2;
+    if (r.i >= r.karten.length) {
+      return '<div class="hb k2"><div class="lp-box" role="status" data-testid="k2-ende"><h3 style="margin:0 0 6px">' + (r.ok >= r.bad ? "🎉" : "💪") + " Runde geschafft!</h3>"
+        + "<p>✅ " + r.ok + " gewusst · 🔁 " + r.bad + " kommen wieder</p></div><div class=\"ps-knoepfe\" style=\"justify-content:flex-start\"><button class=\"btn btn-primary\" data-k2=\"ende\">Zur Übersicht</button></div></div>";
+    }
+    var c = r.karten[r.i], st = lies(standKey(r.sc), {})[c.w];
+    var s = '<div class="hb k2"><button class="back" data-k2="ende">← Karteikarten</button>'
+      + '<p class="k2-stand" aria-live="polite">Karte ' + (r.i + 1) + " von " + r.karten.length + " · ✅ " + r.ok + "</p>"
+      + '<div class="k2-karte' + (r.offen ? " offen" : "") + '" data-testid="k2-karte">'
+      + (c.em ? '<div class="k2-em" aria-hidden="true">' + c.em + "</div>" : "")
+      + '<div class="k2-wort" lang="' + lang(r.sc) + '">' + h(c.w) + ' <button class="vl-knopf" type="button" aria-label="Wort vorlesen" data-k2="sprechen"></button></div>';
+    if (!r.offen) s += '<p class="k2-tipp">Weißt du, was das heißt? Erst überlegen — dann aufdecken.</p></div><div class="k2-knoepfe"><button class="btn btn-primary k2-gross" data-k2="zeigen" data-testid="k2-zeigen">👁 Antwort zeigen <kbd>Leertaste</kbd></button></div>';
+    else s += '<div class="k2-uebers" data-testid="k2-antwort">' + h(c.tr || "") + "</div></div>"
+      + '<div class="k2-knoepfe" role="group" aria-label="Wie gut wusstest du es?">'
+      + '<button class="btn k2-note n0" data-k2="note" data-k2-note="0">🔁 Noch nicht<small>gleich nochmal · 1</small></button>'
+      + '<button class="btn k2-note n1" data-k2="note" data-k2-note="1">✅ Gewusst<small>in ' + naechsteTage(st, 1) + " Tg. · 2</small></button>"
+      + '<button class="btn k2-note n2" data-k2="note" data-k2-note="2">😎 Zu leicht<small>in ' + naechsteTage(st, 2) + " Tg. · 3</small></button></div>";
+    return s + "</div>";
+  }
+  function benoten(note) {
+    var r = kstate.k2;
+    if (!r || !r.offen || r.i >= r.karten.length) return;
+    var c = r.karten[r.i], d = lies(standKey(r.sc), {}), jetzt = Date.now(), e = bewerte(d[c.w], note, jetzt);
+    d[c.w] = e.st; schreib(standKey(r.sc), d);
+    if (e.nochmal) { r.bad++; r.karten.push(c); } else r.ok++;
+    try {
+      if (window.__ELTERN) window.__ELTERN.hinzufuegen({ i: "fc:" + r.sc + ":" + c.w, t: jetzt, f: fachName(r.sc), s: null, ok: e.nochmal ? 0 : 1,
+        q: String(c.w), r: String(c.tr || ""), d: Math.min(jetzt - r.seit, 120000), w: "karten" });
+    } catch (x) {}
+    try { if (istKind() && typeof K !== "undefined" && K) { if (e.nochmal) K.bad++; else { K.stars++; K.ok++; } if (typeof syncProfile === "function") syncProfile(); } } catch (x) {}
+    r.i++; r.offen = false; r.seit = Date.now();
+  }
+  function sprechen() {
+    var r = kstate.k2; if (!r) return;
+    var c = r.karten[r.i];
+    try { var u = new SpeechSynthesisUtterance(c.w); u.lang = lang(r.sc) === "de" ? "de-DE" : "en-GB"; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+  }
+
+  /* ---------- Einhängen ---------- */
+  var renderVorher = render;
+  var renderNeu = function () {
+    if (aktiv() && typeof document.getElementById === "function") {
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) {
+        if (kstate.k2 && kstate.k2.sc !== bereich()) kstate.k2 = null;
+        view.innerHTML = kstate.k2 ? htmlRunde() : htmlStart();
+        try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
+        return;
+      }
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+  function neu() { try { render(); } catch (e) {} }
+
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest("[data-k2]") : null;
+    if (!t || !aktiv()) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var was = t.getAttribute("data-k2"), w = t.getAttribute("data-k2-w"), sc = bereich();
+    if (was === "fach") { kstate.fcFach = t.getAttribute("data-k2-fach"); kstate.k2 = null; }
+    else if (was === "start") starten();
+    else if (was === "zeigen" && kstate.k2) kstate.k2.offen = true;
+    else if (was === "note") benoten(+t.getAttribute("data-k2-note"));
+    else if (was === "ende") kstate.k2 = null;
+    else if (was === "sprechen") { sprechen(); return; }
+    else if (was === "verwalten") kstate.k2verwalten = true;
+    else if (was === "verwalten-zu") kstate.k2verwalten = false;
+    else if (was === "verstecken" || was === "freischalten") { var m = lies(versteckKey(sc), {}); if (was === "verstecken") m[w] = 1; else delete m[w]; schreib(versteckKey(sc), m); }
+    neu();
+  }, true);
+  ziel.addEventListener("keydown", function (e) {
+    var r = kstate.k2;
+    if (!r || !aktiv() || r.i >= r.karten.length) return;
+    var tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (!r.offen && (e.key === " " || e.key === "Enter")) { e.preventDefault(); r.offen = true; neu(); }
+    else if (r.offen && (e.key === "1" || e.key === "2" || e.key === "3")) { e.preventDefault(); benoten(+e.key - 1); neu(); }
+  }, true);
+
+  /* für „🔁 Wiederholen“ (p78) und Tests */
+  window.__KARTEN = {
+    faellig: function () { var p = profil(); if (!p) return []; var b = p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()];
+      return b.map(function (sc) { return { sc: sc, fach: fachName(sc), n: faellig(sc) }; }).filter(function (x) { return x.n > 0; }); },
+    oeffnen: function (sc) { kstate.k2 = null; if (istKind()) { kstate.fcFach = lang(sc || "kid-en"); kstate.tab = "cards"; } else { kstate.tab = null; try { state.tab = "Karten"; } catch (e) {} } neu(); },
+    kern: { lage: lage, bewerte: bewerte }
+  };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 00:26")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 00:41")}}catch(e){}
 })();
 
 </script>
