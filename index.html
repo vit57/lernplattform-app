@@ -841,6 +841,15 @@ html[data-theme] :is(.btn, .hb-karte, .uw-opt, .sx-stufe, .fs-fach, .k2-note, .n
 .k2i-tab { max-width: 760px; margin: 10px 0 6px; }
 .k2i-tab td { vertical-align: top; }
 .k2i-sp select { display: block; width: 100%; margin-top: 6px; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); }
+
+/* Abzeichen-Gruppen (p81, M28) */
+.az-gruppe { margin: 0 0 6px; }
+.az-gruppe summary { cursor: pointer; font-weight: 700; padding: 8px 0; }
+.az-zahl { font-weight: 500; color: var(--ink2); font-size: 14px; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.az-naechste { padding: 12px 14px 2px; margin: 0 0 12px; border-radius: 16px; background: var(--brand-soft); }
+.az-naechste > b { display: block; margin: 0 0 8px; }
+.az-balken { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 2px; }
+.az-balken > span { display: block; height: 100%; background: var(--brand); border-radius: 2px; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -32911,58 +32920,131 @@ function mischen(ziele, inhalt, paketId) {
 
   // @ts-check
 /**
- * Abzeichen (M19, Idee A1) — reine Funktionen.
+ * Abzeichen (M19, Idee A1; M28 erweitert) — reine Funktionen.
  *
- * Sterne und Lernen bekommen einen sichtbaren Sinn: Abzeichen für
- * gemeisterte Stationen, Serien, richtige Aufgaben, Aufgaben ohne Hinweis
- * in Folge, ausgebügelte Fehler, Fächer, frühes Lernen und Sterne.
- * Berechnet aus dem, was ohnehin gespeichert ist — kein eigener Zähler, der
- * auseinanderlaufen könnte; nur „gesehen“ merkt sich die App.
+ * Sterne und Lernen bekommen einen sichtbaren Sinn. Berechnet aus dem, was
+ * ohnehin gespeichert ist — Ereignis-Log, Lernpfad, Serie, Lernzeit (M23),
+ * Karteikarten, Schreiben, Woche, Tagebuch, Kalender — kein eigener Zähler,
+ * der auseinanderlaufen könnte; nur „gesehen“ merkt sich die App.
+ * M28 (2026-10-03, „Es sollten deutlich mehr Abzeichen eingeführt
+ * werden!“): von 14 auf über 70, in Gruppen, mit „als Nächstes erreichbar“.
+ * Die ids der ersten 14 bleiben — „gesehen“ gilt weiter.
  */
 
-/** @typedef {{ id: string, icon: string, titel: string, ziel: number, art: string }} Abzeichen */
+/** @typedef {{ id: string, icon: string, titel: string, ziel: number, art: string, gruppe: string }} Abzeichen */
+
+const GRUPPEN = [
+  { id: 'lernen', titel: 'Lernen & Lernpfad' }, { id: 'dranbleiben', titel: 'Dranbleiben' },
+  { id: 'zeit', titel: 'Lernzeit' }, { id: 'genau', titel: 'Genau & sicher' },
+  { id: 'karten', titel: 'Karteikarten' }, { id: 'sprache', titel: 'Lesen, Hören, Diktat' },
+  { id: 'schreiben', titel: 'Schreiben' }, { id: 'woche', titel: 'Woche & Plan' }, { id: 'ich', titel: 'Ich & mein Tag' },
+];
+
+const A = (gruppe, art, liste) => liste.map(([ziel, icon, titel, id]) => ({ id: id || art + '-' + ziel, icon, titel, ziel, art, gruppe }));
+
 /** @type {Abzeichen[]} */
 const ABZEICHEN = [
-  { id: 'stationen-1', icon: '🌱', titel: 'Erste Station gemeistert', ziel: 1, art: 'gemeistert' },
-  { id: 'stationen-5', icon: '🌿', titel: '5 Stationen gemeistert', ziel: 5, art: 'gemeistert' },
-  { id: 'stationen-20', icon: '🌳', titel: '20 Stationen gemeistert', ziel: 20, art: 'gemeistert' },
-  { id: 'serie-3', icon: '🔥', titel: '3 Tage hintereinander gelernt', ziel: 3, art: 'serie' },
-  { id: 'serie-7', icon: '📅', titel: 'Eine ganze Woche am Stück', ziel: 7, art: 'serie' },
-  { id: 'serie-30', icon: '🏆', titel: '30 Tage am Stück', ziel: 30, art: 'serie' },
-  { id: 'richtig-100', icon: '💯', titel: '100 Aufgaben richtig', ziel: 100, art: 'richtig' },
-  { id: 'richtig-1000', icon: '🚀', titel: '1000 Aufgaben richtig', ziel: 1000, art: 'richtig' },
-  { id: 'folge-20', icon: '🦉', titel: '20 richtig in Folge ohne Hinweis', ziel: 20, art: 'folge' },
-  { id: 'ausgebuegelt-10', icon: '🧽', titel: '10 Fehler ausgebügelt', ziel: 10, art: 'ausgebuegelt' },
-  { id: 'faecher-3', icon: '🧭', titel: 'In 3 Fächern gelernt', ziel: 3, art: 'faecher' },
-  { id: 'frueh', icon: '🌅', titel: 'Vor 8 Uhr gelernt', ziel: 1, art: 'frueh' },
-  { id: 'sterne-100', icon: '⭐', titel: '100 Sterne gesammelt', ziel: 100, art: 'sterne' },
-  { id: 'sterne-500', icon: '🌟', titel: '500 Sterne gesammelt', ziel: 500, art: 'sterne' },
+  ...A('lernen', 'gemeistert', [[1, '🌱', 'Erste Station gemeistert', 'stationen-1'], [5, '🌿', '5 Stationen gemeistert', 'stationen-5'], [10, '🪴', '10 Stationen gemeistert', 'stationen-10'],
+    [20, '🌳', '20 Stationen gemeistert', 'stationen-20'], [50, '🏞️', '50 Stationen gemeistert', 'stationen-50'], [100, '🗺️', '100 Stationen gemeistert', 'stationen-100']]),
+  ...A('lernen', 'faecher', [[3, '🧭', 'In 3 Fächern gelernt', 'faecher-3'], [5, '🌍', 'In 5 Fächern gelernt']]),
+  ...A('lernen', 'ausgebuegelt', [[10, '🧽', '10 Fehler ausgebügelt', 'ausgebuegelt-10'], [50, '🛠️', '50 Fehler ausgebügelt'], [150, '💎', '150 Fehler ausgebügelt']]),
+  ...A('dranbleiben', 'serie', [[3, '🔥', '3 Tage hintereinander gelernt', 'serie-3'], [7, '📅', 'Eine ganze Woche am Stück', 'serie-7'], [14, '🗓️', '14 Tage am Stück'],
+    [30, '🏆', '30 Tage am Stück', 'serie-30'], [60, '👑', '60 Tage am Stück'], [100, '💯', '100 Tage am Stück'], [365, '🌞', 'Ein ganzes Jahr am Stück']]),
+  ...A('dranbleiben', 'lerntage', [[10, '📆', 'An 10 Tagen gelernt'], [50, '📚', 'An 50 Tagen gelernt'], [100, '🎓', 'An 100 Tagen gelernt']]),
+  ...A('dranbleiben', 'frueh', [[1, '🌅', 'Vor 8 Uhr gelernt', 'frueh']]),
+  ...A('dranbleiben', 'wochenende', [[1, '🏖️', 'Samstag und Sonntag gelernt']]),
+  ...A('zeit', 'minuten', [[60, '⏱️', '1 Stunde gelernt'], [300, '⏳', '5 Stunden gelernt'], [1200, '🕰️', '20 Stunden gelernt'], [3000, '🧠', '50 Stunden gelernt'], [6000, '🏔️', '100 Stunden gelernt']]),
+  ...A('zeit', 'zieltage', [[1, '🎯', 'Tagesziel geschafft'], [7, '🎯', 'Tagesziel an 7 Tagen'], [30, '🏹', 'Tagesziel an 30 Tagen'], [100, '🥇', 'Tagesziel an 100 Tagen']]),
+  ...A('genau', 'richtig', [[50, '✅', '50 Aufgaben richtig'], [100, '💯', '100 Aufgaben richtig', 'richtig-100'], [500, '🎖️', '500 Aufgaben richtig'],
+    [1000, '🚀', '1000 Aufgaben richtig', 'richtig-1000'], [2500, '🛰️', '2500 Aufgaben richtig'], [5000, '🌌', '5000 Aufgaben richtig']]),
+  ...A('genau', 'folge', [[10, '🐝', '10 richtig in Folge ohne Hinweis'], [20, '🦉', '20 richtig in Folge ohne Hinweis', 'folge-20'], [50, '🦅', '50 richtig in Folge ohne Hinweis']]),
+  ...A('genau', 'sterne', [[100, '⭐', '100 Sterne gesammelt', 'sterne-100'], [500, '🌟', '500 Sterne gesammelt', 'sterne-500'], [1000, '✨', '1000 Sterne gesammelt'], [5000, '🌠', '5000 Sterne gesammelt']]),
+  ...A('karten', 'kartenGewusst', [[50, '🃏', '50 Karteikarten gewusst'], [250, '🎴', '250 Karteikarten gewusst'], [1000, '🗃️', '1000 Karteikarten gewusst']]),
+  ...A('karten', 'kartenMeister', [[25, '📦', '25 Karten im obersten Fach'], [100, '🏅', '100 Karten im obersten Fach'], [500, '🏛️', '500 Karten im obersten Fach']]),
+  ...A('karten', 'stapel', [[1, '📥', 'Eigenen Stapel importiert']]),
+  ...A('sprache', 'lesen', [[10, '📖', '10 Lesefragen richtig'], [50, '📚', '50 Lesefragen richtig'], [200, '🦉', '200 Lesefragen richtig']]),
+  ...A('sprache', 'hoeren', [[10, '🎧', '10 Hörfragen richtig'], [50, '👂', '50 Hörfragen richtig']]),
+  ...A('sprache', 'diktattexte', [[1, '✍️', 'Erstes Diktat geschrieben'], [5, '🖋️', '5 Diktate geschrieben'], [20, '📜', '20 Diktate geschrieben']]),
+  ...A('sprache', 'diktatSaetze', [[50, '🔤', '50 Diktatsätze fehlerfrei'], [250, '🏵️', '250 Diktatsätze fehlerfrei']]),
+  ...A('schreiben', 'texte', [[1, '📝', 'Ersten Text geschrieben'], [5, '🗒️', '5 Texte geschrieben'], [20, '📓', '20 Texte geschrieben']]),
+  ...A('schreiben', 'textVoll', [[1, '✔️', 'Text mit allen Prüfungen'], [10, '🏆', '10 Texte mit allen Prüfungen']]),
+  ...A('schreiben', 'ueberarbeitet', [[1, '🔁', 'Einen Text überarbeitet'], [5, '🔧', '5 Texte überarbeitet']]),
+  ...A('woche', 'wochentests', [[1, '🧪', 'Erster Wochentest'], [4, '📊', '4 Wochentests'], [12, '📈', '12 Wochentests']]),
+  ...A('woche', 'volltreffer', [[1, '🎯', 'Wochentest genau richtig geschätzt']]),
+  ...A('woche', 'rueckblicke', [[1, '💬', 'Erster Wochenrückblick'], [4, '🪞', '4 Wochenrückblicke']]),
+  ...A('woche', 'hausaufgaben', [[1, '📒', 'Hausaufgabe abgehakt'], [10, '📗', '10 Hausaufgaben abgehakt'], [50, '📘', '50 Hausaufgaben abgehakt']]),
+  ...A('woche', 'buecher', [[1, '📕', 'Ein Buch fertig gelesen'], [5, '📚', '5 Bücher fertig gelesen']]),
+  ...A('ich', 'tagebuch', [[1, '📔', 'Erster Tagebucheintrag'], [7, '📖', '7 Tagebucheinträge'], [30, '🖊️', '30 Tagebucheinträge'], [100, '📚', '100 Tagebucheinträge']]),
+  ...A('ich', 'tagebuchSerie', [[7, '🌈', '7 Tage Tagebuch am Stück']]),
 ];
 
 /**
- * @param {{ ereignisse?: readonly any[], gemeistert?: number, serie?: number, ausgebuegelt?: number, sterne?: number }} lage
+ * @param {{ ereignisse?: readonly any[], gemeistert?: number, serie?: number, ausgebuegelt?: number, sterne?: number,
+ *   lernzeit?: Record<string, number>, tagesziel?: number, kartenMeister?: number, stapel?: number, schreiben?: any,
+ *   woche?: any, tagebuch?: any, tagebuchSerie?: number, kalender?: any }} lage
  */
 function abzeichen(lage) {
   const ev = (lage.ereignisse || []).slice().sort((a, b) => a.t - b.t);
   let folge = 0, laengste = 0;
-  for (const e of ev) { if (e.ok && !e.h) { folge++; if (folge > laengste) laengste = folge; } else folge = 0; }
+  for (const e of ev) { if (e.w === 'karten' || e.w === 'schreiben') continue; if (e.ok && !e.h) { folge++; if (folge > laengste) laengste = folge; } else folge = 0; }
+  const tag = (t) => { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+  const tage = new Set(ev.map((e) => tag(e.t)));
+  const lz = lage.lernzeit || {};
+  for (const [k, m] of Object.entries(lz)) if (m > 0) tages(k, tage);
+  /* Wochenende: ein Samstag und der Sonntag danach */
+  let wochenende = 0;
+  for (const e of ev) { const d = new Date(e.t); if (d.getDay() === 6) { const so = new Date(d); so.setDate(d.getDate() + 1); if (tage.has(tag(so))) { wochenende = 1; break; } } }
+  const ziel = lage.tagesziel || 20;
+  const sw = lage.schreiben && lage.schreiben.texte ? Object.values(lage.schreiben.texte) : [];
+  const wochen = lage.woche && lage.woche.wochen ? Object.values(lage.woche.wochen) : [];
+  const kal = lage.kalender && lage.kalender.eintraege ? Object.values(lage.kalender.eintraege) : [];
+  const dkt = new Set(ev.filter((e) => e.w === 'diktat' && /^dkt-\d+#/.test(e.a || '')).map((e) => e.a.split('#')[0]));
   const werte = {
     gemeistert: lage.gemeistert || 0,
     serie: lage.serie || 0,
-    richtig: ev.filter((e) => e.ok).length,
+    lerntage: tage.size,
+    richtig: ev.filter((e) => e.ok && e.w !== 'karten').length,
     folge: laengste,
     ausgebuegelt: lage.ausgebuegelt || 0,
     faecher: new Set(ev.map((e) => e.f).filter(Boolean)).size,
     frueh: ev.some((e) => new Date(e.t).getHours() < 8) ? 1 : 0,
+    wochenende,
     sterne: lage.sterne || 0,
+    minuten: Object.values(lz).reduce((a, m) => a + (m || 0), 0),
+    zieltage: Object.values(lz).filter((m) => m >= ziel).length,
+    kartenGewusst: ev.filter((e) => e.w === 'karten' && e.ok).length,
+    kartenMeister: lage.kartenMeister || 0,
+    stapel: lage.stapel || 0,
+    lesen: ev.filter((e) => e.w === 'lesen' && e.ok).length,
+    hoeren: ev.filter((e) => e.w === 'hoeren' && e.ok).length,
+    diktattexte: dkt.size,
+    diktatSaetze: ev.filter((e) => e.w === 'diktat' && e.ok).length,
+    texte: sw.length,
+    textVoll: sw.filter((r) => (r.versionen || []).some((v) => v.gesamt && v.erfuellt === v.gesamt)).length,
+    ueberarbeitet: sw.filter((r) => (r.versionen || []).length >= 2).length,
+    wochentests: wochen.filter((w) => w && w.test).length,
+    volltreffer: wochen.filter((w) => w && w.test && w.test.vorhersage === w.test.ergebnis).length ? 1 : 0,
+    rueckblicke: wochen.filter((w) => w && w.rueckblick).length,
+    hausaufgaben: kal.filter((e) => e && e.art === 'hausaufgabe' && e.erledigt).length,
+    buecher: kal.filter((e) => e && e.art === 'buch' && e.seiten > 0 && e.gelesen >= e.seiten).length,
+    tagebuch: lage.tagebuch && lage.tagebuch.tage ? Object.keys(lage.tagebuch.tage).length : 0,
+    tagebuchSerie: lage.tagebuchSerie || 0,
   };
-  return ABZEICHEN.map((a) => ({ ...a, wert: werte[a.art], erreicht: werte[a.art] >= a.ziel }));
+  return ABZEICHEN.map((a) => ({ ...a, wert: werte[a.art] || 0, erreicht: (werte[a.art] || 0) >= a.ziel }));
 }
+function tages(k, tage) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(k); if (m) tage.add(+m[1] * 10000 + +m[2] * 100 + +m[3]); }
 
 /** Erreicht, aber noch nicht gesehen. @param {ReturnType<typeof abzeichen>} liste @param {readonly string[]} gesehen */
 function neueAbzeichen(liste, gesehen) {
   const g = new Set(gesehen || []);
   return liste.filter((a) => a.erreicht && !g.has(a.id));
+}
+
+/** Als Nächstes erreichbar: die offenen mit dem größten Anteil (je Art nur die nächste Stufe). */
+function naechsteAbzeichen(liste, n = 3) {
+  const jeArt = new Map();
+  for (const a of liste) if (!a.erreicht && a.wert > 0 && !jeArt.has(a.art)) jeArt.set(a.art, a);
+  return [...jeArt.values()].sort((a, b) => b.wert / b.ziel - a.wert / a.ziel).slice(0, n);
 }
 
 
@@ -33058,21 +33140,42 @@ function uebernehmen(alt, neu, jetzt) {
   function liste() {
     var E = window.__ELTERN, LM = window.__LERNMODELL, sterne = 0;
     try { sterne = (typeof K !== "undefined" && K && K.stars) || 0; } catch (e) {}
+    var p = profil(), roh = function (k) { try { return JSON.parse(localStorage.getItem(k + (p ? p.id : "anon")) || "null"); } catch (e) { return null; } };
+    var tb = roh("egl-tagebuch-"), tbSerie = 0;
+    try { if (tb && tb.tage) { var d = new Date(); if (!tb.tage[tagVon(d)]) d.setDate(d.getDate() - 1); while (tb.tage[tagVon(d)]) { tbSerie++; d.setDate(d.getDate() - 1); } } } catch (e) {}
     return abzeichen({
       ereignisse: E ? E.ereignisse() : [], serie: E ? E.serie() : 0, sterne: sterne,
-      ausgebuegelt: LM ? LM.liste().ausgebuegelt : 0, gemeistert: gemeistertGesamt()
+      ausgebuegelt: LM ? LM.liste().ausgebuegelt : 0, gemeistert: gemeistertGesamt(),
+      /* M28: weitere Bereiche */
+      lernzeit: window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : {}, tagesziel: p && +p.tagesziel > 0 ? +p.tagesziel : 20,
+      kartenMeister: window.__KARTEN && window.__KARTEN.meister ? window.__KARTEN.meister() : 0,
+      stapel: window.__KARTEN && window.__KARTEN.stapel ? window.__KARTEN.stapel().length : 0,
+      schreiben: roh("egl-schreiben-"), woche: roh("egl-woche-"), kalender: roh("egl-kalender-"), tagebuch: tb, tagebuchSerie: tbSerie
     });
   }
   function neue() { return neueAbzeichen(liste(), gesehen()); }
   function alleGesehen() {
     try { localStorage.setItem(schluessel(), JSON.stringify({ gesehen: liste().filter(function (a) { return a.erreicht; }).map(function (a) { return a.id; }) })); } catch (e) {}
   }
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function tagVon(d) { return d.getFullYear() + "-" + zwei(d.getMonth() + 1) + "-" + zwei(d.getDate()); }
+  function kachel(a) {
+    return '<div class="az' + (a.erreicht ? " an" : "") + '" data-az="' + h(a.id) + '"><span class="az-ic" aria-hidden="true">' + a.icon + '</span><span class="az-ti">' + h(a.titel) + "</span>"
+      + '<span class="az-me">' + (a.erreicht ? "geschafft" : Math.min(a.wert, a.ziel) + " von " + a.ziel) + "</span>"
+      + (a.erreicht ? "" : '<span class="az-balken" aria-hidden="true"><span style="width:' + Math.round(100 * Math.min(1, a.wert / a.ziel)) + '%"></span></span>') + "</div>";
+  }
+  /* M28: gruppiert, mit „Als Nächstes“ — Erreichtes zuerst, je Gruppe aufklappbar */
   function html() {
-    var l = liste(), n = l.filter(function (a) { return a.erreicht; }).length;
-    return '<h3 class="hb-zw">🏅 Abzeichen · ' + n + " von " + l.length + '</h3><div class="az-raster" data-testid="az-raster">' + l.map(function (a) {
-      return '<div class="az' + (a.erreicht ? " an" : "") + '" data-az="' + h(a.id) + '"><span class="az-ic" aria-hidden="true">' + a.icon + '</span><span class="az-ti">' + h(a.titel) + "</span>"
-        + '<span class="az-me">' + (a.erreicht ? "geschafft" : Math.min(a.wert, a.ziel) + " von " + a.ziel) + "</span></div>";
+    var l = liste(), n = l.filter(function (a) { return a.erreicht; }).length, nx = naechsteAbzeichen(l, 3);
+    var s = '<h3 class="hb-zw">🏅 Abzeichen · ' + n + " von " + l.length + "</h3>";
+    if (nx.length) s += '<div class="az-naechste" data-testid="az-naechste"><b>Als Nächstes erreichbar</b><div class="az-raster">' + nx.map(kachel).join("") + "</div></div>";
+    s += '<div data-testid="az-raster">' + GRUPPEN.map(function (g) {
+      var in_ = l.filter(function (a) { return a.gruppe === g.id; }); if (!in_.length) return "";
+      var e = in_.filter(function (a) { return a.erreicht; }).length;
+      in_.sort(function (a, b) { return Number(b.erreicht) - Number(a.erreicht); });
+      return '<details class="az-gruppe"' + (e ? " open" : "") + '><summary>' + h(g.titel) + ' <span class="az-zahl">' + e + " / " + in_.length + '</span></summary><div class="az-raster">' + in_.map(kachel).join("") + "</div></details>";
     }).join("") + "</div>";
+    return s;
   }
 
   /* ---------- CSV: eigene Wörter ---------- */
@@ -34240,7 +34343,15 @@ function spracheRaten(karten) {
     faellig: function () { var p = profil(); if (!p) return []; var b = (p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()]).concat(stapelListe().map(function (st) { return "eigen-" + st.id; }));
       return b.map(function (sc) { return { sc: sc, fach: fachName(sc), n: faellig(sc) }; }).filter(function (x) { return x.n > 0; }); },
     oeffnen: function (sc) { kstate.k2 = null; kstate.fcStapel = sc && /^eigen-/.test(sc) ? sc.slice(6) : null; if (istKind()) { kstate.fcFach = lang(sc || "kid-en"); kstate.tab = "cards"; } else { kstate.tab = null; try { state.tab = "Karten"; } catch (e) {} } neu(); },
-    kern: { lage: lage, bewerte: bewerte, importieren: importieren }, stapel: stapelListe, vorrat: function (sc) { return vorrat(sc || bereich()); },
+    kern: { lage: lage, bewerte: bewerte, importieren: importieren }, stapel: stapelListe,
+    /* M28: Karten im obersten Fach (ab 15 Tagen Abstand) über alle Stapel */
+    meister: function () {
+      var p = profil(); if (!p) return 0; var n = 0;
+      (p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()]).concat(stapelListe().map(function (st) { return "eigen-" + st.id; })).forEach(function (sc) {
+        var d = lies(standKey(sc), {}); Object.keys(d).forEach(function (w) { if (d[w] && (d[w].b || 0) >= 5) n++; });
+      });
+      return n;
+    }, vorrat: function (sc) { return vorrat(sc || bereich()); },
     /* M24: fällige Karten je Tag (Kalender) — Überfälliges zählt heute */
     prognose: function () {
       var p = profil(), out = {}; if (!p) return out;
@@ -38101,7 +38212,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 12:09")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 12:19")}}catch(e){}
 })();
 
 </script>
