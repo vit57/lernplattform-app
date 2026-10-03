@@ -654,6 +654,33 @@ html.lp-start::after {
 .tx-w.fehlt { background: var(--warn-soft, #fff4e4); }
 .tx-w.zuviel { background: var(--paper2); text-decoration: line-through; }
 .b6-hinweis { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--brand-soft); font-size: 15px; }
+
+/* =====================================================================
+   Design-Review 2026-10-03 — Bewegung und Druck-Feedback
+   (Apple „Designing Fluid Interfaces“, Emil Kowalski)
+   ===================================================================== */
+:root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
+/* Einblenden nur beim Seitenwechsel (p87), nicht bei jedem Neuzeichnen */
+html[data-theme] #view > * { animation: none !important; }
+html[data-theme] #view.vw-neu > * { animation: vw-in 200ms var(--ease-out) both !important; }
+@keyframes vw-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* Druck-Feedback: sofort beim Drücken, kein graues Aufblitzen auf dem iPad */
+html[data-theme] :is(.btn, .hb-karte, .uw-opt, .sx-stufe, .fs-fach, .k2-note, .nv-item, .hb-fach, .lp-st, .lp-opt, .vl-knopf, .hi-knopf, .dz-knopf) {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, color 150ms ease;
+}
+html[data-theme] :is(.btn, .hb-karte, .uw-opt, .sx-stufe, .fs-fach, .k2-note, .nv-item, .hb-fach, .lp-st, .lp-opt, .vl-knopf, .hi-knopf, .dz-knopf):active:not([disabled]) {
+  transform: scale(0.97);
+}
+/* Hover-Bewegung nur mit Maus — auf Touch blieb die Karte nach dem Tippen gehoben */
+@media (hover: none), (pointer: coarse) {
+  html[data-theme] :is(.hb-karte, .sx-stufe, .m127-card, .m127-excard, .m132-card, .v17-type, .kid-topic):hover { transform: none !important; }
+}
+/* Dialoge: Scrim und Box erscheinen, statt hart da zu sein; Modals bleiben zentriert */
+.ps-hinter { animation: dlg-scrim 160ms ease-out both; }
+.ps-box { animation: dlg-in 200ms var(--ease-out) both; }
+@keyframes dlg-scrim { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dlg-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -35157,12 +35184,55 @@ function diktatPruefen(soll, ist) {
   window.__TEXTE = { starte: function (art, stufe) { kstate.tab = art; starte(art, stufe); neu(); }, kern: { fragen: fragen, diktatPruefen: diktatPruefen }, shuffle: shuffle };
 })();
 
+/* =====================================================================
+   Design-Review 2026-10-03 (Apple „Designing Fluid Interfaces“, Emil
+   Kowalski) — Einblenden nur beim Seitenwechsel.
+
+   Die Engine blendet bei JEDEM Neuzeichnen alles in #view neu ein
+   (`#view>*{animation:m132in .3s}`). Die neuen Seiten zeichnen bei jedem
+   Klick auf eine Antwort neu — die ganze Ansicht flackerte dadurch nach
+   jeder Antwort. Was dutzendfach am Tag passiert, wird nicht animiert.
+
+   Hier wird die Seite (Bereich, Tab, laufende Übung) als Schlüssel
+   gemerkt; nur wenn er wechselt, bekommt #view die Klasse `vw-neu`
+   (thema.css: 200 ms, Deckkraft + 4 px, ease-out). Antworten, nächste
+   Frage, Rückmeldung: kein Einblenden.
+   ===================================================================== */
+(function () {
+  "use strict";
+  if (typeof render !== "function" || typeof document.getElementById !== "function") return;
+  function schluessel() {
+    try {
+      var k = kstate || {};
+      return [k.tab, (typeof state !== "undefined" && state) ? state.tab : "", (typeof showProfiles !== "undefined" && showProfiles) ? 1 : 0,
+        k.tx ? k.tx.art + ":" + k.tx.stufe : "", k.uw ? k.uw.typ : "", k.k2 ? "k2" : "", k.lp ? (k.lp.art || "lp") + ":" + (k.lp.skill || "") : "",
+        (typeof curProf === "function" && curProf()) ? curProf().id : ""].join("|");
+    } catch (e) { return ""; }
+  }
+  var zuletzt = null;
+  var renderVorher = render;
+  var renderNeu = function () {
+    var r = renderVorher.apply(this, arguments);
+    try {
+      var view = document.getElementById("view"), k = schluessel();
+      if (view && view.classList) {
+        if (k !== zuletzt) { view.classList.remove("vw-neu"); void view.offsetWidth; view.classList.add("vw-neu"); }
+        else view.classList.remove("vw-neu");
+      }
+      zuletzt = k;
+    } catch (e) {}
+    return r;
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 08:50")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 09:13")}}catch(e){}
 })();
 
 </script>
