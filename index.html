@@ -753,6 +753,58 @@ html[data-theme] :is(.btn, .hb-karte, .uw-opt, .sx-stufe, .fs-fach, .k2-note, .n
 .sk-cb.an { border-color: var(--good, #1e7e46); background: var(--good-soft, #e8f5ec); }
 .sk-muster { margin: 12px 0 0; }
 .sk-el { border-top: 1px dashed var(--line); padding: 4px 0 8px; }
+
+/* Kalender (p91, M24) */
+.kal-tipps { max-width: 760px; padding: 12px 16px; margin: 0 0 16px; border-radius: 16px; background: var(--brand-soft); }
+.kal-tipps ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.kal-tipps li { display: flex; gap: 10px; align-items: center; line-height: 1.45; }
+.kal-tipps li > span:nth-child(2) { flex: 1; }
+.kal-ti { font-size: 20px; flex: none; }
+.kal-kopf { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+.kal-woche { margin: 0 4px; font-size: 17px; }
+.kal-neu { margin-left: auto; }
+.kal-streifen { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; max-width: 760px; margin: 0 0 14px; }
+.kal-chip { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 2px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); text-decoration: none; transition: transform 140ms var(--ease-out, ease-out); }
+.kal-chip:active { transform: scale(0.96); }
+.kal-chip.heute { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.kal-chip.ruhe { opacity: .6; }
+.kal-wt { font-size: 12px; color: var(--ink2); font-weight: 600; }
+.kal-dt { font-size: 18px; font-weight: 800; }
+.kal-mini { font-size: 11px; color: var(--ink2); min-height: 14px; font-variant-numeric: tabular-nums; }
+.kal-tag { max-width: 760px; padding: 12px 16px; margin: 0 0 10px; border-radius: 16px; border: 1px solid var(--line); background: var(--paper); scroll-margin-top: 80px; }
+.kal-tag.heute { border-color: var(--brand-line); box-shadow: 0 4px 18px rgba(0,0,0,.05); }
+.kal-tag.vorbei { opacity: .72; }
+.kal-tag.ruhe { background: var(--paper2, var(--paper)); }
+.kal-tk { display: flex; align-items: baseline; gap: 8px 12px; flex-wrap: wrap; justify-content: space-between; }
+.kal-tk h4 { margin: 0; font-size: 16px; }
+.kal-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--brand); color: #fff; vertical-align: 2px; }
+.kal-badge.ruhe { background: var(--line); color: var(--ink2); }
+.kal-meta { font-size: 13px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.kal-warn { color: var(--bad, #b42318); font-weight: 650; }
+.kal-liste { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.kal-p { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--paper2, rgba(0,0,0,.025)); }
+.kal-p.dringend { box-shadow: inset 3px 0 0 var(--warn, #b54708); }
+.kal-p.erledigt .kal-t { text-decoration: line-through; color: var(--ink2); }
+.kal-ic { font-size: 20px; width: 28px; text-align: center; flex: none; }
+.kal-cb { flex: none; width: 28px; height: 28px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); color: var(--good, #1e7e46); font-weight: 800; cursor: pointer; transition: transform 120ms var(--ease-out, ease-out); }
+.kal-cb:active { transform: scale(0.92); }
+.kal-cb[aria-checked="true"] { border-color: var(--good, #1e7e46); background: var(--good-soft, #e8f5ec); }
+.kal-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.kal-t { font-weight: 650; }
+.kal-u { font-size: 13px; color: var(--ink2); }
+.kal-edit { padding: 6px 10px; }
+.kal-leer { color: var(--ink2); margin: 8px 0 0; font-size: 14px; }
+.kal-plus { margin-top: 8px; background: none; border: none; color: var(--brand); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 4px; border-radius: 8px; }
+.kal-einst { max-width: 760px; margin: 16px 0 0; }
+.kal-einst summary { cursor: pointer; font-weight: 700; padding: 8px 0; }
+.kal-lt, .kal-arten, .kal-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.kal-form { max-width: 760px; padding: 14px 16px; margin: 0 0 16px; border-radius: 16px; border: 1.5px solid var(--brand-line); background: var(--paper); }
+.kal-reihe { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0 12px; }
+.kal-f { display: block; font-weight: 650; margin: 0 0 10px; }
+.kal-f input, .kal-f select { display: block; width: 100%; margin-top: 6px; font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); box-sizing: border-box; }
+.kal-f input:focus, .kal-f select:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 3px var(--brand-soft); }
+.kal-heute { margin: 18px 0 0; max-width: 760px; }
+@media (max-width: 520px) { .kal-streifen { gap: 3px; } .kal-dt { font-size: 15px; } .kal-p { flex-wrap: wrap; } }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -25270,7 +25322,7 @@ const FEST = {
 /** Schlüssel je Profil: Präfix → Teil und Form. Längste Präfixe zuerst (fcstreak vor fc). */
 const JE_PROFIL = [
   ['egl-textrotation-', 'textrotation', 'objekt'], ['egl-ereignisse-', 'ereignisse', 'liste'],
-  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'], ['egl-woche-', 'woche', 'objekt'], ['egl-schreiben-', 'schreiben', 'objekt'], ['egl-lernzeit-', 'lernzeit', 'objekt'],
+  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'], ['egl-woche-', 'woche', 'objekt'], ['egl-schreiben-', 'schreiben', 'objekt'], ['egl-lernzeit-', 'lernzeit', 'objekt'], ['egl-kalender-', 'kalender', 'objekt'],
   ['egl-fcstreak-', 'fcstreak', 'json'], ['egl-fckorr-', 'fckorr', 'objekt'], ['egl-mywords-', 'mywords', 'json'], ['egl-fchide-', 'fchide', 'json'],
   ['egl-m127-', 'm127', 'json'], ['egl-v17-', 'v17', 'json'], ['egl-uni-', 'uni', 'json'], ['egl-fc-', 'fc', 'json'],
 ];
@@ -30058,7 +30110,10 @@ function tagVon(d) {
         + '<span class="ic" aria-hidden="true">' + (fertig ? "✔" : SYMBOL[b.art]) + '</span><span><span class="ti">' + h(b.titel) + '</span><span class="me">' + h(blockText(b)) + "</span></span>"
         + '<span class="zu">' + (fertig ? "erledigt" : b.minuten + " Min.") + "</span></button>";
     });
-    return out + "</div>";
+    out += "</div>";
+    /* M24: der Tag aus dem Kalender (Hausaufgaben, Bücher, Termine, Arbeiten) */
+    try { if (window.__KALENDER) out += window.__KALENDER.htmlHeute(); } catch (e) {}
+    return out;
   }
 
   /* ---------- Tagesziel (Eltern) ---------- */
@@ -30386,6 +30441,7 @@ function tagVon(d) {
   /* ---------- Neue Seitenleiste ---------- */
   var BEREICHE = [
     { id: "heute", icon: "☀️", name: "Heute", text: "Dein Plan für heute" },
+    { id: "plan", icon: "📅", name: "Plan", text: "Woche, Termine, Bücher, Tipps" },   /* M24 */
     { id: "lernen", icon: "📖", name: "Lernen", text: "Verstehen: Regeln, Erklärungen, Texte" },
     { id: "ueben", icon: "✏️", name: "Üben", text: "Anwenden und festigen" },
     { id: "fortschritt", icon: "📊", name: "Fortschritt", text: "Was du schon kannst" },
@@ -30407,7 +30463,7 @@ function tagVon(d) {
     BEREICHE.forEach(function (b) {
       var aktiv = aktiverBereich === b.id;
       /* „Heute“: Kinder → Tagesplan (p73), Erwachsene → ihre Übersicht. */
-      var ziel = b.id === "heute" ? 'data-m132nav="heute"' : 'data-hub="' + b.id + '"';   /* M16: „Heute“ für alle */
+      var ziel = b.id === "heute" ? 'data-m132nav="heute"' : b.id === "plan" ? 'data-m132nav="kalender"' : 'data-hub="' + b.id + '"';   /* M16: „Heute“ für alle; M24: Kalender */
       s += '<button class="nv-item' + (aktiv ? " aktiv" : "") + '" ' + ziel + ' data-nv="' + b.id + '"' + (aktiv ? ' aria-current="page"' : "") + ">"
         + '<span class="nv-ic" aria-hidden="true">' + bereichsIcon(b.id) + "</span>" + h(bereichsName(b.id)) + "</button>";
     });
@@ -30438,6 +30494,7 @@ function tagVon(d) {
     var t = String(kstate.tab || "");
     if (t.indexOf("hub-") === 0) { aktiverBereich = t.slice(4); return; }
     if (t === "heute") { aktiverBereich = "heute"; return; }
+    if (t === "kalender") { aktiverBereich = "plan"; return; }
     if (t === "lernpfad") { aktiverBereich = "lernen"; return; }
     if (t === "eltern-dashboard") { aktiverBereich = "eltern"; return; }
     var treffer = MODELL.eintraege.filter(function (e) { return e.attrs["data-m132nav"] && e.attrs["data-m132nav"] === t; })[0];
@@ -33876,7 +33933,19 @@ function korrekturSaeubern(c) {
     faellig: function () { var p = profil(); if (!p) return []; var b = p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()];
       return b.map(function (sc) { return { sc: sc, fach: fachName(sc), n: faellig(sc) }; }).filter(function (x) { return x.n > 0; }); },
     oeffnen: function (sc) { kstate.k2 = null; if (istKind()) { kstate.fcFach = lang(sc || "kid-en"); kstate.tab = "cards"; } else { kstate.tab = null; try { state.tab = "Karten"; } catch (e) {} } neu(); },
-    kern: { lage: lage, bewerte: bewerte }, vorrat: function (sc) { return vorrat(sc || bereich()); }
+    kern: { lage: lage, bewerte: bewerte }, vorrat: function (sc) { return vorrat(sc || bereich()); },
+    /* M24: fällige Karten je Tag (Kalender) — Überfälliges zählt heute */
+    prognose: function () {
+      var p = profil(), out = {}; if (!p) return out;
+      var zwei = function (n) { return (n < 10 ? "0" : "") + n; }, tag = function (t) { var d = new Date(t); return d.getFullYear() + "-" + zwei(d.getMonth() + 1) + "-" + zwei(d.getDate()); };
+      var jetzt = Date.now(), heute = tag(jetzt);
+      (p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()]).forEach(function (sc) {
+        var da = {}; vorrat(sc).forEach(function (c) { da[c.w] = 1; });
+        var d = lies(standKey(sc), {});
+        Object.keys(d).forEach(function (w) { if (!da[w] || !d[w]) return; var nx = d[w].nx || 0, t = nx <= jetzt ? heute : tag(nx); out[t] = (out[t] || 0) + 1; });
+      });
+      return out;
+    }
   };
 })();
 
@@ -36987,12 +37056,499 @@ function mitAktiv(tage, aktiv) {
   };
 })();
 
+/* =====================================================================
+   M24 — Kalender: Tages- und Wochenplan (app/kern/kalender.js).
+
+   Eine Seite „📅 Plan“ für Kinder und Erwachsene:
+     * die Woche Montag bis Sonntag mit allem, was ansteht — automatisch
+       aus Wochenthemen/Klassenarbeiten (p88), fälligen Karteikarten (p84),
+       Wiederholungen (p78), Wochentest und Rückblick, dazu die eigenen
+       Einträge (Hausaufgabe, Buch mit Seitenpensum, Termin, Lernzeit);
+     * vergangene Tage zeigen die gemessene Lernzeit (M23) und Aufgaben;
+     * anpassen: Einträge anlegen, ändern, verschieben, abhaken; Ruhetage
+       und Tagesziel; Klassenarbeit über den bekannten Dialog (p73) —
+       der Plan wird jedes Mal neu berechnet, „Heute“ zeigt den Tag mit;
+     * Tipps aus den Lerndaten (Arbeit bald und Thema unsicher, Karten,
+       Lernzeit, beste Tageszeit, Fehlerwörter, Bücher, volle Tage …).
+   Gespeichert je Profil in egl-kalender-<Profil> ({ eintraege: {id: …},
+   lerntage: [0–6] }) — als Objekt, damit der Abgleich je Eintrag mischt.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/* =====================================================================
+   M24: Kalender — Tages- und Wochenplan (reine Funktionen).
+
+   Rückmeldung 2026-10-03: „einen Tages/Wochenplan Kalender, wo man
+   zusammenfassend sieht, welche Themen, Fächer, Bücher, Aufgaben etc.
+   anstehen … automatisch mit den anderen Bereichen abgeglichen … anpassen
+   können und entsprechend ändert sich dann der Plan … Vorschläge/Tipps
+   basierend auf den Daten der Lernapp und des Fortschrittes“.
+
+   Der Plan entsteht aus zwei Quellen:
+     * eigene Einträge (Hausaufgabe, Buch, Termin, Lernzeit) und die
+       Lerntage — vom Kind oder den Eltern eingetragen;
+     * automatisch aus der App: Wochenthemen und Klassenarbeiten (p.themen,
+       mit Vorbereitung an den Lerntagen davor), fällige Karteikarten,
+       Wiederholungen, Wochentest, Wochenrückblick, gemessene Lernzeit.
+   Wer einen Eintrag ändert (Datum, Ruhetag, Buchseiten), ändert damit den
+   Plan — er wird jedes Mal neu berechnet, nichts ist doppelt gespeichert.
+   ===================================================================== */
+
+const TAG = 86400000;
+const ARTEN = {
+  hausaufgabe: { icon: '📒', name: 'Hausaufgabe' },
+  buch: { icon: '📚', name: 'Buch lesen' },
+  termin: { icon: '📌', name: 'Termin' },
+  lernen: { icon: '🎯', name: 'Lernzeit' },
+};
+const WOCHENTAGE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+const zwei = (n) => (n < 10 ? '0' : '') + n;
+/** @param {number|Date} t */
+function tagVon(t) { const d = new Date(t); return d.getFullYear() + '-' + zwei(d.getMonth() + 1) + '-' + zwei(d.getDate()); }
+/** @param {string} tag */
+function mittag(tag) { return new Date(tag + 'T12:00:00').getTime(); }
+/** @param {string} tag @param {number} n */
+function plusTage(tag, n) { return tagVon(mittag(tag) + n * TAG); }
+/** @param {string} a @param {string} b Tage von a bis b */
+function abstand(a, b) { return Math.round((mittag(b) - mittag(a)) / TAG); }
+/** Montag der Woche. @param {string} tag */
+function montagVon(tag) { const w = new Date(mittag(tag)).getDay(); return plusTage(tag, w === 0 ? -6 : 1 - w); }
+/** @param {string} tag */
+function wochentag(tag) { return new Date(mittag(tag)).getDay(); }
+
+/**
+ * Lesepensum eines Buches: Seiten je Lerntag bis zum Zieldatum.
+ * @param {{seiten?: number, gelesen?: number, datum?: string, von?: string}} b
+ * @param {string} heute @param {number[]} lerntage Wochentage 0–6
+ */
+function buchPensum(b, heute, lerntage) {
+  const gesamt = Math.max(0, Number(b.seiten) || 0), gelesen = Math.min(gesamt, Math.max(0, Number(b.gelesen) || 0));
+  const rest = gesamt - gelesen;
+  const tage = [];
+  if (b.datum && rest > 0) for (let t = heute; abstand(t, b.datum) >= 0 && tage.length < 400; t = plusTage(t, 1)) if (lerntage.includes(wochentag(t))) tage.push(t);
+  const proTag = tage.length ? Math.ceil(rest / tage.length) : rest;
+  return { gesamt, gelesen, rest, tage, proTag, fertig: gesamt > 0 && rest === 0, zuSpaet: !!b.datum && rest > 0 && abstand(heute, b.datum) < 0 };
+}
+
+/**
+ * Der Plan einer Woche (Montag bis Sonntag).
+ * @param {{
+ *   heute: string, montag: string,
+ *   eintraege?: Record<string, any>,
+ *   lerntage?: number[], tagesziel?: number,
+ *   themen?: {su: string, titel?: string, datum?: string, skills?: string[]}[],
+ *   fachName?: Record<string, string>,
+ *   karten?: Record<string, number>, wiederholung?: number,
+ *   wochentest?: {offen: boolean, erledigt?: boolean}, rueckblick?: {erledigt?: boolean},
+ *   lernzeit?: Record<string, number>, aufgaben?: Record<string, number>,
+ * }} l
+ */
+function wochenplan(l) {
+  const lerntage = l.lerntage && l.lerntage.length ? l.lerntage : [0, 1, 2, 3, 4, 5, 6];
+  const ziel = l.tagesziel || 20, fach = (su) => (l.fachName && l.fachName[su]) || su || '';
+  const tage = Array.from({ length: 7 }, (_, i) => plusTage(l.montag, i));
+  const eintraege = Object.values(l.eintraege || {}).filter((e) => e && e.id && !e.geloescht);
+  const out = tage.map((tag) => ({
+    tag, wt: wochentag(tag), istHeute: tag === l.heute, vergangen: abstand(tag, l.heute) > 0, lerntag: lerntage.includes(wochentag(tag)),
+    punkte: /** @type {any[]} */ ([]), istMin: (l.lernzeit && l.lernzeit[tag]) || 0, aufgaben: (l.aufgaben && l.aufgaben[tag]) || 0, geplantMin: 0,
+  }));
+  const tagIdx = (tag) => tage.indexOf(tag);
+  const add = (tag, p) => { const i = tagIdx(tag); if (i >= 0) out[i].punkte.push(p); };
+
+  /* Klassenarbeiten und Wochenthemen (p.themen) — mit Vorbereitung */
+  for (const t of l.themen || []) {
+    const name = t.titel || 'Wochenthema ' + fach(t.su);
+    if (t.datum) {
+      add(t.datum, { id: 'arbeit:' + t.su, art: 'arbeit', icon: '📝', titel: name, text: fach(t.su) + ' · Klassenarbeit', quelle: 'auto', su: t.su, dringend: true });
+      /* die 4 Lerntage davor: Vorbereitung, je näher, desto länger */
+      const vor = [];
+      for (let k = 1; vor.length < 4 && k <= 14; k++) { const d = plusTage(t.datum, -k); if (abstand(l.heute, d) < 0) break; if (lerntage.includes(wochentag(d))) vor.push(d); }
+      vor.forEach((d, k) => add(d, { id: 'vorb:' + t.su + ':' + d, art: 'vorbereitung', icon: k === 0 ? '📝' : '📌', minuten: k === 0 ? 15 : 10,
+        titel: (k === 0 ? 'Probearbeit: ' : 'Vorbereiten: ') + name, text: fach(t.su) + ' · noch ' + abstand(d, t.datum) + (abstand(d, t.datum) === 1 ? ' Tag' : ' Tage') + ' bis zur Arbeit', quelle: 'auto', su: t.su, skills: t.skills || [] }));
+    } else {
+      for (const d of tage) if (abstand(l.heute, d) >= 0 && lerntage.includes(wochentag(d)))
+        add(d, { id: 'thema:' + t.su + ':' + d, art: 'thema', icon: '📌', minuten: 10, titel: 'Wochenthema: ' + name, text: fach(t.su), quelle: 'auto', su: t.su, skills: t.skills || [] });
+    }
+  }
+  /* Karteikarten (Prognose je Tag) und Wiederholung (heute) */
+  for (const d of tage) {
+    if (abstand(l.heute, d) < 0) continue;
+    const n = (l.karten && l.karten[d]) || 0;
+    if (n > 0) add(d, { id: 'karten:' + d, art: 'karten', icon: '🃏', minuten: Math.max(3, Math.min(15, Math.round(n * 0.3))), titel: n + (n === 1 ? ' Karteikarte' : ' Karteikarten') + ' fällig', text: 'Karteikarten', quelle: 'auto' });
+  }
+  if (l.wiederholung) add(l.heute, { id: 'wdh', art: 'wiederholung', icon: '🔁', minuten: 5, titel: l.wiederholung + (l.wiederholung === 1 ? ' Aufgabe' : ' Aufgaben') + ' wiederholen', text: 'Was noch nicht saß', quelle: 'auto' });
+  /* Wochentest (Freitag) und Rückblick (Samstag) */
+  const fr = plusTage(l.montag, 4), sa = plusTage(l.montag, 5);
+  if (l.wochentest && (l.wochentest.offen || l.wochentest.erledigt)) add(abstand(l.heute, fr) >= 0 ? fr : (tagIdx(l.heute) >= 0 ? l.heute : fr), { id: 'wochentest', art: 'wochentest', icon: '🧪', minuten: 15, titel: 'Wochentest', text: '10 Aufgaben — erst schätzen, dann allein lösen', quelle: 'auto', erledigt: !!l.wochentest.erledigt });
+  if (l.rueckblick) add(abstand(l.heute, sa) >= 0 ? sa : (tagIdx(l.heute) >= 0 ? l.heute : sa), { id: 'rueckblick', art: 'rueckblick', icon: '💬', minuten: 2, titel: 'Wochenrückblick', text: 'Wie war die Woche?', quelle: 'auto', erledigt: !!l.rueckblick.erledigt });
+
+  /* Eigene Einträge */
+  for (const e of eintraege) {
+    const A = ARTEN[e.art] || ARTEN.termin;
+    if (e.art === 'buch') {
+      const p = buchPensum(e, l.heute, lerntage);
+      if (p.fertig) { if (e.datum) add(e.datum, { id: e.id, eintrag: e.id, art: 'buch', icon: A.icon, titel: e.titel, text: 'fertig gelesen ✓', erledigt: true, quelle: 'eigen' }); continue; }
+      let seite = p.gelesen;
+      for (const d of p.tage) {
+        const bis = Math.min(p.gesamt, seite + p.proTag);
+        add(d, { id: e.id + ':' + d, eintrag: e.id, art: 'buch', icon: A.icon, minuten: Math.max(5, Math.round(p.proTag * 2)), titel: e.titel, text: 'Seite ' + (seite + 1) + '–' + bis + ' lesen', quelle: 'eigen', su: e.fach });
+        seite = bis;
+      }
+      if (e.datum && p.tage.indexOf(e.datum) < 0) add(e.datum, { id: e.id + ':ziel', eintrag: e.id, art: 'buch', icon: A.icon, titel: e.titel, text: p.zuSpaet ? 'sollte fertig sein — noch ' + p.rest + ' Seiten' : 'soll fertig sein', quelle: 'eigen', dringend: p.zuSpaet });
+      continue;
+    }
+    if (!e.datum) continue;
+    add(e.datum, { id: e.id, eintrag: e.id, art: e.art, icon: A.icon, minuten: Number(e.minuten) || (e.art === 'hausaufgabe' ? 15 : e.art === 'lernen' ? 20 : 0),
+      titel: e.titel, text: [fach(e.fach), e.uhr, e.notiz].filter(Boolean).join(' · '), quelle: 'eigen', erledigt: !!e.erledigt, su: e.fach, dringend: e.art === 'hausaufgabe' && !e.erledigt });
+    /* offene Hausaufgabe: am Tag davor erinnern */
+    if (e.art === 'hausaufgabe' && !e.erledigt) {
+      const vor = plusTage(e.datum, -1);
+      if (abstand(l.heute, vor) >= 0) add(vor, { id: e.id + ':vor', eintrag: e.id, art: 'erinnerung', icon: '⏰', titel: e.titel, text: 'Hausaufgabe für morgen', quelle: 'eigen', su: e.fach });
+    }
+  }
+  /* Reihenfolge: Dringendes zuerst, Erledigtes zuletzt; geplante Minuten */
+  const rang = { arbeit: 0, erinnerung: 1, hausaufgabe: 2, vorbereitung: 3, wochentest: 4, thema: 5, wiederholung: 6, karten: 7, buch: 8, lernen: 9, termin: 10, rueckblick: 11 };
+  for (const d of out) {
+    d.punkte.sort((a, b) => Number(!!a.erledigt) - Number(!!b.erledigt) || Number(!!b.dringend) - Number(!!a.dringend) || (rang[a.art] ?? 20) - (rang[b.art] ?? 20));
+    d.geplantMin = d.punkte.filter((p) => !p.erledigt).reduce((a, p) => a + (p.minuten || 0), 0);
+    d.zuViel = d.geplantMin > Math.max(ziel * 2, 30);
+    if (!d.lerntag) d.ruhetag = true;
+  }
+  return { tage: out, ziel };
+}
+
+/**
+ * Vorschläge und Tipps aus den Lerndaten (höchstens `n`, wichtigste zuerst).
+ * @param {{
+ *   heute: string, plan: ReturnType<typeof wochenplan>, istKind?: boolean,
+ *   themen?: {su: string, titel?: string, datum?: string, skills?: string[]}[],
+ *   skillQuote?: Record<string, {n: number, quote: number}>, titelVon?: (s: string) => string, fachName?: Record<string, string>,
+ *   ereignisse?: {t: number, ok: number, f?: string}[], lernzeit?: Record<string, number>, tagesziel?: number, lerntage?: number[],
+ *   kartenHeute?: number, fehlerwoerter?: string[], serie?: number, buecher?: any[], prio?: {titel?: string, grund?: string}[],
+ * }} l
+ * @param {number} [n]
+ */
+function tipps(l, n = 4) {
+  const du = l.istKind !== false;
+  const out = [];
+  const fach = (su) => (l.fachName && l.fachName[su]) || su || '';
+  const tv = l.titelVon || ((s) => s);
+  /* 1. Klassenarbeit bald — wie sicher sind die Themen? */
+  for (const t of l.themen || []) {
+    if (!t.datum) continue;
+    const rest = abstand(l.heute, t.datum);
+    if (rest < 0 || rest > 10) continue;
+    const qs = (t.skills || []).map((s) => ({ s, q: (l.skillQuote || {})[s] })).filter((x) => x.q && x.q.n >= 3);
+    const schwach = qs.filter((x) => x.q.quote < 0.7).sort((a, b) => a.q.quote - b.q.quote);
+    const name = t.titel || 'Arbeit in ' + fach(t.su);
+    if (schwach.length) out.push({ gewicht: 100 - rest, icon: '📝', text: `${name} in ${rest} ${rest === 1 ? 'Tag' : 'Tagen'}: „${tv(schwach[0].s)}“ sitzt erst zu ${Math.round(100 * schwach[0].q.quote)} %. ${du ? 'Übe es' : 'Üben'} jeden Tag 10 Minuten — am Vortag die Probearbeit.`, aktion: { typ: 'lektion', skill: schwach[0].s, su: t.su } });
+    else if (qs.length < (t.skills || []).length) out.push({ gewicht: 90 - rest, icon: '📝', text: `${name} in ${rest} ${rest === 1 ? 'Tag' : 'Tagen'}: Einige Themen ${du ? 'hast du' : 'wurden'} noch kaum geübt. Starte heute mit dem ersten.`, aktion: t.skills && t.skills.length ? { typ: 'lektion', skill: t.skills.find((s) => !(l.skillQuote || {})[s]) || t.skills[0], su: t.su } : null });
+    else out.push({ gewicht: 40, icon: '💪', text: `${name} in ${rest} ${rest === 1 ? 'Tag' : 'Tagen'}: Die Themen sitzen gut. Kurz wiederholen reicht — und gut schlafen.` });
+  }
+  /* 2. Viele Karteikarten fällig */
+  if ((l.kartenHeute || 0) >= 40) out.push({ gewicht: 60, icon: '🃏', text: `${l.kartenHeute} Karteikarten sind fällig. ${du ? 'Teile sie auf' : 'Aufteilen'}: zweimal 5 Minuten (morgens und nachmittags) bringt mehr als einmal lang.`, aktion: { typ: 'karten' } });
+  /* 3. Lernzeit der letzten 7 Tage gegen das Ziel */
+  const lt = l.lerntage && l.lerntage.length ? l.lerntage : [0, 1, 2, 3, 4, 5, 6];
+  let soll = 0, ist = 0;
+  for (let i = 1; i <= 7; i++) { const d = plusTage(l.heute, -i); if (lt.includes(wochentag(d))) soll += l.tagesziel || 20; ist += (l.lernzeit || {})[d] || 0; }
+  const daten = ist > 0 || (l.ereignisse || []).length > 0;   /* ein neues Profil bekommt keinen Mahn-Tipp */
+  if (soll && daten && ist < soll * 0.6) out.push({ gewicht: 55, icon: '⏱️', text: `Letzte 7 Tage: ${ist} von ${soll} Minuten. ${du ? 'Kleine feste Zeit hilft' : 'Eine feste kleine Lernzeit hilft'} — z. B. jeden Tag nach dem Mittagessen ${Math.min(15, l.tagesziel || 20)} Minuten.` });
+  else if (soll && ist >= soll) out.push({ gewicht: 20, icon: '🌟', text: `Letzte 7 Tage: ${ist} Minuten — ${du ? 'du hast dein Ziel geschafft' : 'Ziel erreicht'}!` });
+  /* 4. Beste Tageszeit aus den Antworten */
+  const z = { morgens: [0, 0], mittags: [0, 0], nachmittags: [0, 0], abends: [0, 0] };
+  for (const e of l.ereignisse || []) { const h = new Date(e.t).getHours(); const k = h < 11 ? 'morgens' : h < 14 ? 'mittags' : h < 18 ? 'nachmittags' : 'abends'; z[k][0]++; if (e.ok) z[k][1]++; }
+  const zeiten = Object.entries(z).filter(([, v]) => v[0] >= 20).map(([k, v]) => ({ k, q: v[1] / v[0] })).sort((a, b) => b.q - a.q);
+  if (zeiten.length >= 2 && zeiten[0].q - zeiten[zeiten.length - 1].q >= 0.1) out.push({ gewicht: 30, icon: '🕑', text: `${du ? 'Du lernst' : 'Gelernt wird'} ${zeiten[0].k} am erfolgreichsten (${Math.round(100 * zeiten[0].q)} % richtig, ${zeiten[zeiten.length - 1].k} ${Math.round(100 * zeiten[zeiten.length - 1].q)} %). Schwieriges am besten ${zeiten[0].k}.` });
+  /* 5. Diktat-Fehlerwörter */
+  if ((l.fehlerwoerter || []).length >= 3) out.push({ gewicht: 45, icon: '✍️', text: `Fehlerwörter aus dem Diktat: ${l.fehlerwoerter.slice(0, 5).join(', ')}. ${du ? 'Schreib sie' : 'Abschreiben'} dreimal ab und lass sie ${du ? 'dir' : 'sich'} diktieren.`, aktion: { typ: 'diktat' } });
+  /* 6. Bücher hinter dem Plan */
+  for (const b of l.buecher || []) {
+    const p = buchPensum(b, l.heute, lt);
+    if (p.zuSpaet) out.push({ gewicht: 70, icon: '📚', text: `„${b.titel}“ sollte schon fertig sein — noch ${p.rest} Seiten. ${du ? 'Trag' : 'Tragt'} ein neues Datum ein, dann passt sich der Plan an.`, aktion: { typ: 'eintrag', id: b.id } });
+    else if (p.proTag >= 25) out.push({ gewicht: 50, icon: '📚', text: `„${b.titel}“: ${p.proTag} Seiten pro Tag sind viel. Früher anfangen oder ein späteres Datum eintragen.`, aktion: { typ: 'eintrag', id: b.id } });
+  }
+  /* 7. Zu volle Tage */
+  const voll = l.plan.tage.filter((d) => !d.vergangen && d.zuViel);
+  if (voll.length) out.push({ gewicht: 35, icon: '⚖️', text: `${WOCHENTAGE[voll[0].wt]}: ${voll[0].geplantMin} Minuten geplant — mehr als geschafft werden kann. Verschiebe einen Eintrag auf einen leichteren Tag.` });
+  /* 8. Schwachstelle aus den Prioritäten */
+  const schwach = (l.prio || []).find((p) => p.grund === 'schwierigkeit');
+  if (schwach && schwach.titel) out.push({ gewicht: 40, icon: '🎯', text: `„${schwach.titel}“ fällt ${du ? 'dir' : ''} gerade schwer. Geführt üben (mit Erklärung) hilft mehr als viele Aufgaben am Stück.` });
+  /* 9. Serie halten */
+  if ((l.serie || 0) >= 2 && !((l.lernzeit || {})[l.heute] > 0)) out.push({ gewicht: 25, icon: '🔥', text: `${l.serie} Tage am Stück gelernt — heute ${du ? 'reichen' : 'reichen'} 5 Minuten, um die Serie zu halten.` });
+  return out.sort((a, b) => b.gewicht - a.gewicht).slice(0, n);
+}
+
+/** Eintrag anlegen oder ändern (nur bekannte Felder, gekürzt). */
+function eintragSaeubern(e, id) {
+  const art = ARTEN[e.art] ? e.art : 'termin';
+  const r = { id: e.id || id, art, titel: String(e.titel || ARTEN[art].name).trim().slice(0, 80) };
+  if (/^\d{4}-\d{2}-\d{2}$/.test(e.datum || '')) r.datum = e.datum;
+  if (art === 'buch') { r.seiten = Math.max(0, Math.min(5000, Math.round(Number(e.seiten) || 0))); r.gelesen = Math.max(0, Math.min(r.seiten, Math.round(Number(e.gelesen) || 0))); }
+  if (e.fach) r.fach = String(e.fach).slice(0, 20);
+  if (e.notiz) r.notiz = String(e.notiz).trim().slice(0, 200);
+  if (/^\d{2}:\d{2}$/.test(e.uhr || '')) r.uhr = e.uhr;
+  if (Number(e.minuten) > 0) r.minuten = Math.min(240, Math.round(Number(e.minuten)));
+  if (e.erledigt) r.erledigt = true;
+  return r;
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function istKind() { var p = profil(); return !!(p && p.type === "kid"); }
+  function h(s) { return typeof esc === "function" ? esc(String(s == null ? "" : s)) : String(s == null ? "" : s); }
+  function neu() { try { render(); } catch (e) {} }
+  function lernprofil() { var p = profil(); return !!(p && p.type !== "baby" && !(typeof showProfiles !== "undefined" && showProfiles)); }
+  function aktiv() { return lernprofil() && kstate.tab === "kalender"; }
+
+  /* ---------- Speicher ---------- */
+  function schluessel(p) { return "egl-kalender-" + (p || profil() || { id: "anon" }).id; }
+  function laden() { try { var v = JSON.parse(localStorage.getItem(schluessel()) || "{}") || {}; v.eintraege = v.eintraege || {}; return v; } catch (e) { return { eintraege: {} }; } }
+  function speichern(v) { try { localStorage.setItem(schluessel(), JSON.stringify(v)); } catch (e) {} }
+  function lerntage() { var l = laden().lerntage; return Array.isArray(l) && l.length ? l : [0, 1, 2, 3, 4, 5, 6]; }
+  function heute() { return tagVon(Date.now()); }
+
+  /* ---------- Lage aus den anderen Bereichen ---------- */
+  function W() { return window.__WOCHE; }
+  function LP() { return window.__LERNPFAD; }
+  function faecher() { try { var L = LP(); return L && L.faecherHeute ? L.faecherHeute() : []; } catch (e) { return []; } }
+  function fachName() {
+    var m = { de: "Deutsch", en: "Englisch", math: "Mathe", studium: "Studium", sach: "Sachunterricht", sonst: "Sonstiges" };
+    faecher().forEach(function (f) { m[f.su] = f.titel; });
+    return m;
+  }
+  function titelVon(skill) { try { var L = LP(); return (L && L.SKILLS && L.SKILLS[skill] && L.SKILLS[skill].titel) || skill; } catch (e) { return skill; } }
+  function tagesziel() { var p = profil(); return p && +p.tagesziel > 0 ? +p.tagesziel : 20; }
+  function ereignisse() { try { return window.__ELTERN ? window.__ELTERN.ereignisse() : []; } catch (e) { return []; } }
+  function lage(montag) {
+    var ev = ereignisse(), aufgaben = {}, w = W(), stand = laden(), mo = montag || montagVon(heute());
+    ev.forEach(function (e) { var t = tagVon(e.t); aufgaben[t] = (aufgaben[t] || 0) + 1; });
+    var wo = null; try { wo = w && w.laden ? w.laden().wochen[montagVon(heute())] : null; } catch (e) {}
+    var wdh = 0; try { wdh = window.__LERNMODELL ? window.__LERNMODELL.faellig().length : 0; } catch (e) {}
+    var testOffen = false; try { testOffen = !!(w && w.testOffen()); } catch (e) {}
+    var rbOffen = false; try { rbOffen = !!(w && w.rueckblickOffen()); } catch (e) {}
+    return {
+      heute: heute(), montag: mo, eintraege: stand.eintraege, lerntage: lerntage(), tagesziel: tagesziel(),
+      themen: (function () { try { return w ? w.themen() : []; } catch (e) { return []; } })(), fachName: fachName(),
+      karten: (function () { try { return window.__KARTEN && window.__KARTEN.prognose ? window.__KARTEN.prognose() : {}; } catch (e) { return {}; } })(),
+      wiederholung: wdh,
+      wochentest: mo === montagVon(heute()) ? { offen: testOffen || !!(wo && wo.test), erledigt: !!(wo && wo.test) } : null,
+      rueckblick: mo === montagVon(heute()) && (rbOffen || (wo && wo.rueckblick)) ? { erledigt: !!(wo && wo.rueckblick) } : null,
+      lernzeit: window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : {}, aufgaben: aufgaben, ereignisse: ev
+    };
+  }
+  function tippsJetzt(l, plan) {
+    var ev = l.ereignisse, grenze = Date.now() - 21 * 86400000, sq = {};
+    ev.forEach(function (e) { if (!e.s || e.t < grenze) return; var x = sq[e.s] || (sq[e.s] = { n: 0, ok: 0 }); x.n++; if (e.ok) x.ok++; });
+    Object.keys(sq).forEach(function (k) { sq[k].quote = sq[k].ok / sq[k].n; });
+    var fw = []; try { fw = W() ? W().fehlerwoerter(montagVon(heute())) : []; } catch (e) {}
+    var prio = []; try { prio = W() ? W().prio(5) : []; } catch (e) {}
+    var serie = 0; try { serie = window.__ELTERN && window.__ELTERN.serie ? +window.__ELTERN.serie() || 0 : 0; } catch (e) {}
+    var buecher = Object.keys(l.eintraege).map(function (k) { return l.eintraege[k]; }).filter(function (e) { return e && e.art === "buch" && !e.geloescht; });
+    return tipps({ heute: l.heute, plan: plan, istKind: istKind(), themen: l.themen, skillQuote: sq, titelVon: titelVon, fachName: l.fachName,
+      ereignisse: ev.filter(function (e) { return e.t > Date.now() - 28 * 86400000; }), lernzeit: l.lernzeit, tagesziel: l.tagesziel, lerntage: l.lerntage,
+      kartenHeute: l.karten[l.heute] || 0, fehlerwoerter: fw, serie: serie, buecher: buecher, prio: prio }, 4);
+  }
+
+  /* ---------- Anzeige ---------- */
+  var MONATE = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
+  var TAGNAMEN = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  function kurz(tag) { var d = new Date(mittag(tag)); return d.getDate() + ". " + MONATE[d.getMonth()]; }
+  function zustand() { return kstate.kal || (kstate.kal = { montag: null, form: null, tag: null }); }
+  var STARTBAR = { arbeit: 1, vorbereitung: 1, thema: 1, karten: 1, wiederholung: 1, wochentest: 1, rueckblick: 1 };
+
+  function htmlSeite() {
+    var z = zustand(), mo = z.montag || montagVon(heute()), l = lage(mo), plan = wochenplan(l), du = istKind();
+    var s = '<div class="hb kal" data-testid="kal"><h2 class="hb-titel">📅 ' + (du ? "Mein Plan" : "Plan") + "</h2>"
+      + '<p class="hb-sub">Was ansteht — aus Wochenthemen, Klassenarbeiten, Karteikarten, Wiederholungen und ' + (du ? "deinen" : "den eigenen") + " Einträgen. Änderst du etwas, passt sich der Plan an.</p>";
+    if (z.form) s += htmlForm(z.form);
+    if (mo === montagVon(heute())) {
+      var tp = tippsJetzt(l, plan);
+      if (tp.length) s += '<div class="kal-tipps" data-testid="kal-tipps"><h3 class="wo-h4">💡 Tipps für ' + (du ? "dich" : "diese Woche") + '</h3><ul>' + tp.map(function (t, i) {
+        return '<li><span class="kal-ti" aria-hidden="true">' + t.icon + "</span><span>" + h(t.text) + "</span>" + (t.aktion ? '<button class="btn" data-kal-tipp="' + i + '">' + (t.aktion.typ === "eintrag" ? "Ändern" : "Los") + "</button>" : "") + "</li>";
+      }).join("") + "</ul></div>";
+      z.tipps = tp;
+    }
+    var ende = plusTage(mo, 6);
+    s += '<div class="kal-kopf"><button class="btn" data-kal="zurueck" aria-label="Vorige Woche">←</button><h3 class="kal-woche" data-testid="kal-woche">Woche ' + kurz(mo) + " – " + kurz(ende) + '</h3><button class="btn" data-kal="vor" aria-label="Nächste Woche">→</button>'
+      + (mo !== montagVon(heute()) ? '<button class="btn" data-kal="heute">Diese Woche</button>' : "") + '<button class="btn btn-primary kal-neu" data-kal-neu="' + (abstand(heute(), mo) > 0 ? mo : heute()) + '" data-testid="kal-neu">＋ Eintrag</button></div>';
+    s += '<div class="kal-streifen" role="list">' + plan.tage.map(function (d) {
+      var offen = d.punkte.filter(function (p) { return !p.erledigt; }).length;
+      return '<a role="listitem" class="kal-chip' + (d.istHeute ? " heute" : "") + (d.ruhetag ? " ruhe" : "") + '" href="#kal-' + d.tag + '"><span class="kal-wt">' + WOCHENTAGE[d.wt] + '</span><span class="kal-dt">' + new Date(mittag(d.tag)).getDate() + "</span>"
+        + '<span class="kal-mini">' + (d.vergangen ? (d.istMin ? d.istMin + "′" : "–") : offen ? offen + "•" : "") + "</span></a>";
+    }).join("") + "</div>";
+    s += plan.tage.map(function (d) { return htmlTag(d, plan.ziel); }).join("");
+    s += '<details class="kal-einst"><summary>⚙️ Lerntage, Tagesziel, Klassenarbeit</summary>'
+      + '<p class="fs-text">An Ruhetagen plant der Kalender keine Vorbereitung und keine Buchseiten — die Arbeit verteilt sich auf die Lerntage.</p>'
+      + '<div class="kal-lt" role="group" aria-label="Lerntage">' + [1, 2, 3, 4, 5, 6, 0].map(function (w) {
+        var an = l.lerntage.indexOf(w) >= 0;
+        return '<button class="btn' + (an ? " btn-primary" : "") + '" aria-pressed="' + an + '" data-kal-lerntag="' + w + '">' + WOCHENTAGE[w] + "</button>";
+      }).join("") + "</div>"
+      + '<div class="kal-knoepfe"><button class="btn" data-kal="ziel">⏱️ Tagesziel: ' + l.tagesziel + " Min.</button><button class=\"btn\" data-kal=\"arbeit\">📝 Klassenarbeit / Wochenthema</button></div></details>";
+    return s + "</div>";
+  }
+  function htmlTag(d, ziel) {
+    var s = '<section class="kal-tag' + (d.istHeute ? " heute" : "") + (d.ruhetag ? " ruhe" : "") + (d.vergangen ? " vorbei" : "") + '" id="kal-' + d.tag + '" data-testid="kal-tag-' + d.tag + '">'
+      + '<div class="kal-tk"><h4>' + TAGNAMEN[d.wt] + ", " + kurz(d.tag) + (d.istHeute ? ' <span class="kal-badge">Heute</span>' : "") + (d.ruhetag ? ' <span class="kal-badge ruhe">Ruhetag</span>' : "") + "</h4>"
+      + '<span class="kal-meta">' + (d.vergangen || d.istHeute ? (d.istMin ? d.istMin + " Min. gelernt" : d.vergangen ? "nicht gelernt" : "") + (d.aufgaben ? " · " + d.aufgaben + " Aufgaben" : "") : "")
+      + (!d.vergangen && d.geplantMin ? (d.istHeute && (d.istMin || d.aufgaben) ? " · " : "") + "geplant ~" + d.geplantMin + " Min." : "") + (d.zuViel && !d.vergangen ? ' · <b class="kal-warn">viel für einen Tag</b>' : "") + "</span></div>";
+    if (d.punkte.length) s += '<ul class="kal-liste">' + d.punkte.map(function (p) {
+      var eigen = p.quelle === "eigen" && p.eintrag, starten = !p.erledigt && !d.vergangen && STARTBAR[p.art];
+      return '<li class="kal-p' + (p.erledigt ? " erledigt" : "") + (p.dringend && !p.erledigt ? " dringend" : "") + '" data-kal-art="' + h(p.art) + '">'
+        + (eigen && p.art !== "erinnerung" && p.art !== "buch" ? '<button class="kal-cb" role="checkbox" aria-checked="' + !!p.erledigt + '" aria-label="' + h(p.titel) + ' erledigt" data-kal-erledigt="' + h(p.eintrag) + '">' + (p.erledigt ? "✓" : "") + "</button>" : '<span class="kal-ic" aria-hidden="true">' + p.icon + "</span>")
+        + '<span class="kal-tx"><span class="kal-t">' + h(p.titel) + '</span><span class="kal-u">' + h(p.text || "") + (p.minuten && !p.erledigt ? " · " + p.minuten + " Min." : "") + "</span></span>"
+        + (starten ? '<button class="btn" data-kal-start="' + h(p.id) + '" data-kal-tagx="' + d.tag + '">Starten</button>' : "")
+        + (eigen ? '<button class="btn kal-edit" data-kal-bearbeiten="' + h(p.eintrag) + '" aria-label="' + h(p.titel) + ' bearbeiten">✏️</button>' : "") + "</li>";
+    }).join("") + "</ul>";
+    else s += '<p class="kal-leer">' + (d.vergangen ? "—" : d.ruhetag ? "Frei. Wer mag, liest ein bisschen." : "Noch nichts geplant.") + "</p>";
+    if (!d.vergangen) s += '<button class="kal-plus" data-kal-neu="' + d.tag + '">＋ Eintrag für ' + TAGNAMEN[d.wt] + "</button>";
+    return s + "</section>";
+  }
+  function htmlForm(f) {
+    var A = ARTEN[f.art] || ARTEN.hausaufgabe, buch = f.art === "buch";
+    var feld = function (id, label, inner) { return '<label class="kal-f" for="' + id + '">' + h(label) + inner + "</label>"; };
+    var fachOpt = '<option value="">—</option>' + faecher().map(function (x) { return x; }).concat([{ su: "sonst", titel: "Sonstiges" }]).map(function (x) { return '<option value="' + h(x.su) + '"' + (f.fach === x.su ? " selected" : "") + ">" + h(x.titel) + "</option>"; }).join("");
+    return '<div class="kal-form" data-testid="kal-form"><h3 class="wo-h4">' + (f.id ? "✏️ Eintrag ändern" : "＋ Neuer Eintrag") + "</h3>"
+      + '<div class="kal-arten" role="group" aria-label="Art">' + Object.keys(ARTEN).map(function (k) {
+        return '<button class="btn' + (f.art === k ? " btn-primary" : "") + '" aria-pressed="' + (f.art === k) + '" data-kal-art-wahl="' + k + '">' + ARTEN[k].icon + " " + ARTEN[k].name + "</button>";
+      }).join("") + '<button class="btn" data-kal="arbeit">📝 Klassenarbeit</button></div>'
+      + feld("kal-titel", buch ? "Buchtitel" : "Was?", '<input id="kal-titel" type="text" maxlength="80" value="' + h(f.titel || "") + '" placeholder="' + (buch ? "z. B. Die kleine Hexe" : f.art === "hausaufgabe" ? "z. B. Arbeitsblatt S. 12" : "") + '">')
+      + '<div class="kal-reihe">' + feld("kal-datum", buch ? "Fertig lesen bis" : f.art === "hausaufgabe" ? "Abgabe am" : "Datum", '<input id="kal-datum" type="date" value="' + h(f.datum || "") + '">')
+      + feld("kal-fach", "Fach", '<select id="kal-fach">' + fachOpt + "</select>")
+      + (f.art === "termin" ? feld("kal-uhr", "Uhrzeit", '<input id="kal-uhr" type="time" value="' + h(f.uhr || "") + '">') : "")
+      + (f.art === "lernen" || f.art === "hausaufgabe" ? feld("kal-min", "Minuten", '<input id="kal-min" type="number" min="5" max="240" step="5" value="' + h(f.minuten || "") + '">') : "") + "</div>"
+      + (buch ? '<div class="kal-reihe">' + feld("kal-seiten", "Seiten insgesamt", '<input id="kal-seiten" type="number" min="1" value="' + h(f.seiten || "") + '">')
+        + feld("kal-gelesen", "Schon gelesen bis Seite", '<input id="kal-gelesen" type="number" min="0" value="' + h(f.gelesen || 0) + '">') + "</div>" : "")
+      + feld("kal-notiz", "Notiz (optional)", '<input id="kal-notiz" type="text" maxlength="200" value="' + h(f.notiz || "") + '">')
+      + '<div class="kal-knoepfe"><button class="btn btn-primary" data-kal="speichern" data-testid="kal-speichern">Speichern</button><button class="btn" data-kal="abbrechen">Abbrechen</button>'
+      + (f.id ? '<button class="btn" data-kal="loeschen">Löschen</button>' : "") + "</div></div>";
+  }
+  function formLesen() {
+    var z = zustand(), f = z.form; if (!f) return;
+    var v = function (id) { var el = document.getElementById(id); return el ? el.value : undefined; };
+    ["titel", "datum", "fach", "uhr", "notiz"].forEach(function (k) { var x = v("kal-" + k); if (x !== undefined) f[k] = x; });
+    var m = v("kal-min"); if (m !== undefined) f.minuten = m;
+    var se = v("kal-seiten"); if (se !== undefined) f.seiten = se;
+    var ge = v("kal-gelesen"); if (ge !== undefined) f.gelesen = ge;
+  }
+
+  /* „Heute“ (p73) zeigt den Tag aus dem Kalender mit */
+  function htmlHeute() {
+    try {
+      var l = lage(), plan = wochenplan(l), d = plan.tage.filter(function (x) { return x.istHeute; })[0];
+      if (!d) return "";
+      var eigen = d.punkte.filter(function (p) { return p.quelle === "eigen" || p.art === "arbeit"; });
+      var s = '<div class="kal-heute" data-testid="kal-heute"><div class="kal-tk"><h3 class="wo-h4">📅 Heute im Plan</h3><button class="btn" data-m132nav="kalender">Woche ansehen</button></div>';
+      if (d.ruhetag) s += '<p class="fs-text">Heute ist Ruhetag — alles ist freiwillig.</p>';
+      if (eigen.length) s += '<ul class="kal-liste">' + eigen.map(function (p) {
+        return '<li class="kal-p' + (p.erledigt ? " erledigt" : "") + (p.dringend && !p.erledigt ? " dringend" : "") + '"><span class="kal-ic" aria-hidden="true">' + p.icon + '</span><span class="kal-tx"><span class="kal-t">' + h(p.titel) + '</span><span class="kal-u">' + h(p.text || "") + "</span></span></li>";
+      }).join("") + "</ul>";
+      else if (!d.ruhetag) s += '<p class="fs-text">Keine Hausaufgaben oder Termine eingetragen.</p>';
+      return s + "</div>";
+    } catch (e) { return ""; }
+  }
+
+  /* ---------- Einhängen ---------- */
+  var renderVorher = render;
+  var renderNeu = function () {
+    if (aktiv() && typeof document.getElementById === "function") {
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) { view.innerHTML = htmlSeite(); try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {} return; }
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+
+  function startePunkt(id, tag) {
+    var l = lage(montagVon(tag)), plan = wochenplan(l), p = null;
+    plan.tage.forEach(function (d) { d.punkte.forEach(function (x) { if (x.id === id) p = x; }); });
+    if (!p) return;
+    var L = LP();
+    if (p.art === "karten") { if (window.__KARTEN) window.__KARTEN.oeffnen(istKind() ? "kid-de" : null); return; }
+    if (p.art === "wiederholung") { if (L) L.starte({ typ: "wiederholung", anzahl: 8 }); return; }
+    if (p.art === "wochentest") { if (W()) W().testOeffnen(); return; }
+    if (p.art === "rueckblick") { kstate.tab = "rueckblick"; neu(); return; }
+    var skills = p.skills || [];
+    if (!skills.length) { var t = (l.themen || []).filter(function (x) { return x.su === p.su; })[0]; skills = (t && t.skills) || []; }
+    if (L && skills.length) {
+      if (/^Probearbeit/.test(p.titel)) L.starte({ typ: "runde", titel: "📝 Probearbeit", skills: skills, anzahl: 10 });
+      else {
+        /* die Station, die am wenigsten sitzt */
+        var ev = ereignisse(), q = {};
+        ev.forEach(function (e) { if (skills.indexOf(e.s) < 0) return; var x = q[e.s] || (q[e.s] = { n: 0, ok: 0 }); x.n++; if (e.ok) x.ok++; });
+        var best = skills.slice().sort(function (a, b) { var qa = q[a] ? q[a].ok / q[a].n : -1, qb = q[b] ? q[b].ok / q[b].n : -1; return qa - qb; })[0];
+        L.starte({ typ: "lektion", skill: best, stufe: q[best] ? 3 : 1, su: p.su });
+      }
+    }
+  }
+  function tippAusfuehren(i) {
+    var t = (zustand().tipps || [])[i]; if (!t || !t.aktion) return;
+    var a = t.aktion, L = LP();
+    if (a.typ === "lektion" && L) L.starte({ typ: "lektion", skill: a.skill, stufe: 3, su: a.su });
+    else if (a.typ === "karten" && window.__KARTEN) window.__KARTEN.oeffnen(istKind() ? "kid-de" : null);
+    else if (a.typ === "diktat") { kstate.tab = "dikt"; kstate.tx = null; neu(); }
+    else if (a.typ === "eintrag") { var e = laden().eintraege[a.id]; if (e) { zustand().form = JSON.parse(JSON.stringify(e)); neu(); } }
+  }
+
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-m132nav="kalender"],[data-kal],[data-kal-neu],[data-kal-start],[data-kal-erledigt],[data-kal-bearbeiten],[data-kal-lerntag],[data-kal-art-wahl],[data-kal-tipp]') : null;
+    if (!t || !lernprofil()) return;
+    if (t.hasAttribute("data-m132nav")) {
+      e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      kstate.lp = null; kstate.tab = "kalender"; kstate.kal = null; neu(); return;
+    }
+    if (!aktiv()) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var z = zustand(), a, v;
+    if ((a = t.getAttribute("data-kal-neu"))) { z.form = { art: "hausaufgabe", datum: a }; }
+    else if ((a = t.getAttribute("data-kal-bearbeiten"))) { var x = laden().eintraege[a]; if (x) z.form = JSON.parse(JSON.stringify(x)); }
+    else if ((a = t.getAttribute("data-kal-erledigt"))) { v = laden(); if (v.eintraege[a]) { v.eintraege[a].erledigt = !v.eintraege[a].erledigt; speichern(v); } }
+    else if ((a = t.getAttribute("data-kal-lerntag")) != null) {
+      v = laden(); var lt = lerntage().slice(), w = +a, i = lt.indexOf(w);
+      if (i >= 0) { if (lt.length > 1) lt.splice(i, 1); } else lt.push(w);
+      v.lerntage = lt.sort(); speichern(v);
+    }
+    else if ((a = t.getAttribute("data-kal-art-wahl"))) { formLesen(); if (z.form) z.form.art = a; }
+    else if ((a = t.getAttribute("data-kal-start"))) { startePunkt(a, t.getAttribute("data-kal-tagx")); return; }
+    else if ((a = t.getAttribute("data-kal-tipp")) != null) { tippAusfuehren(+a); return; }
+    else {
+      a = t.getAttribute("data-kal");
+      if (a === "zurueck" || a === "vor") z.montag = plusTage(z.montag || montagVon(heute()), a === "vor" ? 7 : -7);
+      else if (a === "heute") z.montag = null;
+      else if (a === "abbrechen") z.form = null;
+      else if (a === "speichern" && z.form) {
+        formLesen();
+        if (!String(z.form.titel || "").trim() && z.form.art !== "lernen") { var el = document.getElementById("kal-titel"); if (el && el.focus) el.focus(); return; }
+        v = laden();
+        var id = z.form.id || (z.form.art.slice(0, 2) + Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
+        v.eintraege[id] = eintragSaeubern(z.form, id);
+        speichern(v); z.form = null;
+        if (v.eintraege[id].datum) z.montag = montagVon(v.eintraege[id].datum) === montagVon(heute()) ? null : montagVon(v.eintraege[id].art === "buch" ? heute() : v.eintraege[id].datum);
+      }
+      else if (a === "loeschen" && z.form && z.form.id) { v = laden(); delete v.eintraege[z.form.id]; speichern(v); z.form = null; }
+      else if (a === "ziel") { if (window.__HEUTE && window.__HEUTE.zielAendern) window.__HEUTE.zielAendern(); return; }
+      else if (a === "arbeit") { if (window.__HEUTE && window.__HEUTE.fokusAendern) window.__HEUTE.fokusAendern(); return; }
+    }
+    neu();
+    if (z.form) { try { var f = document.getElementById("kal-titel"); if (f && f.focus) f.focus(); } catch (x2) {} }
+  }, true);
+
+  window.__KALENDER = { lage: lage, plan: function (mo) { return wochenplan(lage(mo)); }, tipps: function () { var l = lage(); return tippsJetzt(l, wochenplan(l)); },
+    htmlHeute: htmlHeute, laden: laden, oeffnen: function () { kstate.tab = "kalender"; kstate.kal = null; neu(); } };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 11:27")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 11:44")}}catch(e){}
 })();
 
 </script>
