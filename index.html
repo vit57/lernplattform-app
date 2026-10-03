@@ -25270,7 +25270,7 @@ const FEST = {
 /** Schlüssel je Profil: Präfix → Teil und Form. Längste Präfixe zuerst (fcstreak vor fc). */
 const JE_PROFIL = [
   ['egl-textrotation-', 'textrotation', 'objekt'], ['egl-ereignisse-', 'ereignisse', 'liste'],
-  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'], ['egl-woche-', 'woche', 'objekt'], ['egl-schreiben-', 'schreiben', 'objekt'],
+  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'], ['egl-woche-', 'woche', 'objekt'], ['egl-schreiben-', 'schreiben', 'objekt'], ['egl-lernzeit-', 'lernzeit', 'objekt'],
   ['egl-fcstreak-', 'fcstreak', 'json'], ['egl-fckorr-', 'fckorr', 'objekt'], ['egl-mywords-', 'mywords', 'json'], ['egl-fchide-', 'fchide', 'json'],
   ['egl-m127-', 'm127', 'json'], ['egl-v17-', 'v17', 'json'], ['egl-uni-', 'uni', 'json'], ['egl-fc-', 'fc', 'json'],
 ];
@@ -30021,6 +30021,7 @@ function tagVon(d) {
     }
     var st = planFuerHeute(), erledigt = st.erledigt || {}, ziel = tagesziel();
     var min = Math.floor((st.sek || 0) / 60);
+    try { if (window.__LERNZEIT) min = Math.max(min, window.__LERNZEIT.heute()); } catch (e) {}   /* M23: gemessene Lernzeit */
     var offen = st.bloecke.filter(function (b) { return !erledigt[b.id]; });
     var out = kopf + ring(min, ziel) + "</div>";
     /* M19: neue Abzeichen einmal zeigen — gesehen, sobald „Fortschritt“ geöffnet oder hier bestätigt */
@@ -30893,7 +30894,7 @@ function tag(ev, tag) {
 }
 
 /** Wochenraster 7 Tage × Fächer (§9.2). @param {readonly Ereignis[]} ev @param {string} montagsDatum */
-function woche(ev, montagsDatum) {
+function woche(ev, montagsDatum, aktiv = null) {
   const start = new Date(montagsDatum + 'T12:00:00').getTime();
   const tage = Array.from({ length: 7 }, (_, i) => datum(start + i * TAG_MS));
   const faecher = [...new Set(ev.filter((e) => tage.includes(datum(e.t))).map((e) => e.f))].sort();
@@ -30903,7 +30904,8 @@ function woche(ev, montagsDatum) {
   };
   const raster = faecher.map((f) => ({ f, tage: tage.map((tg) => zelle(tg, f)) }));
   const summeFach = raster.map((r) => ({ f: r.f, minuten: r.tage.reduce((a, z) => a + z.minuten, 0), n: r.tage.reduce((a, z) => a + z.n, 0) }));
-  const summeTag = tage.map((tg, i) => raster.reduce((a, r) => a + r.tage[i].minuten, 0));
+  /* M23: gemessene aktive Minuten je Tag — je Tag gilt das Größere */
+  const summeTag = tage.map((tg, i) => Math.max(raster.reduce((a, r) => a + r.tage[i].minuten, 0), (aktiv && aktiv[tg]) || 0));
   const inWoche = ev.filter((e) => tage.includes(datum(e.t)));
   const vorTage = Array.from({ length: 7 }, (_, i) => datum(start + (i - 7) * TAG_MS));
   const vorWoche = ev.filter((e) => vorTage.includes(datum(e.t)));
@@ -31586,7 +31588,7 @@ function aktiv(u, t) {
   }
 
   function htmlUebersicht(ev, name) {
-    var jetzt = Date.now(), heute = tag(ev, datum(jetzt)), w = woche(ev, montag(jetzt));
+    var jetzt = Date.now(), heute = tag(ev, datum(jetzt)), w = woche(ev, montag(jetzt), (window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : null));
     var tr = trends(ev, jetzt), l = listen(tr, masteryJetzt());
     var wmin = w.summeTag.reduce(function (a, b) { return a + b; }, 0);
     var s = '<div class="el-karten"><div><b>' + heute.minuten + '</b><span>Minuten heute</span></div><div><b>' + wmin + '</b><span>Minuten diese Woche</span></div>'
@@ -31634,7 +31636,7 @@ function aktiv(u, t) {
   }
 
   function htmlWoche(ev) {
-    var mo = zustand.woche || montag(Date.now()), w = woche(ev, mo);
+    var mo = zustand.woche || montag(Date.now()), w = woche(ev, mo, (window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : null));
     var s = '<div class="el-knoepfe"><button class="btn" data-el="woche-zurueck">← Vorwoche</button><span style="align-self:center;font-weight:700">Woche ab ' + tagText(mo)
       + '</span><button class="btn" data-el="woche-vor">Nächste Woche →</button></div>';
     s += '<div class="el-box"><table class="el-tab" data-testid="el-woche"><thead><tr><th>Fach</th>' + w.tage.map(function (tg) { return "<th>" + tagText(tg) + "</th>"; }).join("") + "<th>Summe</th></tr></thead><tbody>";
@@ -31688,7 +31690,7 @@ function aktiv(u, t) {
   }
 
   function bericht(ev, name) {
-    var jetzt = Date.now(), w = woche(ev, montag(jetzt)), tr = trends(ev, jetzt), l = listen(tr, masteryJetzt());
+    var jetzt = Date.now(), w = woche(ev, montag(jetzt), (window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : null)), tr = trends(ev, jetzt), l = listen(tr, masteryJetzt());
     var wmin = w.summeTag.reduce(function (a, b) { return a + b; }, 0), n = w.raster.reduce(function (a, r) { return a + r.tage.reduce(function (b, z) { return b + z.n; }, 0); }, 0);
     var besser = tr.filter(function (x) { return x.zeichen === "↑"; }).slice(0, 3), schlechter = tr.filter(function (x) { return x.zeichen === "↓"; }).slice(0, 3);
     var baustellen = l.brauchtUebung.slice(0, 3);
@@ -33189,7 +33191,7 @@ function tag(ev, tag) {
 }
 
 /** Wochenraster 7 Tage × Fächer (§9.2). @param {readonly Ereignis[]} ev @param {string} montagsDatum */
-function woche(ev, montagsDatum) {
+function woche(ev, montagsDatum, aktiv = null) {
   const start = new Date(montagsDatum + 'T12:00:00').getTime();
   const tage = Array.from({ length: 7 }, (_, i) => datum(start + i * TAG_MS));
   const faecher = [...new Set(ev.filter((e) => tage.includes(datum(e.t))).map((e) => e.f))].sort();
@@ -33199,7 +33201,8 @@ function woche(ev, montagsDatum) {
   };
   const raster = faecher.map((f) => ({ f, tage: tage.map((tg) => zelle(tg, f)) }));
   const summeFach = raster.map((r) => ({ f: r.f, minuten: r.tage.reduce((a, z) => a + z.minuten, 0), n: r.tage.reduce((a, z) => a + z.n, 0) }));
-  const summeTag = tage.map((tg, i) => raster.reduce((a, r) => a + r.tage[i].minuten, 0));
+  /* M23: gemessene aktive Minuten je Tag — je Tag gilt das Größere */
+  const summeTag = tage.map((tg, i) => Math.max(raster.reduce((a, r) => a + r.tage[i].minuten, 0), (aktiv && aktiv[tg]) || 0));
   const inWoche = ev.filter((e) => tage.includes(datum(e.t)));
   const vorTage = Array.from({ length: 7 }, (_, i) => datum(start + (i - 7) * TAG_MS));
   const vorWoche = ev.filter((e) => vorTage.includes(datum(e.t)));
@@ -33310,15 +33313,18 @@ const MIN_QUOTE = 5;
  * Lernminuten der letzten `n` Tage (ältester zuerst).
  * @param {readonly {t:number, f:string, ok:number, d?:number}[]} ev
  * @param {number} jetzt
+ * @param {number} [n]
+ * @param {Record<string, number>|null} [aktiv] M23: gemessene aktive Minuten je Tag — je Tag gilt das Größere
  */
-function lernzeit(ev, jetzt, n = 14) {
+function lernzeit(ev, jetzt, n = 14, aktiv = null) {
   const tage = [];
   for (let i = n - 1; i >= 0; i--) { const d = new Date(jetzt); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); tage.push(datum(d)); }
   const jeTag = {};
   for (const x of ev) { const tg = datum(x.t); if (tage.includes(tg)) (jeTag[tg] = jeTag[tg] || []).push(x); }
   return tage.map((tag) => {
     const liste = jeTag[tag] || [];
-    return { tag, n: liste.length, minuten: sitzungen(liste).reduce((a, s) => a + s.minuten, 0) };
+    const m = sitzungen(liste).reduce((a, s) => a + s.minuten, 0);
+    return { tag, n: liste.length, minuten: Math.max(m, (aktiv && aktiv[tag]) || 0) };
   });
 }
 
@@ -33351,14 +33357,14 @@ function jeFach(ev, jetzt) {
   function ereignisse() { try { return window.__ELTERN ? window.__ELTERN.ereignisse() : []; } catch (e) { return []; } }
 
   function htmlLernzeit(ev, jetzt) {
-    var lz = lernzeit(ev, jetzt), max = Math.max.apply(null, lz.map(function (x) { return x.minuten; }).concat([1]));
+    var lz = lernzeit(ev, jetzt, 14, (window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : null)), max = Math.max.apply(null, lz.map(function (x) { return x.minuten; }).concat([1]));
     var woche = lz.slice(-7).reduce(function (a, x) { return a + x.minuten; }, 0);
     var s = '<h3 class="hb-zw">⏱️ Lernzeit · letzte 14 Tage</h3><div class="fs-balken" role="img" aria-label="Lernminuten der letzten 14 Tage" data-testid="fs-lernzeit">';
     lz.forEach(function (x) {
       var d = new Date(x.tag + "T12:00:00"), titel = WOCHENTAG[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1) + ".: " + x.minuten + " Min.";
       s += '<div class="fs-tag" title="' + h(titel) + '"><span class="fs-wert" style="height:' + Math.round(100 * x.minuten / max) + '%"></span><span class="fs-lab">' + WOCHENTAG[d.getDay()] + "</span></div>";
     });
-    return s + '</div><p class="fs-text" data-testid="fs-woche">Letzte 7 Tage: <b>' + woche + (woche === 1 ? " Minute" : " Minuten") + "</b> — gezählt wird von selbst, während du übst.</p>";
+    return s + '</div><p class="fs-text" data-testid="fs-woche">Letzte 7 Tage: <b>' + woche + (woche === 1 ? " Minute" : " Minuten") + "</b> — gezählt wird von selbst, solange du auf einer Lernseite aktiv bist (auch beim Lesen und Schreiben).</p>";
   }
   function htmlFaecher() {
     var LP = window.__LERNPFAD, zeilen = [];
@@ -35765,7 +35771,7 @@ function tag(ev, tag) {
 }
 
 /** Wochenraster 7 Tage × Fächer (§9.2). @param {readonly Ereignis[]} ev @param {string} montagsDatum */
-function woche(ev, montagsDatum) {
+function woche(ev, montagsDatum, aktiv = null) {
   const start = new Date(montagsDatum + 'T12:00:00').getTime();
   const tage = Array.from({ length: 7 }, (_, i) => datum(start + i * TAG_MS));
   const faecher = [...new Set(ev.filter((e) => tage.includes(datum(e.t))).map((e) => e.f))].sort();
@@ -35775,7 +35781,8 @@ function woche(ev, montagsDatum) {
   };
   const raster = faecher.map((f) => ({ f, tage: tage.map((tg) => zelle(tg, f)) }));
   const summeFach = raster.map((r) => ({ f: r.f, minuten: r.tage.reduce((a, z) => a + z.minuten, 0), n: r.tage.reduce((a, z) => a + z.n, 0) }));
-  const summeTag = tage.map((tg, i) => raster.reduce((a, r) => a + r.tage[i].minuten, 0));
+  /* M23: gemessene aktive Minuten je Tag — je Tag gilt das Größere */
+  const summeTag = tage.map((tg, i) => Math.max(raster.reduce((a, r) => a + r.tage[i].minuten, 0), (aktiv && aktiv[tg]) || 0));
   const inWoche = ev.filter((e) => tage.includes(datum(e.t)));
   const vorTage = Array.from({ length: 7 }, (_, i) => datum(start + (i - 7) * TAG_MS));
   const vorWoche = ev.filter((e) => vorTage.includes(datum(e.t)));
@@ -36089,18 +36096,18 @@ function wochentestPlan(l) {
   return plan;
 }
 
-/** Zahlen der Woche (Montag bis Sonntag) um `jetzt`. */
-function wochenZahlen(ereignisse, jetzt) {
+/** Zahlen der Woche (Montag bis Sonntag) um `jetzt`; `aktiv` (M23): gemessene Minuten je Tag. */
+function wochenZahlen(ereignisse, jetzt, aktiv = null) {
   const mo = montag(jetzt), start = new Date(mo + 'T12:00:00').getTime();
   const tage = Array.from({ length: 7 }, (_, i) => datum(start + i * TAG));
   const imWoche = (ereignisse || []).filter((e) => tage.includes(datum(e.t)));
-  const tageZ = tage.map((tag) => { const l = imWoche.filter((e) => datum(e.t) === tag); return { tag, n: l.length, minuten: sitzungen(l).reduce((a, s) => a + s.minuten, 0) }; });
+  const tageZ = tage.map((tag) => { const l = imWoche.filter((e) => datum(e.t) === tag); return { tag, n: l.length, minuten: Math.max(sitzungen(l).reduce((a, s) => a + s.minuten, 0), (aktiv && aktiv[tag]) || 0) }; });
   const jeSkill = new Map();
   for (const e of imWoche) { if (!e.s) continue; const x = jeSkill.get(e.s) || { skill: e.s, n: 0, ok: 0 }; x.n++; if (e.ok) x.ok++; jeSkill.set(e.s, x); }
   const liste = [...jeSkill.values()].map((x) => ({ skill: x.skill, n: x.n, quote: x.ok / x.n }));
   const ok = imWoche.filter((e) => e.ok).length;
   return {
-    montag: mo, tage: tageZ, aktiveTage: tageZ.filter((t) => t.n > 0).length, minuten: tageZ.reduce((a, t) => a + t.minuten, 0),
+    montag: mo, tage: tageZ, aktiveTage: tageZ.filter((t) => t.n > 0 || t.minuten > 0).length, minuten: tageZ.reduce((a, t) => a + t.minuten, 0),
     aufgaben: imWoche.length, quote: imWoche.length ? ok / imWoche.length : null,
     staerken: liste.filter((x) => x.n >= 5 && x.quote >= 0.8).sort((a, b) => b.quote - a.quote || b.n - a.n),
     baustellen: liste.filter((x) => x.n >= 4 && x.quote < 0.6).sort((a, b) => a.quote - b.quote || b.n - a.n),
@@ -36237,7 +36244,7 @@ function wochenthemaFuerHeute(themen, heute) {
     }).join("") + "</ol>";
   }
   function html() {
-    var kind = istKind(), jetzt = Date.now(), z = wochenZahlen(ereignisse(), jetzt), w = woche(z.montag), th = themen();
+    var kind = istKind(), jetzt = Date.now(), z = wochenZahlen(ereignisse(), jetzt, (window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : null)), w = woche(z.montag), th = themen();
     var s = '<section class="wo" data-testid="wo-woche"><h3 class="hb-zw">📅 ' + (kind ? "Meine Woche" : "Diese Woche") + "</h3>"
       + '<div class="wo-tage" aria-label="Lerntage dieser Woche">' + z.tage.map(function (t) {
         var d = new Date(t.tag + "T12:00:00");
@@ -36281,14 +36288,14 @@ function wochenthemaFuerHeute(themen, heute) {
         return '<button class="btn wo-st' + (an ? " an" : "") + '" aria-pressed="' + an + '" data-wo-stimmung="' + x[0] + '"><span aria-hidden="true">' + x[1] + "</span> " + h(x[0]) + "</button>";
       }).join("") + "</div>";
     F.forEach(function (f, i) { s += '<label class="wo-frage">' + (i + 1) + ". " + h(f) + '<textarea rows="2" data-wo-antwort="' + i + '">' + h(entwurf.antworten[i] || "") + "</textarea></label>"; });
-    var z = wochenZahlen(ereignisse(), new Date(mo + "T12:00:00").getTime());
+    var z = wochenZahlen(ereignisse(), new Date(mo + "T12:00:00").getTime(), (window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : null));
     s += '<p class="fs-text">Diese Woche: ' + z.aktiveTage + " Tage · " + z.minuten + " Minuten · " + z.aufgaben + " Aufgaben" + (w.test ? " · Wochentest " + w.test.ergebnis + " von " + w.test.n + " (geschätzt " + w.test.vorhersage + ")" : "") + "</p>";
     return s + '<div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn btn-primary" data-wo="speichern" data-testid="wo-speichern"' + (entwurf.stimmung ? "" : " disabled") + ">Speichern</button></div></div>";
   }
 
   /* ---------- Eltern-Wochenbericht ---------- */
   function htmlEltern() {
-    var jetzt = Date.now(), mo = heuteMo(), z = wochenZahlen(ereignisse(), jetzt), w = woche(mo), vw = woche(vorMo(mo, 1)), th = themen();
+    var jetzt = Date.now(), mo = heuteMo(), z = wochenZahlen(ereignisse(), jetzt, (window.__LERNZEIT ? window.__LERNZEIT.minutenJeTag() : null)), w = woche(mo), vw = woche(vorMo(mo, 1)), th = themen();
     var alle = laden().wochen, liste = Object.keys(alle).sort().slice(-6).map(function (k) { return alle[k]; });
     var an = anpassung(liste), rb = w.rueckblick || vw.rueckblick, rbWoche = w.rueckblick ? mo : vorMo(mo, 1), fw = fehlerwoerter(mo);
     var s = '<div class="el-box wo-eltern" data-testid="wo-eltern"><h3>📅 Woche ab ' + mo.split("-").reverse().join(".") + "</h3>"
@@ -36795,12 +36802,197 @@ function zaehler(a, text) {
   window.__SCHREIBEN = { htmlEltern: htmlEltern, aktiv: aktiv, kern: { pruefeText: pruefeText }, oeffnen: function (id) { var f = finde(id); if (!f) return false; kstate.tab = "write"; var z = zustand(); z.stufe = f.stufe; z.id = id; z.text = null; z.phase = "schreiben"; z.seit = Date.now(); neu(); return true; } };
 })();
 
+/* =====================================================================
+   M23 — Effektive Lernzeit messen (app/kern/lernzeit.js).
+
+   Alle 15 Sekunden wird die aktive Zeit seit dem letzten Takt auf die
+   gerade offene Lernseite gebucht: Seite sichtbar, die letzte Aktion
+   (Tippen, Taste, Scrollen, Eingabe) höchstens 60 s her (aktivzeit.js).
+   Lesen, Erklärungen, Schreiben, Karteikarten zählen also mit — nicht nur
+   die Zeit zwischen zwei Antworten. Eltern-, Profil- und Verwaltungsseiten
+   zählen nicht. Gespeichert je Profil in egl-lernzeit-<Profil>.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/**
+ * Reine Bearbeitungszeit (AUFTRAG-v2.md §4.3, M6) — reine Funktionen.
+ *
+ * Die Uhr läuft nur, wenn die Seite sichtbar ist, kein Hilfe-Fenster offen
+ * ist und die letzte Aktion (Tippen, Taste) höchstens LEERLAUF_MS zurückliegt.
+ * Gemessen wird die Summe; eine Aufgabe nimmt die Differenz zwischen Anzeige
+ * und Antwort.
+ *
+ * Ereignisse: 'aktion' | 'versteckt' | 'sichtbar' | 'dialog-auf' | 'dialog-zu'
+ */
+
+const LEERLAUF_MS = 60000;
+
+/** @typedef {{ summe: number, seit: number, letzteAktion: number, sichtbar: boolean, dialog: boolean }} Uhr */
+
+/** @param {number} t @returns {Uhr} */
+function neueUhr(t) {
+  return { summe: 0, seit: t, letzteAktion: t, sichtbar: true, dialog: false };
+}
+
+/** Zeit bis t aufaddieren. @param {Uhr} u @param {number} t @returns {Uhr} */
+function fortschreiben(u, t) {
+  let summe = u.summe;
+  if (u.sichtbar && !u.dialog) {
+    const ende = Math.min(t, u.letzteAktion + LEERLAUF_MS);
+    if (ende > u.seit) summe += ende - u.seit;
+  }
+  return { ...u, summe, seit: Math.max(u.seit, t) };
+}
+
+/** @param {Uhr} u @param {string} ereignis @param {number} t @returns {Uhr} */
+function schritt(u, ereignis, t) {
+  const v = fortschreiben(u, t);
+  if (ereignis === 'aktion') return { ...v, letzteAktion: t };
+  if (ereignis === 'versteckt') return { ...v, sichtbar: false };
+  if (ereignis === 'sichtbar') return { ...v, sichtbar: true, letzteAktion: t };
+  if (ereignis === 'dialog-auf') return { ...v, dialog: true };
+  if (ereignis === 'dialog-zu') return { ...v, dialog: false, letzteAktion: t };
+  return v;
+}
+
+/** Aktive Millisekunden bis t. @param {Uhr} u @param {number} t */
+function aktiv(u, t) {
+  return fortschreiben(u, t).summe;
+}
+
+
+  // @ts-check
+/* =====================================================================
+   M23: Effektive Lernzeit (Rückmeldung 2026-10-03: „Es sollte die
+   effektive Zeit zählen und nicht nur wenn man in der Aufgabe ist!“).
+
+   Vorher rechneten Fortschritt, Woche und Eltern-Bericht die Minuten aus
+   den Abständen der Antworten (auswertung.sitzungen): Lesen, Erklärungen,
+   Schreiben, Karteikarten-Vorderseiten zählten kaum. Jetzt wird die aktive
+   Zeit auf jeder Lernseite gebucht — aktiv heißt: Seite sichtbar und die
+   letzte Berührung, Taste, Scroll- oder Eingabe-Aktion liegt höchstens
+   LEERLAUF_MS zurück (app/kern/aktivzeit.js). Gespeichert je Tag und
+   Bereich (egl-lernzeit-<Profil>). Für Tage vor der Messung bleibt die
+   alte Zählung; je Tag gilt das Größere.
+   ===================================================================== */
+
+const TAGE_MAX = 400;
+
+/** Seiten, die keine Lernzeit sind (Verwaltung, Eltern, Profilwahl). */
+const KEINE = /^(eltern|hub-eltern|eltern-dashboard|einstellungen|darstellung|profil|profile|pakete|quellen|hilfe-eltern)/;
+/** @param {string|null|undefined} seite */
+function istLernseite(seite) {
+  const s = String(seite || '');
+  return !!s && !KEINE.test(s);
+}
+
+/**
+ * Aktive Millisekunden auf einen Tag und Bereich buchen.
+ * @param {{tage?: Record<string, {ms: number, b: Record<string, number>}>}} stand
+ * @param {string} tag YYYY-MM-DD @param {string} bereich @param {number} ms
+ */
+function buchen(stand, tag, bereich, ms) {
+  const tage = { ...((stand && stand.tage) || {}) };
+  if (!(ms > 0)) return { tage };
+  const t = tage[tag] ? { ms: tage[tag].ms, b: { ...tage[tag].b } } : { ms: 0, b: {} };
+  t.ms += ms;
+  t.b[bereich] = (t.b[bereich] || 0) + ms;
+  tage[tag] = t;
+  const keys = Object.keys(tage).sort();
+  for (const k of keys.slice(0, Math.max(0, keys.length - TAGE_MAX))) delete tage[k];
+  return { tage };
+}
+
+/** Minuten je Tag (abgerundet auf ganze Minuten, ab 30 s eine Minute). */
+function minutenJeTag(stand) {
+  const m = {};
+  for (const [tag, t] of Object.entries((stand && stand.tage) || {})) m[tag] = Math.round(t.ms / 60000);
+  return m;
+}
+
+/** Minuten je Bereich an einem Tag, größte zuerst. */
+function jeBereich(stand, tag) {
+  const t = stand && stand.tage && stand.tage[tag];
+  return t ? Object.entries(t.b).map(([b, ms]) => ({ bereich: b, minuten: Math.round(ms / 60000) })).filter((x) => x.minuten > 0).sort((a, b) => b.minuten - a.minuten) : [];
+}
+
+/**
+ * Alte Zählung (aus Antworten) und gemessene aktive Zeit zusammenführen:
+ * je Tag das Größere — die gemessene Zeit enthält die Aufgabenzeit.
+ * @template {{tag: string, minuten: number}} T
+ * @param {T[]} tage @param {Record<string, number>|null|undefined} aktiv
+ * @returns {T[]}
+ */
+function mitAktiv(tage, aktiv) {
+  if (!aktiv) return tage;
+  return tage.map((t) => (aktiv[t.tag] > t.minuten ? { ...t, minuten: aktiv[t.tag] } : t));
+}
+
+
+  if (typeof kstate === "undefined") return;
+  var TAKT = 15000;
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function schluessel(p) { return "egl-lernzeit-" + p.id; }
+  function laden(p) { try { var v = JSON.parse(localStorage.getItem(schluessel(p)) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } }
+  function speichern(p, v) { try { localStorage.setItem(schluessel(p), JSON.stringify(v)); } catch (e) {} }
+  function zweistellig(n) { return (n < 10 ? "0" : "") + n; }
+  function tagVon(t) { var d = new Date(t); return d.getFullYear() + "-" + zweistellig(d.getMonth() + 1) + "-" + zweistellig(d.getDate()); }
+  function fach() {
+    try { var O = window.__OBERFLAECHE; var f = O && O.fachKuerzel ? O.fachKuerzel() : null; if (f) return f; } catch (e) {}
+    try { return kstate.fach || ""; } catch (e) { return ""; }
+  }
+  /** Die offene Seite — oder null, wenn keine Lernseite offen ist. */
+  function seite() {
+    var p = profil();
+    if (!p || p.type === "baby" || (typeof showProfiles !== "undefined" && showProfiles)) return null;
+    var s = kstate.tab || (typeof state !== "undefined" && state && state.tab) || "";
+    if (!istLernseite(s)) return null;
+    var f = fach();
+    return String(s) + (f ? ":" + f : "");
+  }
+
+  var uhr = neueUhr(Date.now()), gebucht = 0;
+  function ticken(was) { uhr = schritt(uhr, was, Date.now()); }
+  ["pointerdown", "keydown", "touchstart", "wheel", "input"].forEach(function (n) {
+    try { document.addEventListener(n, function () { ticken("aktion"); }, { capture: true, passive: true }); } catch (e) {}
+  });
+  try { window.addEventListener("scroll", function () { ticken("aktion"); }, { capture: true, passive: true }); } catch (e) {}
+  try { document.addEventListener("visibilitychange", function () { takt(); ticken(document.visibilityState === "hidden" ? "versteckt" : "sichtbar"); }); } catch (e) {}
+
+  function takt() {
+    try {
+      /* Prüfschalter: Der Abgleich-Test vergleicht zwei Geräte Byte für Byte —
+         dort darf die Uhr nicht weiterbuchen (window.__LERNZEIT_AUS vor dem Laden). */
+      if (window.__LERNZEIT_AUS) return;
+      var jetzt = Date.now(), summe = aktiv(uhr, jetzt), d = summe - gebucht;
+      gebucht = summe;
+      if (d <= 0) return;
+      var p = profil(), s = seite();
+      if (!p || !s) return;
+      speichern(p, buchen(laden(p), tagVon(jetzt), s, Math.min(d, TAKT * 4)));
+    } catch (e) {}
+  }
+  try { setInterval(takt, TAKT); } catch (e) {}
+  /* Vor jedem Seiten- oder Profilwechsel die Zeit der offenen Seite buchen —
+     sonst bekäme die nächste Seite (oder das nächste Profil) sie. */
+  try { document.addEventListener("pointerdown", function () { if (aktiv(uhr, Date.now()) - gebucht >= 1000) takt(); }, true); } catch (e) {}
+
+  window.__LERNZEIT = {
+    minutenJeTag: function () { var p = profil(); return p ? minutenJeTag(laden(p)) : {}; },
+    heute: function () { takt(); var p = profil(); return p ? (minutenJeTag(laden(p))[tagVon(Date.now())] || 0) : 0; },
+    jeBereich: function (tag) { var p = profil(); return p ? jeBereich(laden(p), tag || tagVon(Date.now())) : []; },
+    takt: takt
+  };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 11:12")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 11:27")}}catch(e){}
 })();
 
 </script>
