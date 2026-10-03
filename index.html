@@ -29133,6 +29133,105 @@ function fokusUmziehen(fokus, skills) {
 }
 
 
+  // @ts-check
+/* =====================================================================
+   M27: Lernpfad als Baum (Rückmeldung 2026-10-03: „Der Lernpfad sollte
+   eher wie ein Tree sein mit Branches, sodass man dort sein Wissen
+   vertiefen kann, wo man es gerade braucht“). Reine Funktionen.
+
+   Stamm = Fach, Äste = Themenbereiche (Rechtschreibung, Grammatik, Texte …;
+   Zahlen, Geometrie, Algebra …), Zweige = die Stationen des Bereichs von
+   der niedrigsten zur höchsten Klasse. Jeder Ast hat seinen eigenen
+   „nächsten Schritt“ — so lässt sich gezielt vertiefen, statt der einen
+   Reihe zu folgen. Was in der Schule gerade dran ist (Wochenthema) oder
+   schwerfällt, wird am Ast markiert und nach oben gestellt.
+   Freischaltung bleibt wie im Pfad (Klasse, Voraussetzungen).
+   ===================================================================== */
+
+/** @typedef {{ id: string, titel: string, icon: string, skills: string[] }} Ast */
+/** @type {Record<string, Ast[]>} */
+const AESTE = {
+  Deutsch: [
+    { id: 'recht', titel: 'Rechtschreibung', icon: '🔤', skills: ['deutsch.rechtschreibung', 'deutsch.silben', 'deutsch.gross', 'deutsch.recht910', 'deutsch.komma910'] },
+    { id: 'gramm', titel: 'Wörter & Grammatik', icon: '🧩', skills: ['deutsch.wortarten', 'deutsch.wortbau', 'deutsch.adjektive', 'deutsch.formen', 'deutsch.faelle', 'deutsch.wortarten910', 'deutsch.verbformen910', 'deutsch.aktivpassiv910', 'deutsch.konj910'] },
+    { id: 'saetze', titel: 'Sätze', icon: '🧱', skills: ['deutsch.satz', 'deutsch.rede', 'deutsch.satz910', 'deutsch.nebensatz910'] },
+    { id: 'schreiben', titel: 'Texte schreiben', icon: '📝', skills: ['deutsch.texte', 'deutsch.schreiben910', 'deutsch.eroert910', 'deutsch.bewerb910'] },
+    { id: 'lesen', titel: 'Lesen & Literatur', icon: '📚', skills: ['deutsch.sprache', 'deutsch.sachtext910', 'deutsch.literatur910', 'deutsch.stil910', 'deutsch.lyrik910', 'deutsch.lit910'] },
+  ],
+  Englisch: [
+    { id: 'wort', titel: 'Wortschatz', icon: '💬', skills: ['englisch.wortschatz', 'englisch.alltag', 'englisch.zeit', 'englisch.prep', 'englisch.wortschatz910', 'englisch.prep910', 'englisch.mistakes910'] },
+    { id: 'zeiten', titel: 'Zeiten', icon: '⏱️', skills: ['englisch.seinhaben', 'englisch.havegot', 'englisch.zeiten', 'englisch.progressive', 'englisch.past', 'englisch.zeiten910', 'englisch.perfect910', 'englisch.conditional910', 'englisch.reported910'] },
+    { id: 'gramm', titel: 'Satzbau & Grammatik', icon: '🧱', skills: ['englisch.nomen', 'englisch.artikel', 'englisch.saetze', 'englisch.adj', 'englisch.wortarten910', 'englisch.order910', 'englisch.relative910', 'englisch.strukturen910', 'englisch.verbformen910', 'englisch.modals910'] },
+    { id: 'schreiben', titel: 'Schreiben & Sprachmittlung', icon: '✍️', skills: ['englisch.schreiben910', 'englisch.mediation910'] },
+  ],
+  Mathematik: [
+    { id: 'zahlen', titel: 'Zahlen & Rechnen', icon: '🔢', skills: ['mathe.zr3', 'mathe.addsub3', 'mathe.einmaleins3', 'mathe.maldiv3', 'mathe.zr4', 'mathe.addsub4', 'mathe.maldiv4', 'mathe.zahlen5', 'mathe.teiler5', 'mathe.zahlen6'] },
+    { id: 'brueche', titel: 'Brüche, Dezimalzahlen & Prozent', icon: '🍕', skills: ['mathe.bruch4', 'mathe.bruchdez5', 'mathe.bruch6', 'mathe.dezproz6', 'mathe.zuord6', 'mathe.proz7', 'mathe.zins8', 'mathe.anwenden9', 'mathe.anwenden10'] },
+    { id: 'geo', titel: 'Geometrie', icon: '📐', skills: ['mathe.geo3', 'mathe.flaeche4', 'mathe.vol6', 'mathe.geo7', 'mathe.geo8', 'mathe.geo9', 'mathe.koerper9', 'mathe.trig10', 'mathe.koerper10'] },
+    { id: 'groessen', titel: 'Größen & Sachrechnen', icon: '📏', skills: ['mathe.masse3', 'mathe.geldzeit3', 'mathe.groessen4', 'mathe.groessen5', 'mathe.sachaufgaben'] },
+    { id: 'algebra', titel: 'Terme, Gleichungen & Funktionen', icon: '🔣', skills: ['mathe.terme7', 'mathe.terme8', 'mathe.linfun8', 'mathe.wurzel9', 'mathe.terme9', 'mathe.funktionen9', 'mathe.terme10', 'mathe.potenz10', 'mathe.wachstum10'] },
+    { id: 'daten', titel: 'Daten & Zufall', icon: '📊', skills: ['mathe.daten3', 'mathe.daten4', 'mathe.daten5', 'mathe.wsk7', 'mathe.wsk8', 'mathe.daten9', 'mathe.daten10'] },
+  ],
+};
+
+/**
+ * Den Baum eines Fachs aus den Stationen des Pfads bauen.
+ * @param {{ skill: string, titel: string, stufe: string, klasse: number, zustand: string, jetzt: boolean, score: number }[]} stationen
+ * @param {string} fach
+ * @param {{ schule?: string[], schwach?: string[] }} [markiert] Skills des Wochenthemas bzw. mit niedriger Quote
+ * @param {Record<string, string[]>} [vorher] Voraussetzungen je Skill — ist ein Ast gesperrt, führt
+ *   „Vertiefen“ über diese Kette zur ersten offenen Grundlage (auch in einem anderen Ast)
+ */
+function baum(stationen, fach, markiert = {}, vorher = {}) {
+  const nach = new Map(stationen.map((s) => [s.skill, s]));
+  const schule = new Set(markiert.schule || []), schwach = new Set(markiert.schwach || []);
+  let aeste = (AESTE[fach] || []).map((a) => ({ ...a, stationen: a.skills.map((id) => nach.get(id)).filter(Boolean) }));
+  const vergeben = new Set(aeste.flatMap((a) => a.stationen.map((s) => s.skill)));
+  const rest = stationen.filter((s) => !vergeben.has(s.skill));
+  if (rest.length) {
+    if (aeste.length) aeste.push({ id: 'weitere', titel: 'Weitere Themen', icon: '🌿', skills: [], stationen: rest });
+    else {
+      /* Ohne festgelegte Äste (Sachfächer, Studium): ein Ast je Stufe */
+      const je = new Map();
+      for (const s of rest) { const k = s.stufe || 'Themen'; if (!je.has(k)) je.set(k, []); je.get(k).push(s); }
+      aeste = [...je.entries()].map(([k, l], i) => ({ id: 'stufe' + i, titel: k, icon: '🌿', skills: [], stationen: l }));
+    }
+  }
+  const out = aeste.filter((a) => a.stationen.length).map((a) => {
+    /* klassenübergreifende Stationen („alle“, Klasse 0) ans Ende des Astes — wie im Pfad */
+    const k = (x) => x.klasse || 99;
+    a.stationen.sort((x, y) => k(x) - k(y) || stationen.indexOf(x) - stationen.indexOf(y));
+    const gemeistert = a.stationen.filter((s) => s.zustand === 'gemeistert').length;
+    const offen = a.stationen.filter((s) => s.zustand !== 'gesperrt');
+    let naechste = a.stationen.find((s) => s.zustand === 'wiederholung-faellig') || a.stationen.find((s) => s.zustand === 'begonnen') || a.stationen.find((s) => s.zustand === 'verfuegbar') || null;
+    let grundlage = false;
+    if (!naechste) {
+      /* gesperrt wegen Voraussetzungen: der Kette folgen bis zur ersten offenen Station */
+      const start = a.stationen.find((s) => s.zustand === 'gesperrt' && s.stufeOffen !== false);
+      const gesehen = new Set();
+      const suche = (id) => {
+        if (gesehen.has(id)) return null; gesehen.add(id);
+        const st = nach.get(id); if (!st) return null;
+        if (st.zustand !== 'gesperrt' && st.zustand !== 'gemeistert') return st;
+        if (st.zustand === 'gemeistert') return null;
+        for (const v of vorher[id] || []) { const r = suche(v); if (r) return r; }
+        return null;
+      };
+      if (start) { naechste = suche(start.skill); grundlage = !!naechste; }
+    }
+    const mark = a.stationen.some((s) => schule.has(s.skill)) ? 'schule' : a.stationen.some((s) => schwach.has(s.skill)) ? 'schwach' : null;
+    const tiefe = a.stationen.reduce((m, s) => (s.zustand === 'gemeistert' ? Math.max(m, s.klasse) : m), 0);
+    return { id: a.id, titel: a.titel, icon: a.icon, stationen: a.stationen, gemeistert, gesamt: a.stationen.length, offen: offen.length,
+      naechste, grundlage, markiert: mark, jetzt: a.stationen.some((s) => s.jetzt), fortschritt: a.stationen.length ? gemeistert / a.stationen.length : 0, tiefe };
+  });
+  /* Was gerade gebraucht wird, zuerst; dann der Ast mit „jetzt dran“; sonst feste Reihenfolge */
+  const rang = (a) => (a.markiert === 'schule' ? 0 : a.markiert === 'schwach' ? 1 : a.jetzt ? 2 : 3);
+  const sortiert = out.map((a, i) => ({ a, i })).sort((x, y) => rang(x.a) - rang(y.a) || x.i - y.i).map((x) => x.a);
+  const g = stationen.filter((s) => s.zustand === 'gemeistert').length;
+  return { aeste: sortiert, stamm: { gemeistert: g, gesamt: stationen.length, fortschritt: stationen.length ? g / stationen.length : 0 } };
+}
+
+
   if (typeof kstate === "undefined" || typeof render !== "function" || typeof PROFILES === "undefined") return;
   var INHALT = window.__INHALT_DATEN;
   if (!INHALT || !INHALT.skills) return;
@@ -29312,6 +29411,17 @@ function fokusUmziehen(fokus, skills) {
     + ".lp-klasse{margin-left:auto;font-size:14px;color:var(--ink2)}"
     + ".lp-hero{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:2px solid var(--brand);background:var(--brand-soft);border-radius:18px;padding:16px 18px;margin:14px 0 18px;cursor:pointer;font:inherit;color:inherit;min-height:64px}"
     + ".lp-hero .k{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--brand)}.lp-hero .t{font-size:18px;font-weight:750}"
+    /* M27: Baum */
+    + ".lp-ansicht{display:flex;gap:8px;margin:0 0 12px}"
+    + ".bm-stamm{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:16px;background:var(--brand-soft);margin:0 0 6px}.bm-stamm .bm-ic{font-size:30px}.bm-tx{flex:1}"
+    + ".bm-balken{display:block;height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}.bm-balken>span{display:block;height:100%;background:var(--good,#1e7e46);border-radius:3px}"
+    + ".bm-hilfe{margin:6px 0 12px}.bm-ast{border:1px solid var(--line);border-left:5px solid var(--brand-line);border-radius:16px;padding:12px 14px;margin:0 0 12px;background:var(--paper)}"
+    + ".bm-ast.schule{border-left-color:var(--brand)}.bm-ast.schwach{border-left-color:var(--warn,#b54708)}"
+    + ".bm-kopf{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.bm-kopf h3{margin:0;font-size:17px}.bm-kopf .bm-ic{font-size:24px}"
+    + ".bm-mark{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--brand-soft);color:var(--brand)}.bm-mark.schwach{background:var(--warn-soft,#fff4e4);color:var(--warn,#b54708)}"
+    + ".bm-zahl{margin-left:auto;font-size:13px;color:var(--ink2);font-variant-numeric:tabular-nums}.bm-weiter{margin:10px 0 8px}.bm-ende{margin:10px 0 8px;color:var(--ink2);font-size:14px}"
+    + ".bm-hoeher summary{cursor:pointer;color:var(--ink2);font-size:14px;padding:6px 2px}"
+    + ".bm-zweige{padding-left:14px;border-left:2px dashed var(--line);margin-left:10px}.bm-zweige .lp-st{min-height:44px;padding:9px 12px}"
     + ".lp-stufe{font-size:12.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);margin:18px 0 8px}"
     + ".lp-st{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:14px;padding:12px 14px;margin:0 0 8px;font:inherit;color:inherit;min-height:52px;cursor:pointer}"
     + ".lp-st[disabled]{cursor:default;opacity:.85;background:var(--paper2)}.lp-st.jetzt{border:2px solid var(--brand)}"
@@ -29355,17 +29465,64 @@ function fokusUmziehen(fokus, skills) {
     }
     out += '<div class="lp-knoepfe" style="margin:-4px 0 6px"><button class="btn" data-lp="diagnose">🔎 Einstufungstest'
       + (v.diag[fach] ? " wiederholen" : " (10–15 Fragen)") + "</button></div>";
+    /* M27: Baum (Standard) oder Liste */
+    var alsBaum = kstate.lpAnsicht !== "liste";
+    out += '<div class="lp-ansicht" role="group" aria-label="Ansicht"><button class="btn' + (alsBaum ? " btn-primary" : "") + '" aria-pressed="' + alsBaum + '" data-lp="ansicht-baum" data-testid="lp-baum-knopf">🌳 Baum</button>'
+      + '<button class="btn' + (!alsBaum ? " btn-primary" : "") + '" aria-pressed="' + !alsBaum + '" data-lp="ansicht-liste">☰ Liste</button></div>';
+    if (alsBaum) return out + htmlBaum(liste, fach, su);
     var stufe = null;
     liste.forEach(function (s) {
       if (s.stufe !== stufe) { stufe = s.stufe; out += '<div class="lp-stufe">' + h(stufe) + "</div>"; }
-      var z = ZUSTAND[s.zustand], gesperrt = s.zustand === "gesperrt";
-      out += '<button class="lp-st' + (s.jetzt ? " jetzt" : "") + '" data-lp-start="' + h(s.skill) + '" data-lp-zustand="' + s.zustand + '"'
-        + (gesperrt ? ' disabled aria-disabled="true"' : "") + ">"
-        + '<span class="ic" aria-hidden="true">' + (s.jetzt ? "▶" : z[0]) + '</span><span><span class="ti">' + h(s.titel) + "</span>"
-        + (gesperrt ? '<span class="me">' + h(s.grund) + "</span>" : "")
-        + '</span><span class="zu">' + (s.jetzt ? "jetzt dran" : z[1]) + (s.score && !gesperrt ? " · " + s.score + " %" : "") + "</span></button>";
+      out += htmlStation(s);
     });
     return out;
+  }
+  function htmlStation(s) {
+    var z = ZUSTAND[s.zustand], gesperrt = s.zustand === "gesperrt";
+    return '<button class="lp-st' + (s.jetzt ? " jetzt" : "") + '" data-lp-start="' + h(s.skill) + '" data-lp-zustand="' + s.zustand + '"'
+      + (gesperrt ? ' disabled aria-disabled="true"' : "") + ">"
+      + '<span class="ic" aria-hidden="true">' + (s.jetzt ? "▶" : z[0]) + '</span><span><span class="ti">' + h(s.titel) + "</span>"
+      + (gesperrt ? '<span class="me">' + h(s.grund) + "</span>" : "")
+      + '</span><span class="zu">' + (s.jetzt ? "jetzt dran" : z[1]) + (s.score && !gesperrt ? " · " + s.score + " %" : "") + "</span></button>";
+  }
+  /* M27: Stamm, Äste, Zweige — je Ast der eigene nächste Schritt („Vertiefen“) */
+  function markierteSkills(su) {
+    var schule = [], schwach = [];
+    try { (window.__WOCHE ? window.__WOCHE.themen() : []).forEach(function (t) { if (t.su === su) schule = schule.concat(t.skills || []); }); } catch (e) {}
+    try {
+      var ev = window.__ELTERN ? window.__ELTERN.ereignisse() : [], grenze = Date.now() - 14 * 86400000, q = {};
+      ev.forEach(function (e) { if (!e.s || e.t < grenze) return; var x = q[e.s] || (q[e.s] = { n: 0, ok: 0 }); x.n++; if (e.ok) x.ok++; });
+      Object.keys(q).forEach(function (k) { if (q[k].n >= 4 && q[k].ok / q[k].n < 0.6) schwach.push(k); });
+    } catch (e) {}
+    return { schule: schule, schwach: schwach };
+  }
+  function htmlBaum(liste, fach, su) {
+    var vorher = {};
+    Object.keys(SKILLS).forEach(function (id) { vorher[id] = (SKILLS[id].voraussetzungen || []).map(function (k) { return typeof k === "string" ? k : k.skill; }); });
+    var b = baum(liste, fach, markierteSkills(su), vorher), pz = function (x) { return Math.round(100 * x); };
+    var out = '<div class="bm" data-testid="lp-baum"><div class="bm-stamm"><span class="bm-ic" aria-hidden="true">🌳</span><span class="bm-tx"><b>' + h(fach.replace(/^Pfad:/, "")) + "</b> · " + b.stamm.gemeistert + " von " + b.stamm.gesamt + " Stationen gemeistert"
+      + '<span class="bm-balken" aria-hidden="true"><span style="width:' + pz(b.stamm.fortschritt) + '%"></span></span></span></div>'
+      + '<p class="fs-text bm-hilfe">Jeder Ast ist ein Bereich. Vertiefe dort, wo du es gerade brauchst — ' + (istKindProfil() ? "was in der Schule dran ist oder schwerfällt, steht oben." : "Markiertes steht oben.") + "</p>";
+    b.aeste.forEach(function (a) {
+      var erster = a.stationen.filter(function (s) { return s.zustand === "gesperrt"; })[0];
+      out += '<section class="bm-ast' + (a.markiert ? " " + a.markiert : "") + '" data-bm-ast="' + h(a.id) + '"><div class="bm-kopf"><span class="bm-ic" aria-hidden="true">' + a.icon + '</span><h3>' + h(a.titel) + "</h3>"
+        + (a.markiert === "schule" ? '<span class="bm-mark">📌 in der Schule dran</span>' : a.markiert === "schwach" ? '<span class="bm-mark schwach">🎯 fällt gerade schwer</span>' : "")
+        + '<span class="bm-zahl">' + a.gemeistert + " / " + a.gesamt + "</span></div>"
+        + '<span class="bm-balken" aria-hidden="true"><span style="width:' + pz(a.fortschritt) + '%"></span></span>'
+        + (a.naechste ? '<button class="btn btn-primary bm-weiter" data-lp-start="' + h(a.naechste.skill) + '" data-testid="bm-vertiefen-' + h(a.id) + '">'
+          + (a.grundlage ? "🧱 Grundlage zuerst: " : "🌱 Vertiefen: ") + h(a.naechste.titel) + "</button>"
+          : '<p class="bm-ende">' + (a.gemeistert === a.gesamt ? "🎉 Ganzer Ast gemeistert." : erster ? "🔒 " + h(erster.grund) : "Alles Offene gemeistert.") + "</p>")
+        + '<div class="bm-zweige">' + a.stationen.filter(function (x) { return x.stufeOffen !== false; }).map(htmlStation).join("")
+        + (function () {
+          /* höhere, noch nicht freigegebene Klassen: zugeklappt — der Ast zeigt, wie tief er reicht */
+          var hoeher = a.stationen.filter(function (x) { return x.stufeOffen === false; });
+          if (!hoeher.length) return "";
+          var ab = Math.min.apply(null, hoeher.map(function (x) { return x.klasse || 99; }));
+          return '<details class="bm-hoeher"><summary>🔒 ' + hoeher.length + (hoeher.length === 1 ? " Station" : " Stationen") + (ab < 99 ? " ab Klasse " + ab : "") + " — freigeben können die Eltern</summary>"
+            + hoeher.map(htmlStation).join("") + "</details>";
+        })() + "</div></section>";
+    });
+    return out + "</div>";
   }
 
   /* ---------- Lektion ---------- */
@@ -29733,6 +29890,7 @@ function fokusUmziehen(fokus, skills) {
       return rerenderLp();
     }
     if (a === "klasse-aendern") return klasseAendern();
+    if (a === "ansicht-baum" || a === "ansicht-liste") { kstate.lpAnsicht = a === "ansicht-liste" ? "liste" : "baum"; return rerenderLp(); }
     if (a === "diagnose") { var pfD = pfadFuer(fachJetzt()); if (pfD) diagnoseStarten(pfD.fach); return rerenderLp(); }
     if (!l) return;
     if (a === "aufloesen") { l.aufgeloest = true; return rerenderLp(); }
@@ -38212,7 +38370,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 12:19")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 12:33")}}catch(e){}
 })();
 
 </script>
