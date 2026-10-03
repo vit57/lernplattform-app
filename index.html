@@ -999,16 +999,6 @@ html[data-theme] .ps-box {
   box-shadow: var(--glas-licht), 0 30px 80px -20px rgba(10, 8, 30, .45) !important;
 }
 html[data-theme][data-glas="aus"] .ps-box, html[data-theme][data-farbe="kontrast"] .ps-box { background: var(--paper) !important; }
-/* Auswahllisten und Eingabefelder im Inhalt passend zu den Glasflächen */
-html[data-theme] #view select {
-  font: inherit; font-size: 14px; padding: 6px 28px 6px 10px; border-radius: var(--radius-s);
-  border: 1px solid var(--glas-linie); color: var(--ink);
-  background: color-mix(in srgb, var(--paper) 80%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
-  -webkit-appearance: none; appearance: none;
-}
-html[data-theme] #view :is(select, textarea, input[type="text"], input[type="search"], input[type="number"], input:not([type])):focus-visible { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
-html[data-theme] #view textarea { border-radius: var(--radius-m); border-color: var(--glas-linie); background: color-mix(in srgb, var(--paper) 82%, transparent); }
-
 /* ---------- 2. Glas: Inhalt (Karten, Kästen, Zeilen) ---------- */
 html[data-theme] #view :is(.hb-karte:not(.gross), .hb-zahlen > div, .ht-block, .lp-st, .lp-box, .el-box, .bm-ast, .bm-stamm,
   .kal-tag, .kal-form, .kal-heute, .tb-karte, .tb-st, .tb-tag, .tb-gf, .sk-karte, .sk-auftrag, .kl-karte:not(.gross), .kl-ergebnis,
@@ -1121,6 +1111,104 @@ html[data-theme][data-glas="aus"] #view :is(.ht-hero, .lp-hero, .hb-karte.gross,
 }
 html[data-theme][data-glas="aus"] #view .btn.btn-primary { background: var(--brand) !important; box-shadow: none; }
 @media print { html[data-theme] body { background: #fff !important; } html[data-theme] * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; } }
+
+/* =====================================================================
+   M33 — Wie eine App (iPad und Mac). Rückmeldung 2026-10-03: Menü per
+   Tippen auf die Fläche schließen, Zurück-Knopf, oben beginnen, kein
+   seitliches Verrutschen, Listen und Eingabefelder im Design.
+   ===================================================================== */
+html[data-theme], html[data-theme] body { overscroll-behavior-y: none; }
+html[data-theme] body { overflow-x: clip; -webkit-tap-highlight-color: transparent; }
+html[data-theme] :is(button, .btn, [role="button"], summary, label) { touch-action: manipulation; }
+html[data-theme] :is(#tabs, .nv, button, .btn, summary) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+@supports (padding: max(0px)) {
+  html[data-theme] body.nv-an header { padding-top: env(safe-area-inset-top); }
+  html[data-theme] body.nv-an #tabs { padding-bottom: env(safe-area-inset-bottom) !important; }
+}
+/* Reihen von Knöpfen brechen um, statt die Seite breiter zu machen */
+html[data-theme] #view :is(.k2-fach, .hb-faecher, .kal-kopf, .kal-lt, .kal-arten, .kal-knoepfe) { flex-wrap: wrap; }
+
+/* Schleier hinter dem ausgeklappten Menü — Tippen schließt */
+#nv-schleier { display: none; }
+@media (max-width: 900px) {
+  #nv-schleier { display: block; position: fixed; inset: 0; z-index: 9; background: rgba(12, 10, 30, .32);
+    opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease-out, ease-out); }
+  html[data-theme] body.nv-an #nv-schleier { -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  body.navopen #nv-schleier { opacity: 1; pointer-events: auto; }
+  html[data-theme] body.nv-an.navopen #tabs { box-shadow: 0 0 0 1px var(--glas-linie), 24px 0 60px -20px rgba(10, 8, 30, .45) !important; }
+}
+html[data-glas="aus"] #nv-schleier { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+/* Zurück: schmal in der Kopfzeile, breit über dem Inhalt */
+.app-zurueck-kopf { display: none; }
+@media (max-width: 900px) {
+  body.app-zurueck-an .app-zurueck-kopf { display: inline-flex; align-items: center; justify-content: center; position: fixed; top: 10px; left: 60px; z-index: 11;
+    width: 44px; height: 45px; border-radius: 12px; border: 1px solid var(--glas-linie, var(--line)); background: var(--glas-stark, var(--paper)); color: var(--brand);
+    font: inherit; font-size: 30px; line-height: 1; padding: 0 0 4px; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, .08); }
+  body.app-zurueck-an #nv-titel { margin-left: 108px; }
+  body.navopen .app-zurueck-kopf { visibility: hidden; }
+  .app-zurueck-zeile { display: none; }
+}
+.app-zurueck-zeile { margin: 0 0 6px; }
+.app-zurueck-breit { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--brand); font: inherit;
+  font-size: 15px; font-weight: 650; padding: 6px 10px 6px 4px; margin-left: -4px; border-radius: 10px; cursor: pointer; min-height: 36px; }
+.app-zurueck-breit span { font-size: 24px; line-height: 1; margin-top: -3px; }
+@media (hover: hover) and (pointer: fine) { .app-zurueck-breit:hover { background: color-mix(in srgb, var(--brand) 10%, transparent); } }
+.app-zurueck-breit:active, .app-zurueck-kopf:active { transform: scale(.96); }
+
+/* ---------- Eingabefelder, Listen, Häkchen: überall gleich ---------- */
+html[data-theme] :is(#view, .ps-box, .profile-screen) :is(input[type="text"], input[type="search"], input[type="number"], input[type="email"],
+  input[type="date"], input[type="time"], input[type="password"], input:not([type]), select, textarea) {
+  font: inherit; font-size: max(16px, 1em); color: var(--ink);
+  min-height: 46px; padding: 10px 14px; box-sizing: border-box; max-width: 100%;
+  border: 1px solid var(--glas-linie, var(--line)) !important; border-radius: var(--radius-s, 12px) !important;
+  background-color: color-mix(in srgb, var(--paper) 82%, transparent) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .05);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+html[data-theme] :is(#view, .ps-box) textarea { min-height: 96px; line-height: 1.5; border-radius: var(--radius-m, 16px) !important; }
+html[data-theme] :is(#view, .ps-box, .profile-screen) select {
+  -webkit-appearance: none; appearance: none; padding-right: 40px !important; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important; background-position: right 14px center !important;
+}
+html[data-theme] :is(#view, .ps-box) input[type="date"] { -webkit-appearance: none; appearance: none; }
+html[data-theme] :is(#view, .ps-box, .profile-screen) :is(input, select, textarea)::placeholder { color: var(--ink3, #8a8a96); opacity: 1; }
+html[data-theme] :is(#view, .ps-box, .profile-screen) :is(input, select, textarea):focus { outline: none; border-color: var(--brand) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 22%, transparent) !important; }
+/* Häkchen und Auswahlpunkte: eigene, ruhige Form */
+html[data-theme] :is(#view, .ps-box, .profile-screen) :is(input[type="checkbox"], input[type="radio"]) {
+  -webkit-appearance: none; appearance: none; flex: none; width: 22px; height: 22px; margin: 0 8px 0 0; vertical-align: -5px; cursor: pointer;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 28%, transparent); background: color-mix(in srgb, var(--paper) 85%, transparent);
+  border-radius: 7px; display: inline-grid; place-content: center; transition: background-color 120ms ease, border-color 120ms ease;
+}
+html[data-theme] :is(#view, .ps-box, .profile-screen) input[type="radio"] { border-radius: 50%; }
+html[data-theme] :is(#view, .ps-box, .profile-screen) :is(input[type="checkbox"], input[type="radio"]):checked { background: var(--brand); border-color: var(--brand); }
+html[data-theme] :is(#view, .ps-box, .profile-screen) input[type="checkbox"]:checked::before {
+  content: ""; width: 12px; height: 9px; background: var(--auf-brand, #fff);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 9'%3E%3Cpath d='M1 4.5l3.5 3.5L11 1.5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 9'%3E%3Cpath d='M1 4.5l3.5 3.5L11 1.5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+html[data-theme] :is(#view, .ps-box, .profile-screen) input[type="radio"]:checked::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--auf-brand, #fff); }
+html[data-theme] :is(#view, .ps-box, .profile-screen) :is(input[type="checkbox"], input[type="radio"]):focus-visible { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 25%, transparent); }
+/* Beschriftung neben Häkchen/Auswahlpunkt: sauber ausgerichtet, große Tippfläche */
+html[data-theme] .ps-box label:has(> input[type="checkbox"], > input[type="radio"]),
+html[data-theme] #view label:has(> input[type="checkbox"], > input[type="radio"]) { display: flex; align-items: flex-start; gap: 2px; padding: 6px 0; cursor: pointer; line-height: 1.4; }
+html[data-theme] .ps-box label:has(> input[type="checkbox"], > input[type="radio"]) > input,
+html[data-theme] #view label:has(> input[type="checkbox"], > input[type="radio"]) > input { margin-top: 0; }
+/* Darstellungs-Dialog: Auswahl als ruhige Zeilen */
+html[data-theme] .dz-gruppe { border: 0; padding: 0; margin: 0 0 16px; }
+html[data-theme] .dz-gruppe legend { font-weight: 750; font-size: 16px; padding: 0; margin: 0 0 8px; }
+html[data-theme] .dz-gruppe > label { padding: 8px 12px; border-radius: var(--radius-s, 12px); border: 1px solid transparent; }
+html[data-theme] .dz-gruppe > label:has(input:checked) { background: color-mix(in srgb, var(--brand) 12%, transparent); border-color: color-mix(in srgb, var(--brand) 35%, transparent); }
+html[data-theme] .dz-designs label .dz-name { display: flex; align-items: center; }
+html[data-theme] .dz-designs label .dz-name input { outline: none !important; }
+html[data-theme] .ps-box .ps-feld { display: flex; flex-direction: column; gap: 6px; font-weight: 650; margin: 4px 0 8px; }
+/* Felder in Dialogen: Beschriftung über dem Feld, Feld auf voller Breite */
+html[data-theme] .ps-box label:not(:has(input[type="checkbox"], input[type="radio"])):has(select, input, textarea) {
+  display: flex !important; flex-direction: column; align-items: stretch; gap: 6px; font-weight: 650; margin: 12px 0 !important; }
+html[data-theme] .ps-box label:not(:has(input[type="checkbox"], input[type="radio"])) :is(select, input, textarea) { width: 100%; font-weight: 400 !important; }
+html[data-theme] .ps-knoepfe { margin-top: 16px !important; gap: 10px !important; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -30775,8 +30863,8 @@ function tagVon(d) {
       var hinter = document.createElement("div");
       hinter.className = "ps-hinter"; hinter.setAttribute("role", "dialog"); hinter.setAttribute("aria-modal", "true");
       hinter.setAttribute("aria-labelledby", "ht-ziel-titel"); hinter.setAttribute("data-testid", "ht-zieldialog");
-      hinter.innerHTML = '<div class="ps-box"><h3 id="ht-ziel-titel">Tagesziel</h3><p class="ps-text">Wie viele Minuten soll ' + h(p.name) + ' an einem Tag lernen?</p>'
-        + '<label>Minuten <select data-ht-wahl="ziel">' + [10, 15, 20, 30, 45, 60].map(function (m) {
+      hinter.innerHTML = '<div class="ps-box"><h3 id="ht-ziel-titel">Tagesziel</h3><p class="ps-text">' + (p.type === "kid" ? "Wie viele Minuten soll " + h(p.name) + " an einem Tag lernen?" : "Wie viele Minuten möchtest du an einem Tag lernen?") + "</p>"   /* M33: Erwachsene duzen statt Profilname */
+        + '<label class="ps-feld">Minuten am Tag <select data-ht-wahl="ziel">' + [10, 15, 20, 30, 45, 60].map(function (m) {
           return '<option value="' + m + '"' + (m === tagesziel() ? " selected" : "") + ">" + m + "</option>";
         }).join("") + "</select></label>"
         + '<div class="ps-knoepfe"><button class="btn" data-ht-dlg="nein">Abbrechen</button><button class="btn btn-primary" data-ht-dlg="ja">Speichern</button></div></div>';
@@ -39035,12 +39123,257 @@ function baum(stationen, fach, markiert = {}, vorher = {}) {
   window.__KLAUSUREN = { angebot: angebot, oeffnen: function () { kstate.tab = "m127exam"; kstate.lp = null; neu(); } };
 })();
 
+/* =====================================================================
+   M33 — Wie eine App (Rückmeldung 2026-10-03, iPad):
+   „Das Navigationsmenü lässt sich nicht einfach per Klick auf die
+   Arbeitsfläche wegtun. Es gibt kein zurück Button … Auch sollte immer von
+   oben gestartet werden, wenn man auf eine Seite kommt … Es müsste wie
+   eine App wirken!“
+
+   * Schleier hinter dem ausgeklappten Menü: Tippen auf die Fläche (oder
+     Escape) schließt es.
+   * Zurück: ein Seitenverlauf (app/kern/verlauf.js). Schmale Bildschirme:
+     Knopf „‹“ in der Kopfzeile neben dem Menü; breite: „‹ Zurück“ über dem
+     Inhalt — nur wenn die Seite keinen eigenen Zurück-Link oben hat. Der
+     Verlauf hängt an der Browser-Historie, also wirkt auch die
+     Wisch-Geste vom linken Rand bzw. die Zurück-Taste.
+   * Neue Seite oder neuer Abschnitt → oben beginnen.
+   Dieser Teil kommt als letzter (p94) und umhüllt damit alle Ansichten.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/* =====================================================================
+   M33: Seitenverlauf für den Zurück-Knopf und den Seitenanfang
+   (Rückmeldung 2026-10-03: „Es gibt kein zurück Button … Auch sollte immer
+   von oben gestartet werden, wenn man auf eine Seite kommt und nicht
+   mittig … Es müsste wie eine App wirken!“). Reine Funktionen.
+
+   Eine Seite ist {tab, stab, sub}: der Reiter der Oberfläche (kstate.tab),
+   bei Erwachsenen-Seiten der Engine-Reiter (state.tab, nur wenn tab leer
+   ist) und eine Unterseite (z. B. eine Lernpfad-Station). Der Verlauf
+   merkt sich Seiten, nicht jeden Zwischenschritt einer Übung.
+   ===================================================================== */
+
+/** @typedef {{ tab: string, stab: string, sub: string }} Seite */
+
+const GRENZE = 40;
+
+/**
+ * Seite aus dem Zustand.
+ * @param {{ tab?: any, stab?: any, sub?: any }} z
+ * @returns {Seite}
+ */
+function seiteVon(z) {
+  const tab = z && z.tab ? String(z.tab) : '';
+  return { tab, stab: tab ? '' : String((z && z.stab) || ''), sub: z && z.sub ? String(z.sub) : '' };
+}
+
+/** @param {Seite} s */
+function schluessel(s) { return s.tab + '|' + s.stab + '|' + s.sub; }
+
+/** @param {Seite|null|undefined} a @param {Seite|null|undefined} b */
+function gleich(a, b) { return !!a && !!b && schluessel(a) === schluessel(b); }
+
+/**
+ * Eine besuchte Seite merken.
+ * - gleiche Seite wie zuletzt: nichts
+ * - die vorletzte Seite (man ist auf eigenem Weg zurückgegangen): letzte fällt weg
+ * - eine Startseite (Heute, Bereichsseiten, Plan) beginnt keinen neuen Ast,
+ *   ältere Einträge derselben Seite fallen weg — der Verlauf wächst nicht im Kreis
+ * @param {Seite[]} stapel @param {Seite} seite @returns {Seite[]}
+ */
+function merken(stapel, seite) {
+  const s = stapel.slice();
+  if (!seite.tab && !seite.stab) return s;
+  if (gleich(s[s.length - 1], seite)) return s;
+  if (gleich(s[s.length - 2], seite)) { s.pop(); return s; }
+  const frueher = s.findIndex((x) => gleich(x, seite));
+  if (frueher >= 0) s.splice(frueher, 1);
+  s.push(seite);
+  return s.length > GRENZE ? s.slice(s.length - GRENZE) : s;
+}
+
+/**
+ * Einen Schritt zurück.
+ * @param {Seite[]} stapel @returns {{ stapel: Seite[], ziel: Seite|null }}
+ */
+function zurueck(stapel) {
+  if (stapel.length < 2) return { stapel: stapel.slice(), ziel: null };
+  const s = stapel.slice(0, -1);
+  return { stapel: s, ziel: s[s.length - 1] };
+}
+
+/** @param {Seite[]} stapel */
+function kannZurueck(stapel) { return stapel.length > 1; }
+
+/**
+ * Muss die neue Ansicht oben beginnen? Ja, sobald sich die Seite oder ihr
+ * Abschnitt ändert (`feiner`: z. B. Stufe einer Station) — nicht, wenn nur
+ * dieselbe Ansicht neu gezeichnet wird (Antwort prüfen, Häkchen setzen).
+ * @param {string|null} alt @param {string} neu
+ */
+function nachOben(alt, neu) { return alt !== null && alt !== neu; }
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function" || typeof document.getElementById !== "function") return;
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function picker() { return typeof showProfiles !== "undefined" && showProfiles; }
+  function engineState() { try { return typeof state !== "undefined" ? state : null; } catch (e) { return null; } }
+
+  function jetzt() {
+    var st = engineState(), lp = kstate.lp;
+    return seiteVon({ tab: kstate.tab, stab: st && st.tab, sub: lp ? (lp.skill || lp.id || lp.art || "") : (kstate.read ? "lesen" : "") });
+  }
+  /* Feiner als die Seite: Abschnitte, nach denen man oben beginnen will */
+  function abschnitt() {
+    var st = engineState(), lp = kstate.lp, M0 = null;
+    try { M0 = typeof M !== "undefined" ? M : null; } catch (e) {}
+    return [schluessel(jetzt()), lp ? (lp.art + ":" + (lp.stufe || "") + ":" + (lp.fertig ? 1 : 0)) : "",
+      st && !kstate.tab ? [st.topic, !!st.quiz, st.taskType || ""].join(":") : "",
+      M0 ? [M0.topic && (M0.topic.id || M0.topic), M0.gk && (M0.gk.id || M0.gk), !!M0.run].join(":") : "",
+      kstate.game || "", kstate.grade || "", kstate.topic || ""].join("|");
+  }
+
+  var stapel = [], zuletzt = null, ausHistorie = false, historie = typeof history !== "undefined" && history && typeof history.pushState === "function";
+
+  /* ---------- Zurück ---------- */
+  function gehZu(ziel) {
+    var st = engineState();
+    try { if (typeof M !== "undefined" && M) { M.run = null; M.head = null; M.headPick = null; M.topic = null; M.gk = null; M.game130 = null; } } catch (e) {}
+    kstate.game = null; kstate.ggame = null;
+    if (!ziel.sub) { kstate.lp = null; kstate.read = null; }
+    kstate.tab = ziel.tab || null;
+    if (!ziel.tab && st) { st.tab = ziel.stab; st.topic = null; st.quiz = null; }
+    try { document.body.classList.remove("navopen"); } catch (e) {}
+    render();
+  }
+  function zurueckGehen() {
+    var r = zurueck(stapel);
+    if (!r.ziel) return;
+    stapel = r.stapel;
+    ausHistorie = true;
+    try { gehZu(r.ziel); } finally { ausHistorie = false; }
+  }
+  function zurueckKlick() {
+    /* Über die Historie, damit Wisch-Geste und Knopf denselben Weg gehen */
+    if (historie && history.state && history.state.lpSeite) history.back();
+    else zurueckGehen();
+  }
+  if (historie && typeof window.addEventListener === "function") {
+    try { history.replaceState({ lpSeite: 1 }, ""); } catch (e) { historie = false; }
+    window.addEventListener("popstate", function () { if (kannZurueck(stapel)) zurueckGehen(); });
+  }
+
+  /* ---------- Knöpfe ---------- */
+  function eigenerZurueck(view) {
+    /* Hat die Seite oben schon „← Lernpfad“, „← Eltern“ …? */
+    var knoepfe = view.querySelectorAll("button, a");
+    for (var i = 0; i < knoepfe.length && i < 6; i++) {
+      var t = (knoepfe[i].textContent || "").trim();
+      if (/^(←|‹|⬅)/.test(t) || knoepfe[i].hasAttribute("data-zurueck")) return true;
+    }
+    return false;
+  }
+  function knoepfeSetzen() {
+    var p = profil(), an = !!(p && !picker() && p.type !== "baby") && kannZurueck(stapel);
+    document.body.classList.toggle("app-zurueck-an", an);
+    /* schmal: in der Kopfzeile */
+    var kopf = document.querySelector("header .head-in");
+    var k = document.getElementById("app-zurueck");
+    if (kopf && !k) {
+      k = document.createElement("button");
+      k.id = "app-zurueck"; k.type = "button"; k.className = "app-zurueck-kopf";
+      k.setAttribute("aria-label", "Zurück"); k.setAttribute("data-testid", "app-zurueck");
+      k.innerHTML = '<span aria-hidden="true">‹</span>';
+      kopf.insertBefore(k, kopf.firstChild);
+    }
+    if (k) k.hidden = !an;
+    /* breit: über dem Inhalt */
+    var view = document.getElementById("view");
+    if (view && an && !view.querySelector(".app-zurueck-zeile") && !eigenerZurueck(view)) {
+      var z = document.createElement("div");
+      z.className = "app-zurueck-zeile";
+      z.innerHTML = '<button type="button" class="app-zurueck-breit" data-testid="app-zurueck-breit"><span aria-hidden="true">‹</span> Zurück</button>';
+      view.insertBefore(z, view.firstChild);
+    }
+  }
+
+  /* ---------- Schleier hinter dem Menü ---------- */
+  function schleier() {
+    if (document.getElementById("nv-schleier")) return;
+    var s = document.createElement("div");
+    s.id = "nv-schleier"; s.setAttribute("aria-hidden", "true"); s.setAttribute("data-testid", "nv-schleier");
+    document.body.appendChild(s);
+  }
+
+  /* ---------- Hülle um render ---------- */
+  var renderVorher = render;
+  var renderNeu = function () {
+    var r = renderVorher.apply(this, arguments);
+    try {
+      var p = profil();
+      if (p && !picker()) {
+        var s = jetzt(), vorher = stapel.length;
+        var neuSt = merken(stapel, s);
+        var gewachsen = neuSt.length > vorher || (neuSt.length === vorher && vorher && schluessel(neuSt[vorher - 1]) !== schluessel(stapel[vorher - 1]));
+        stapel = neuSt;
+        if (gewachsen && !ausHistorie && historie && stapel.length > 1) { try { history.pushState({ lpSeite: 1 }, ""); } catch (e) {} }
+      } else { stapel = []; }
+      var a = abschnitt();
+      if (nachOben(zuletzt, a)) {
+        try { window.scrollTo(0, 0); } catch (e) {}
+        var v = document.getElementById("view"); if (v) v.scrollTop = 0;
+      }
+      zuletzt = a;
+      schleier();
+      knoepfeSetzen();
+    } catch (e) {}
+    return r;
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest("#nv-schleier")) { document.body.classList.remove("navopen"); return; }
+    if (t.closest("#app-zurueck, .app-zurueck-breit")) {
+      e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      zurueckKlick();
+    }
+  }, true);
+  /* Dialoge wie in einer App: Escape oder Tippen neben das Fenster bricht ab
+     — über den Abbrechen-/Schließen-Knopf des Dialogs selbst, damit dessen
+     eigenes Aufräumen läuft. Dialoge ohne solchen Knopf bleiben offen. */
+  function dialogAbbrechen(d) {
+    var b = d.querySelectorAll("button"), i;
+    for (i = 0; i < b.length; i++) if (/^(Abbrechen|Schließen|Später|Nein|Fertig|Zurück|×|✕)$/.test((b[i].textContent || "").trim())) { b[i].click(); return true; }
+    return false;
+  }
+  function obersterDialog() { var l = document.querySelectorAll(".ps-hinter"); return l.length ? l[l.length - 1] : null; }
+  ziel.addEventListener("click", function (e) {
+    var d = e.target && e.target.classList && e.target.classList.contains("ps-hinter") ? e.target : null;
+    if (d && d === obersterDialog() && d.getAttribute("data-testid") !== "dz-dialog") dialogAbbrechen(d);
+  });
+  if (typeof document.addEventListener === "function") document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (document.body.classList.contains("navopen")) { document.body.classList.remove("navopen"); return; }
+    var d = obersterDialog();
+    if (d && d.getAttribute("data-testid") !== "dz-dialog") dialogAbbrechen(d);
+  });
+
+  window.__APP = { verlauf: function () { return stapel.slice(); }, zurueck: zurueckKlick };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 22:07")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 22:39")}}catch(e){}
 })();
 
 </script>
