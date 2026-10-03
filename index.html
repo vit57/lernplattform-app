@@ -805,6 +805,34 @@ html[data-theme] :is(.btn, .hb-karte, .uw-opt, .sx-stufe, .fs-fach, .k2-note, .n
 .kal-f input:focus, .kal-f select:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 3px var(--brand-soft); }
 .kal-heute { margin: 18px 0 0; max-width: 760px; }
 @media (max-width: 520px) { .kal-streifen { gap: 3px; } .kal-dt { font-size: 15px; } .kal-p { flex-wrap: wrap; } }
+
+/* Tagebuch (p92, M25) */
+.tb-kopf { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
+.tb-datum { margin: 0 4px; font-size: 17px; }
+.tb-stimmung { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; max-width: 560px; margin: 0 0 8px; }
+.tb-st { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; cursor: pointer; transition: transform 140ms var(--ease-out, ease-out), border-color 150ms ease; }
+.tb-st:active { transform: scale(0.95); }
+.tb-st .tb-em { font-size: 34px; line-height: 1.1; }
+.tb-sn { font-size: 12px; color: var(--ink2); }
+.tb-st.an { border-color: var(--brand); background: var(--brand-soft); }
+.tb-gefuehle { display: flex; flex-wrap: wrap; gap: 8px; max-width: 760px; margin: 0 0 8px; }
+.tb-gf { padding: 7px 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-size: 15px; cursor: pointer; transition: transform 120ms var(--ease-out, ease-out); }
+.tb-gf:active { transform: scale(0.95); }
+.tb-gf.an { border-color: var(--brand); background: var(--brand-soft); font-weight: 650; }
+.tb-frage small { font-weight: 400; color: var(--ink2); }
+.tb-teilen { display: flex; gap: 8px; align-items: center; margin: 4px 0 2px; font-weight: 600; }
+.tb-teilen input { width: 20px; height: 20px; }
+.tb-streifen { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 4px; max-width: 760px; margin: 0 0 8px; }
+.tb-tag { display: flex; flex-direction: column; align-items: center; padding: 6px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; cursor: pointer; }
+.tb-tag.an { border-color: var(--brand); }
+.tb-tag .tb-em { font-size: 18px; }
+.tb-wt { font-size: 11px; color: var(--ink2); }
+.tb-hinweis { max-width: 760px; padding: 12px 16px; border-radius: 14px; background: var(--warn-soft, #fff4e4); line-height: 1.5; }
+.tb-karte { display: flex; align-items: center; gap: 12px; max-width: 760px; margin: 14px 0 0; padding: 12px 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--paper); }
+.tb-karte .tb-em { font-size: 30px; }
+.tb-karte > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+.tb-kurve { font-size: 18px; letter-spacing: .02em; }
+@media (max-width: 520px) { .tb-streifen { grid-template-columns: repeat(7, minmax(0, 1fr)); } .tb-st .tb-em { font-size: 28px; } }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -25322,7 +25350,7 @@ const FEST = {
 /** Schlüssel je Profil: Präfix → Teil und Form. Längste Präfixe zuerst (fcstreak vor fc). */
 const JE_PROFIL = [
   ['egl-textrotation-', 'textrotation', 'objekt'], ['egl-ereignisse-', 'ereignisse', 'liste'],
-  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'], ['egl-woche-', 'woche', 'objekt'], ['egl-schreiben-', 'schreiben', 'objekt'], ['egl-lernzeit-', 'lernzeit', 'objekt'], ['egl-kalender-', 'kalender', 'objekt'],
+  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'], ['egl-woche-', 'woche', 'objekt'], ['egl-schreiben-', 'schreiben', 'objekt'], ['egl-lernzeit-', 'lernzeit', 'objekt'], ['egl-kalender-', 'kalender', 'objekt'], ['egl-tagebuch-', 'tagebuch', 'objekt'],
   ['egl-fcstreak-', 'fcstreak', 'json'], ['egl-fckorr-', 'fckorr', 'objekt'], ['egl-mywords-', 'mywords', 'json'], ['egl-fchide-', 'fchide', 'json'],
   ['egl-m127-', 'm127', 'json'], ['egl-v17-', 'v17', 'json'], ['egl-uni-', 'uni', 'json'], ['egl-fc-', 'fc', 'json'],
 ];
@@ -30113,6 +30141,8 @@ function tagVon(d) {
     out += "</div>";
     /* M24: der Tag aus dem Kalender (Hausaufgaben, Bücher, Termine, Arbeiten) */
     try { if (window.__KALENDER) out += window.__KALENDER.htmlHeute(); } catch (e) {}
+    /* M25: Tagebuch */
+    try { if (window.__TAGEBUCH) out += window.__TAGEBUCH.htmlHeute(); } catch (e) {}
     return out;
   }
 
@@ -31770,6 +31800,8 @@ function aktiv(u, t) {
     var wo = ""; try { wo = window.__WOCHE ? window.__WOCHE.htmlEltern() : ""; } catch (e) {}
     /* M22: geschriebene Texte lesen und zurückmelden (p89) */
     try { wo += window.__SCHREIBEN ? window.__SCHREIBEN.htmlEltern() : ""; } catch (e) {}
+    /* M25: Stimmung der Woche, geteilte Tagebucheinträge (p92) */
+    try { wo += window.__TAGEBUCH ? window.__TAGEBUCH.htmlEltern() : ""; } catch (e) {}
     return wo + '<div class="el-knoepfe"><button class="btn btn-primary" data-el="drucken">🖨️ Drucken</button><button class="btn" data-el="kopieren">📋 Als Text kopieren</button></div>'
       + '<div class="el-box el-bericht" data-testid="el-bericht"><h3>' + h(b.titel) + "</h3><ul style=\"margin:0;padding-left:18px;line-height:1.8\">" + b.zeilen.map(function (z) { return "<li>" + h(z) + "</li>"; }).join("") + "</ul></div>"
       + htmlWoche(ev);
@@ -36949,8 +36981,8 @@ function aktiv(u, t) {
 
 const TAGE_MAX = 400;
 
-/** Seiten, die keine Lernzeit sind (Verwaltung, Eltern, Profilwahl). */
-const KEINE = /^(eltern|hub-eltern|eltern-dashboard|einstellungen|darstellung|profil|profile|pakete|quellen|hilfe-eltern)/;
+/** Seiten, die keine Lernzeit sind (Verwaltung, Eltern, Profilwahl; M25: Tagebuch). */
+const KEINE = /^(tagebuch|eltern|hub-eltern|eltern-dashboard|einstellungen|darstellung|profil|profile|pakete|quellen|hilfe-eltern)/;
 /** @param {string|null|undefined} seite */
 function istLernseite(seite) {
   const s = String(seite || '');
@@ -37374,7 +37406,7 @@ function eintragSaeubern(e, id) {
     }
     var ende = plusTage(mo, 6);
     s += '<div class="kal-kopf"><button class="btn" data-kal="zurueck" aria-label="Vorige Woche">←</button><h3 class="kal-woche" data-testid="kal-woche">Woche ' + kurz(mo) + " – " + kurz(ende) + '</h3><button class="btn" data-kal="vor" aria-label="Nächste Woche">→</button>'
-      + (mo !== montagVon(heute()) ? '<button class="btn" data-kal="heute">Diese Woche</button>' : "") + '<button class="btn btn-primary kal-neu" data-kal-neu="' + (abstand(heute(), mo) > 0 ? mo : heute()) + '" data-testid="kal-neu">＋ Eintrag</button></div>';
+      + (mo !== montagVon(heute()) ? '<button class="btn" data-kal="heute">Diese Woche</button>' : "") + '<button class="btn kal-tb" data-tb-oeffnen="1">📔 Tagebuch</button><button class="btn btn-primary kal-neu" data-kal-neu="' + (abstand(heute(), mo) > 0 ? mo : heute()) + '" data-testid="kal-neu">＋ Eintrag</button></div>';
     s += '<div class="kal-streifen" role="list">' + plan.tage.map(function (d) {
       var offen = d.punkte.filter(function (p) { return !p.erledigt; }).length;
       return '<a role="listitem" class="kal-chip' + (d.istHeute ? " heute" : "") + (d.ruhetag ? " ruhe" : "") + '" href="#kal-' + d.tag + '"><span class="kal-wt">' + WOCHENTAGE[d.wt] + '</span><span class="kal-dt">' + new Date(mittag(d.tag)).getDate() + "</span>"
@@ -37543,12 +37575,258 @@ function eintragSaeubern(e, id) {
     htmlHeute: htmlHeute, laden: laden, oeffnen: function () { kstate.tab = "kalender"; kstate.kal = null; neu(); } };
 })();
 
+/* =====================================================================
+   M25 — Tagebuch (app/kern/tagebuch.js).
+
+   Das Kind hält seinen Tag fest: Stimmung, Gefühle, drei kurze Fragen
+   (wechseln je Tag) und „Was habe ich gelernt?“ — mit dem, was die App
+   heute gemessen hat, als Gedächtnisstütze. Gespeichert beim Tippen.
+   Privat: Die Eltern sehen im Wochenbericht nur die Stimmungskurve und
+   die häufigsten Gefühle; den Wortlaut nur, wenn das Kind „teilen“ wählt.
+   Erreichbar über „Heute“ und den Plan. Speicher egl-tagebuch-<Profil>.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/* =====================================================================
+   M25: Tagebuch des Kindes (Rückmeldung 2026-10-03: „Das Kind sollte
+   seinen Tag protokollieren können mit Emotionen, Gefühlen und seinen
+   Gedanken“). Reine Funktionen.
+
+   Ein Eintrag je Tag: Stimmung (1–5), Gefühle (Auswahl), drei kurze
+   Fragen (schön, schwer, Gedanken) und „Was habe ich gelernt?“. Die Texte
+   sind privat; die Eltern sehen sie nur, wenn das Kind „teilen“ wählt.
+   Stimmung und Gefühle fließen als Wochenkurve in den Elternbericht —
+   ohne Wortlaut.
+   ===================================================================== */
+
+const STIMMUNGEN = [
+  { wert: 1, icon: '😢', name: 'sehr schlecht' },
+  { wert: 2, icon: '😕', name: 'nicht so gut' },
+  { wert: 3, icon: '😐', name: 'geht so' },
+  { wert: 4, icon: '🙂', name: 'gut' },
+  { wert: 5, icon: '😄', name: 'super' },
+];
+const GEFUEHLE = [
+  { id: 'froh', icon: '😊', name: 'froh', gut: true }, { id: 'stolz', icon: '🦁', name: 'stolz', gut: true },
+  { id: 'ruhig', icon: '😌', name: 'ruhig', gut: true }, { id: 'neugierig', icon: '🤔', name: 'neugierig', gut: true },
+  { id: 'dankbar', icon: '🙏', name: 'dankbar', gut: true }, { id: 'verliebt', icon: '🥰', name: 'liebgehabt', gut: true },
+  { id: 'aufgeregt', icon: '🤩', name: 'aufgeregt', gut: null }, { id: 'muede', icon: '😴', name: 'müde', gut: null },
+  { id: 'gelangweilt', icon: '🥱', name: 'gelangweilt', gut: false }, { id: 'traurig', icon: '😢', name: 'traurig', gut: false },
+  { id: 'wuetend', icon: '😠', name: 'wütend', gut: false }, { id: 'aengstlich', icon: '😟', name: 'ängstlich', gut: false },
+  { id: 'gestresst', icon: '😣', name: 'gestresst', gut: false }, { id: 'einsam', icon: '🫥', name: 'allein', gut: false },
+];
+
+/* Fragen wechseln je Tag — gleiche Frage am selben Tag, damit das Bearbeiten nicht springt. */
+const SCHOEN = ['Was war heute schön?', 'Worüber hast du heute gelacht?', 'Was hat heute gut geklappt?', 'Wer war heute nett zu dir — oder du zu wem?', 'Worauf bist du heute stolz?'];
+const SCHWER = ['Was war heute schwer?', 'Was hat dich heute geärgert oder traurig gemacht?', 'Was würdest du morgen anders machen?', 'Wobei hättest du dir Hilfe gewünscht?'];
+const GEDANKEN = ['Was geht dir gerade durch den Kopf?', 'Worauf freust du dich?', 'Was möchtest du nicht vergessen?', 'Was wünschst du dir für morgen?'];
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+/** @param {string} tag YYYY-MM-DD */
+function fragenFuer(tag) {
+  const h = fnv(tag);
+  return { schoen: SCHOEN[h % SCHOEN.length], schwer: SCHWER[(h >>> 4) % SCHWER.length], gedanken: GEDANKEN[(h >>> 8) % GEDANKEN.length], gelernt: 'Was hast du heute gelernt?' };
+}
+
+/** Einen Eintrag säubern (nur bekannte Felder, gekürzt). */
+function tagebuchSaeubern(e) {
+  const r = {};
+  const s = Math.round(Number(e && e.stimmung));
+  if (s >= 1 && s <= 5) r.stimmung = s;
+  const ids = new Set(GEFUEHLE.map((g) => g.id));
+  const gf = Array.isArray(e && e.gefuehle) ? [...new Set(e.gefuehle)].filter((g) => ids.has(g)).slice(0, 6) : [];
+  if (gf.length) r.gefuehle = gf;
+  for (const f of ['schoen', 'schwer', 'gedanken', 'gelernt']) { const v = String((e && e[f]) || '').trim().slice(0, 1000); if (v) r[f] = v; }
+  if (e && e.teilen) r.teilen = true;
+  return Object.keys(r).length ? r : null;
+}
+
+/**
+ * Überblick über eine Reihe von Tagen.
+ * @param {{tage?: Record<string, any>}} stand @param {string[]} tage
+ */
+function ueberblick(stand, tage) {
+  const alle = (stand && stand.tage) || {};
+  const liste = tage.map((t) => ({ tag: t, e: alle[t] || null }));
+  const mit = liste.filter((x) => x.e && x.e.stimmung);
+  const schnitt = mit.length ? mit.reduce((a, x) => a + x.e.stimmung, 0) / mit.length : null;
+  const z = {};
+  for (const x of liste) for (const g of (x.e && x.e.gefuehle) || []) z[g] = (z[g] || 0) + 1;
+  const haeufig = Object.entries(z).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([id, n]) => ({ ...(GEFUEHLE.find((g) => g.id === id) || { id, icon: '', name: id }), n }));
+  const schwer = haeufig.filter((g) => g.gut === false);
+  return { tage: liste, eintraege: liste.filter((x) => x.e).length, schnitt, haeufig, schwer,
+    hinweis: schwer.length && schwer[0].n >= 3 ? schwer[0] : null };
+}
+
+/** Wie viele Tage am Stück (bis heute bzw. gestern) wurde geschrieben? */
+function tagebuchSerie(stand, heute, plusTage) {
+  const alle = (stand && stand.tage) || {};
+  let t = alle[heute] ? heute : plusTage(heute, -1), n = 0;
+  while (alle[t]) { n++; t = plusTage(t, -1); }
+  return n;
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function istKind() { var p = profil(); return !!(p && p.type === "kid"); }
+  function h(s) { return typeof esc === "function" ? esc(String(s == null ? "" : s)) : String(s == null ? "" : s); }
+  function neu() { try { render(); } catch (e) {} }
+  function lernprofil() { var p = profil(); return !!(p && p.type !== "baby" && !(typeof showProfiles !== "undefined" && showProfiles)); }
+  function aktiv() { return lernprofil() && kstate.tab === "tagebuch"; }
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function tagVon(t) { var d = new Date(t); return d.getFullYear() + "-" + zwei(d.getMonth() + 1) + "-" + zwei(d.getDate()); }
+  function plusTage(tag, n) { return tagVon(new Date(tag + "T12:00:00").getTime() + n * 86400000); }
+  function heute() { return tagVon(Date.now()); }
+  var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"], TAGNAMEN = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MONATE = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
+  function lang(tag) { var d = new Date(tag + "T12:00:00"); return TAGNAMEN[d.getDay()] + ", " + d.getDate() + ". " + MONATE[d.getMonth()]; }
+
+  function schluessel(p) { return "egl-tagebuch-" + (p || profil() || { id: "anon" }).id; }
+  function laden(p) { try { var v = JSON.parse(localStorage.getItem(schluessel(p)) || "{}") || {}; v.tage = v.tage || {}; return v; } catch (e) { return { tage: {} }; } }
+  function speichern(v) { try { localStorage.setItem(schluessel(), JSON.stringify(v)); } catch (e) {} }
+  function zustand() { return kstate.tb || (kstate.tb = { tag: heute(), entwurf: null }); }
+  function entwurf() {
+    var z = zustand();
+    if (!z.entwurf || z.entwurf.tag !== z.tag) { var e = laden().tage[z.tag] || {}; z.entwurf = JSON.parse(JSON.stringify(e)); z.entwurf.tag = z.tag; }
+    return z.entwurf;
+  }
+  function sichern() {
+    var z = zustand(), e = entwurf(), v = laden(), r = tagebuchSaeubern(e);
+    if (r) { r.t = Date.now(); v.tage[z.tag] = r; } else delete v.tage[z.tag];
+    speichern(v);
+  }
+  /* Was die App heute gemessen hat — als Erinnerung beim „Gelernt“-Feld */
+  function heuteGelernt(tag) {
+    var teile = [];
+    try { var m = window.__LERNZEIT ? (window.__LERNZEIT.minutenJeTag()[tag] || 0) : 0; if (m) teile.push(m + " Min. gelernt"); } catch (e) {}
+    try {
+      var ev = window.__ELTERN ? window.__ELTERN.ereignisse().filter(function (e) { return tagVon(e.t) === tag; }) : [], f = {};
+      ev.forEach(function (e) { if (e.f) f[e.f] = (f[e.f] || 0) + 1; });
+      var fs = Object.keys(f); if (fs.length) teile.push(ev.length + " Aufgaben in " + fs.join(", "));
+    } catch (e) {}
+    return teile.join(" · ");
+  }
+
+  /* ---------- Anzeige ---------- */
+  function htmlSeite() {
+    var z = zustand(), e = entwurf(), fr = fragenFuer(z.tag), du = istKind(), v = laden();
+    var s = '<div class="hb tb" data-testid="tb"><h2 class="hb-titel">📔 ' + (du ? "Mein Tagebuch" : "Tagebuch") + "</h2>"
+      + '<p class="hb-sub">' + (du ? "Halte deinen Tag fest. Was du schreibst, gehört dir — teilen kannst du, musst du aber nicht." : "Den Tag festhalten: Stimmung, Gefühle, Gedanken. Privat, solange nicht geteilt.") + "</p>"
+      + '<div class="tb-kopf"><button class="btn" data-tb="zurueck" aria-label="Tag davor">←</button><h3 class="tb-datum" data-testid="tb-datum">' + h(lang(z.tag)) + (z.tag === heute() ? ' <span class="kal-badge">Heute</span>' : "") + "</h3>"
+      + (z.tag < heute() ? '<button class="btn" data-tb="vor" aria-label="Tag danach">→</button><button class="btn" data-tb="heute">Heute</button>' : "") + "</div>";
+    s += '<h3 class="wo-h4">Wie war ' + (du ? "dein" : "der") + " Tag?</h3>"
+      + '<div class="tb-stimmung" role="radiogroup" aria-label="Stimmung">' + STIMMUNGEN.map(function (m) {
+        var an = e.stimmung === m.wert;
+        return '<button class="tb-st' + (an ? " an" : "") + '" role="radio" aria-checked="' + an + '" data-tb-stimmung="' + m.wert + '"><span class="tb-em" aria-hidden="true">' + m.icon + '</span><span class="tb-sn">' + h(m.name) + "</span></button>";
+      }).join("") + "</div>";
+    s += '<h3 class="wo-h4">Wie ' + (du ? "hast du dich" : "habe ich mich") + " gefühlt? <small>(mehrere möglich)</small></h3>"
+      + '<div class="tb-gefuehle" role="group" aria-label="Gefühle">' + GEFUEHLE.map(function (g) {
+        var an = (e.gefuehle || []).indexOf(g.id) >= 0;
+        return '<button class="tb-gf' + (an ? " an" : "") + '" aria-pressed="' + an + '" data-tb-gefuehl="' + g.id + '"><span aria-hidden="true">' + g.icon + "</span> " + h(g.name) + "</button>";
+      }).join("") + "</div>";
+    var gl = heuteGelernt(z.tag);
+    [["schoen", fr.schoen], ["schwer", fr.schwer], ["gedanken", fr.gedanken], ["gelernt", fr.gelernt]].forEach(function (f) {
+      s += '<label class="wo-frage tb-frage" for="tb-' + f[0] + '">' + h(f[1]) + (f[0] === "gelernt" && gl ? ' <small>Heute: ' + h(gl) + "</small>" : "")
+        + '<textarea id="tb-' + f[0] + '" rows="3" data-tb-feld="' + f[0] + '">' + h(e[f[0]] || "") + "</textarea></label>";
+    });
+    s += '<label class="tb-teilen"><input type="checkbox" data-tb-teilen' + (e.teilen ? " checked" : "") + "> " + (du ? "Meine Eltern dürfen diesen Eintrag lesen" : "Eintrag teilen") + "</label>"
+      + '<p class="sk-hinweis" id="tb-gesichert" aria-live="polite">' + (v.tage[z.tag] ? "✓ Gespeichert" : "Wird beim Schreiben gespeichert.") + "</p>";
+    return s + htmlRueckblick(v) + "</div>";
+  }
+  function htmlRueckblick(v) {
+    var tage = []; for (var i = 13; i >= 0; i--) tage.push(plusTage(heute(), -i));
+    var u = ueberblick(v, tage), du = istKind(), n = tagebuchSerie(v, heute(), plusTage);
+    var s = '<h3 class="wo-h4">Die letzten 14 Tage</h3><div class="tb-streifen" data-testid="tb-streifen">' + u.tage.map(function (x) {
+      var st = x.e && x.e.stimmung ? STIMMUNGEN[x.e.stimmung - 1] : null, d = new Date(x.tag + "T12:00:00");
+      return '<button class="tb-tag' + (x.tag === zustand().tag ? " an" : "") + '" data-tb-tag="' + x.tag + '" aria-label="' + h(lang(x.tag)) + (st ? ": " + h(st.name) : "") + '"><span class="tb-wt">' + WT[d.getDay()] + '</span><span class="tb-em" aria-hidden="true">' + (st ? st.icon : (x.e ? "✏️" : "·")) + "</span></button>";
+    }).join("") + "</div>";
+    if (u.eintraege) s += '<p class="fs-text">' + u.eintraege + (u.eintraege === 1 ? " Eintrag" : " Einträge") + (n >= 2 ? " · " + n + " Tage am Stück 🔥" : "")
+      + (u.haeufig.length ? " · oft: " + u.haeufig.slice(0, 3).map(function (g) { return g.icon + " " + h(g.name) + " (" + g.n + "×)"; }).join(", ") : "") + "</p>";
+    if (u.hinweis) s += '<div class="tb-hinweis" role="note" data-testid="tb-hinweis">💛 ' + (du ? "Du hast dich in letzter Zeit öfter " + h(u.hinweis.name) + " gefühlt. Das ist in Ordnung. Erzähl es jemandem, dem du vertraust — Mama, Papa, deiner Lehrerin oder einem Freund."
+      : "Öfter „" + h(u.hinweis.name) + "“ in letzter Zeit — vielleicht lohnt sich ein Gespräch oder eine Pause.") + "</div>";
+    return s;
+  }
+  /* „Heute“ (p73): kleine Karte */
+  function htmlHeute() {
+    var v = laden(), e = v.tage[heute()], st = e && e.stimmung ? STIMMUNGEN[e.stimmung - 1] : null;
+    return '<div class="tb-karte" data-testid="tb-heute"><span class="tb-em" aria-hidden="true">' + (st ? st.icon : "📔") + "</span><span><b>" + (e ? "Tagebuch: heute geschrieben" : (istKind() ? "Wie war dein Tag?" : "Wie war der Tag?")) + "</b>"
+      + '<span class="kal-u">' + (e ? (st ? st.name : "") + ((e.gefuehle || []).length ? " · " + e.gefuehle.map(function (id) { var g = GEFUEHLE.filter(function (x) { return x.id === id; })[0]; return g ? g.name : id; }).join(", ") : "") : "Stimmung, Gefühle, Gedanken — zwei Minuten.") + "</span></span>"
+      + '<button class="btn" data-tb-oeffnen="1">' + (e ? "Ansehen" : "Schreiben") + "</button></div>";
+  }
+  /* Eltern: Stimmungskurve und geteilte Einträge (Wochenbericht, p76) */
+  function htmlEltern() {
+    var p = profil(); if (!p) return "";
+    var v = laden(p), tage = []; for (var i = 6; i >= 0; i--) tage.push(plusTage(heute(), -i));
+    var u = ueberblick(v, tage); if (!u.eintraege) return "";
+    var geteilt = u.tage.filter(function (x) { return x.e && x.e.teilen; });
+    return '<div class="el-box tb-eltern" data-testid="tb-eltern"><h3>📔 Stimmung der letzten 7 Tage</h3>'
+      + '<p class="tb-kurve">' + u.tage.map(function (x) { var st = x.e && x.e.stimmung ? STIMMUNGEN[x.e.stimmung - 1] : null; var d = new Date(x.tag + "T12:00:00"); return '<span title="' + h(lang(x.tag)) + '">' + WT[d.getDay()] + " " + (st ? st.icon : "·") + "</span>"; }).join(" ") + "</p>"
+      + (u.haeufig.length ? "<p>Häufige Gefühle: " + u.haeufig.slice(0, 4).map(function (g) { return g.icon + " " + h(g.name) + " (" + g.n + "×)"; }).join(", ") + "</p>" : "")
+      + (u.hinweis ? '<p class="wo-hinweis">„' + h(u.hinweis.name) + "“ kam " + u.hinweis.n + "× vor — ein guter Anlass für ein ruhiges Gespräch.</p>" : "")
+      + '<p class="sk-hinweis">Die Texte sind privat. ' + (geteilt.length ? h(p.name) + " hat " + geteilt.length + (geteilt.length === 1 ? " Eintrag" : " Einträge") + " geteilt:" : "Geteilt wurde diese Woche nichts.") + "</p>"
+      + geteilt.map(function (x) {
+        return '<details class="sk-el"><summary><b>' + h(lang(x.tag)) + "</b></summary>" + ["schoen", "schwer", "gedanken", "gelernt"].filter(function (f) { return x.e[f]; }).map(function (f) {
+          return "<p><b>" + h(fragenFuer(x.tag)[f]) + "</b><br>" + h(x.e[f]) + "</p>";
+        }).join("") + "</details>";
+      }).join("") + "</div>";
+  }
+
+  /* ---------- Einhängen ---------- */
+  var renderVorher = render;
+  var renderNeu = function () {
+    if (aktiv() && typeof document.getElementById === "function") {
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) { view.innerHTML = htmlSeite(); return; }
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (ev) {
+    var t = ev.target && ev.target.closest ? ev.target.closest("[data-tb],[data-tb-stimmung],[data-tb-gefuehl],[data-tb-tag],[data-tb-oeffnen]") : null;
+    if (!t || !lernprofil()) return;
+    if (t.hasAttribute("data-tb-oeffnen")) { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); kstate.tab = "tagebuch"; kstate.tb = null; neu(); return; }
+    if (!aktiv()) return;
+    ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+    var z = zustand(), e = entwurf(), a;
+    if ((a = t.getAttribute("data-tb-stimmung"))) { e.stimmung = e.stimmung === +a ? undefined : +a; sichern(); }
+    else if ((a = t.getAttribute("data-tb-gefuehl"))) { e.gefuehle = e.gefuehle || []; var i = e.gefuehle.indexOf(a); if (i >= 0) e.gefuehle.splice(i, 1); else e.gefuehle.push(a); sichern(); }
+    else if ((a = t.getAttribute("data-tb-tag"))) { z.tag = a; z.entwurf = null; }
+    else {
+      a = t.getAttribute("data-tb");
+      if (a === "zurueck") { z.tag = plusTage(z.tag, -1); z.entwurf = null; }
+      else if (a === "vor" && z.tag < heute()) { z.tag = plusTage(z.tag, 1); z.entwurf = null; }
+      else if (a === "heute") { z.tag = heute(); z.entwurf = null; }
+    }
+    neu();
+  }, true);
+  var uhr = null;
+  ziel.addEventListener("input", function (ev) {
+    var t = ev.target; if (!t || !aktiv() || !t.getAttribute) return;
+    var f = t.getAttribute("data-tb-feld"); if (!f) return;
+    entwurf()[f] = t.value;
+    clearTimeout(uhr);
+    uhr = setTimeout(function () { sichern(); var g = document.getElementById("tb-gesichert"); if (g) g.textContent = "✓ Gespeichert"; }, 400);
+  }, true);
+  ziel.addEventListener("change", function (ev) {
+    var t = ev.target; if (!t || !aktiv() || !t.hasAttribute || !t.hasAttribute("data-tb-teilen")) return;
+    entwurf().teilen = !!t.checked; sichern();
+  }, true);
+
+  window.__TAGEBUCH = { htmlHeute: htmlHeute, htmlEltern: htmlEltern, laden: laden, oeffnen: function (tag) { kstate.tab = "tagebuch"; kstate.tb = null; if (tag) zustand().tag = tag; neu(); } };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 11:44")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 11:54")}}catch(e){}
 })();
 
 </script>
