@@ -634,6 +634,26 @@ html.lp-start::after {
 .uw-mem-liste { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 16px; }
 .uw-mem-wort { padding: 10px 16px; border-radius: 12px; background: var(--paper); border: 1px solid var(--line); font-size: 20px; font-weight: 700; }
 .uw-note { font-size: 18px; }
+
+/* Lesen, Diktat, Hören (p86) */
+.tx .sx-stufen { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.tx .sx-stufe { display: flex; flex-direction: column; gap: 4px; text-align: left; font: inherit; cursor: pointer; }
+.tx-km { font-size: 13px; color: var(--ink2); }
+.tx-text { font-size: clamp(17px, 2.2vw, 20px); line-height: 1.7; padding: 18px 20px; margin: 0 0 14px; border-radius: 16px; background: var(--paper); border: 1px solid var(--line); max-width: 72ch; white-space: pre-line; }
+.tx-frage { margin: 0 0 18px; padding: 0 0 14px; border-bottom: 1px dashed var(--line); }
+.tx-frage:last-of-type { border-bottom: none; }
+.tx-q { font-size: 18px !important; margin: 0 0 10px !important; }
+.tx-hoeren { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 14px; }
+.tx-label { display: block; font-weight: 700; margin: 0 0 6px; }
+.tx-eingabe { width: 100%; max-width: 640px; font: inherit; font-size: 19px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); box-sizing: border-box; }
+.tx-eingabe:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 3px var(--brand-soft); }
+.tx-woerter { margin-top: 10px; line-height: 2; }
+.tx-w { display: inline-block; padding: 1px 8px; border-radius: 8px; margin: 0 2px; }
+.tx-w.ok { background: var(--good-soft, #e8f5ec); }
+.tx-w.falsch { background: var(--bad-soft, #fdecec); }
+.tx-w.fehlt { background: var(--warn-soft, #fff4e4); }
+.tx-w.zuviel { background: var(--paper2); text-decoration: line-through; }
+.b6-hinweis { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--brand-soft); font-size: 15px; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -31304,7 +31324,7 @@ function aktiv(u, t) {
 
   /* ---------- Erfassung: Übungen der Engine ---------- */
   /* M18.3: Die Übungswelt (p85) schreibt ihre Antworten selbst ins Log. */
-  var OHNE = { lernpfad: 1, heute: 1, "eltern-dashboard": 1, v17practice: 1, v17daily: 1 };
+  var OHNE = { lernpfad: 1, heute: 1, "eltern-dashboard": 1, v17practice: 1, v17daily: 1, read: 1, dikt: 1, hoer: 1 };   /* M18.4: p86 ebenso */
   var gesehen = typeof WeakSet === "function" ? new WeakSet() : null;
   var frageJetzt = "", frageSeit = -1, letzte = { q: "", t: 0 }, letzteFrage = null;
   function aktuelleFrage(view) {
@@ -33967,7 +33987,8 @@ function ergebnis(ok, n) {
   }
   function typName(sp, t) { var x = typen(sp).filter(function (y) { return y[0] === t; })[0]; return x ? x : ["", t, "🧩"]; }
   function stat(t) { try { return (V17.skill && V17.skill[t]) || undefined; } catch (e) { return undefined; } }
-  function neueSaat() { return (Math.random() * 0x100000000) >>> 0; }
+  /* Laufstartwert aus p64 (einmal je Sitzung, für Tests setzbar über __MISCHEN.setzeLauf) */
+  function neueSaat() { try { if (window.__MISCHEN && window.__MISCHEN.lauf) return window.__MISCHEN.lauf() >>> 0; } catch (e) {} return (Math.random() * 0x100000000) >>> 0; }
   function aktiv() {
     var p = profil();
     if (!p || p.type !== "kid" || (typeof showProfiles !== "undefined" && showProfiles)) return false;
@@ -34129,12 +34150,1019 @@ function ergebnis(ok, n) {
   window.__UEBUNGSWELT = { starten: function (t) { starten(t); neu(); }, kern: { pruefe: pruefe, vorrat: vorrat }, typen: typen, bank: bank, shuffle: shuffle };
 })();
 
+/* =====================================================================
+   M18.4 — Lesen, Diktat und Hören der Kinder auf der Kernschicht.
+
+   Die Engine führte die drei Seiten in mehreren Schichten (v13, v17,
+   v121, v124, m131) mit eigenen Zuständen; dazu kamen unsere Nachträge
+   p62 (Mehrfachauswahl beim Lesen), p64 (gesetztes Mischen beim Hören)
+   und p68 (Textrotation). Jetzt eine Seite für alle drei:
+     * Stufenwahl mit Empfehlung aus der Klasse (app/kern/texte.js);
+     * Textrotation im bisherigen Speicher egl-textrotation-<Profil>
+       (Sammlungen read|dikt|hoer:<Fach>:<Stufe>, app/kern/textrotation.js)
+       — eine laufende Runde geht nahtlos weiter;
+     * Fragen gesetzt gemischt, bewertet mit `pruefe` (eine Stelle, Kern);
+     * Diktat: gleicher Wortlaut, Groß-/Kleinschreibung zählt, Wortvergleich
+       als Rückmeldung (app/kern/texte.js, textdiff.js);
+     * jede Antwort im Ereignis-Log (w: lesen | hoeren | diktat).
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/**
+ * Deterministisches Mischen (Mulberry32-PRNG) — testbar und reproduzierbar.
+ *
+ * Übernommen aus sprachlernplattform/src/lib/shuffle.ts (Strang B), 1:1;
+ * geändert wurden nur die Typannotationen (TypeScript → JSDoc).
+ *
+ * Gebraucht wird das für B5 (Positionsbias): Antwortoptionen werden zur
+ * Laufzeit gemischt, der Startwert aus itemId + Profil + Versuchsnummer.
+ * Deterministisch, damit ein Neuladen die Reihenfolge nicht ändert, der
+ * zweite Versuch aber eine neue ergibt. Siehe AUFTRAG-v2.md §5, B5.
+ */
+
+/**
+ * Erzeugt einen Zufallsgenerator aus einem Startwert.
+ * @param {number} seed Startwert; gleicher Startwert → gleiche Folge.
+ * @returns {() => number} Funktion, die Werte in [0, 1) liefert.
+ */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Mischt eine Liste, ohne das Original zu verändern (Fisher-Yates).
+ * @template T
+ * @param {readonly T[]} arr Die zu mischende Liste; bleibt unverändert.
+ * @param {number} [seed] Ohne Startwert wird Math.random genutzt.
+ * @returns {T[]} Neue, gemischte Liste mit denselben Elementen.
+ */
+function shuffle(arr, seed) {
+  const rnd = seed === undefined ? Math.random : mulberry32(seed);
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * Zieht n zufällige Elemente ohne Zurücklegen.
+ * @template T
+ * @param {readonly T[]} arr Die Grundmenge; bleibt unverändert.
+ * @param {number} n Anzahl der zu ziehenden Elemente.
+ * @param {number} [seed] Ohne Startwert wird Math.random genutzt.
+ * @returns {T[]} Bis zu n Elemente, ohne Wiederholung.
+ */
+function sample(arr, n, seed) {
+  return shuffle(arr, seed).slice(0, n);
+}
+
+
+  // @ts-check
+/**
+ * Benotung und Antwortvergleich.
+ *
+ * Übernommen aus sprachlernplattform/src/lib/grading.ts (Strang B), 1:1;
+ * geändert wurden nur die Typannotationen (TypeScript → JSDoc).
+ *
+ * M3 Schritt 3 — Fehler B3 behoben. Zwei Dinge sind hier verbindlich:
+ *
+ * 1. `caseSensitive` steht **am Item**, nie global. Nur die so
+ *    ausgezeichneten Aufgaben unterscheiden Groß- und Kleinschreibung;
+ *    für alle anderen bleibt die Bewertung genau so nachsichtig wie
+ *    bisher. Bei einem reinen Groß-/Kleinschreibfehler nennt der
+ *    Rückfalltext die Regel **und** das richtige Wort.
+ *
+ * 2. Der Typwächter ist **nicht** `String(s ?? "")`. Die Engine
+ *    vergleicht Zahlen mit `Math.abs(g - want) < 1e-6`; eine Umwandlung
+ *    in Text machte daraus einen Zeichenkettenvergleich, und 9 gegen
+ *    9.0, 0,5 gegen 0.5, 1000 gegen 1.000 fielen auseinander. Deshalb
+ *    entscheidet die **Form** von `item.a` über den Vergleich:
+ *
+ *      a: number    → Zahl        (2 827 Aufgaben, Toleranz wie Engine)
+ *      a: string[]  → Textliste   (234 Listen, 330 Formen)
+ *      a: number[]  → Indexliste  (502 Aufgaben, Treffer in `o`)
+ *
+ *    Über die Form, nicht über das Aussehen: die 32 Mathe-Textlisten
+ *    (`["9rest3","9r3","9rest3."]`) sehen nach Zahl aus und bleiben
+ *    Text — `parseFloat("9rest3")` wäre 9 und damit falsch richtig.
+ *
+ * Siehe AUFTRAG-v2.md §5, B3.
+ */
+
+/**
+ * Deutsche Schulnote 1–6 aus einem Prozentwert.
+ * @param {number} ratio Anteil richtiger Antworten, 0..1.
+ * @returns {number} Note von 1 (sehr gut) bis 6 (ungenügend).
+ */
+function schoolGrade(ratio) {
+  if (ratio >= 0.92) return 1;
+  if (ratio >= 0.81) return 2;
+  if (ratio >= 0.67) return 3;
+  if (ratio >= 0.5) return 4;
+  if (ratio >= 0.3) return 5;
+  return 6;
+}
+
+/**
+ * Ausgeschriebene Bezeichnung zu einer Note.
+ * @param {number} grade Note 1–6.
+ * @returns {string} Bezeichnung, oder leerer Text bei ungültiger Note.
+ */
+function gradeLabel(grade) {
+  return ['', 'Sehr gut', 'Gut', 'Befriedigend', 'Ausreichend', 'Mangelhaft', 'Ungenügend'][grade] ?? '';
+}
+
+/**
+ * Normalisiert eine Freitext-Antwort für den Vergleich.
+ *
+ * Die Frage, die diese Funktion beantwortet, lautet: **Hat das Kind
+ * dieselbe Antwort gegeben?** — nicht: Sieht die Zeichenkette gleich aus.
+ * Deshalb gibt sie genau dort nach, wo zwei Schreibungen dasselbe
+ * BEDEUTEN, und nirgends sonst. Festgelegt in M3.5a Schritt 2 nach einer
+ * Messung über alle 234 Freitextaufgaben (`app/werkzeuge/textbewertung.js`):
+ *
+ * 1. **Satzzeichen fallen weg — das Dezimalzeichen zwischen zwei Ziffern
+ *    nicht.** Vorher wurde `37,5` zu `375`, und der Kern nahm „375 %" für
+ *    „37,5 %" an: das Zehnfache. Das Zeichen bleibt, wie es getippt wurde;
+ *    ob `3,5` und `3.5` dasselbe sind, entscheidet der Zahlenleser (M3.5b),
+ *    nicht diese Funktion.
+ * 2. **`ä ö ü` gelten wie `ae oe ue`** — der Tastaturersatz. `ß` gilt
+ *    ausdrücklich NICHT wie `ss`: ss/ß ist eine Rechtschreibregel, die die
+ *    Plattform selbst lehrt, und `daß` für `dass` ist falsch.
+ * 3. **Leerraum zählt nur zwischen zwei Buchstaben oder zwei Ziffern.**
+ *    `x² − 10x + 25` und `x²−10x+25` sind dieselbe Antwort, `7 Rest 2`
+ *    und `7Rest2` auch. Aber „das Laufen" ist nicht „dasLaufen" (die
+ *    Aufgabe verlangt zwei Wörter), und „3 3/4" ist nicht „33/4" — das
+ *    eine ist 3¾, das andere 8¼.
+ *
+ * Was sie NICHT tut, obwohl die App es heute tut: Rechenzeichen,
+ * Bruchstriche, Klammern und Hochzahlen verwerfen. Der Filter der App
+ * (`[^a-z0-9,]`) nimmt damit `12` für `1/2` an und `x² + 10x + 25` für
+ * `x² − 10x + 25`.
+ *
+ * Die Umwandlung in Text ist hier zulässig, weil dieser Zweig
+ * ausschließlich für Textantworten aufgerufen wird; über den Zweig
+ * entscheidet `antwortForm`, nicht diese Funktion.
+ *
+ * @param {unknown} s Die rohe Eingabe.
+ * @param {boolean} [caseSensitive] Wahr: Groß-/Kleinschreibung zählt.
+ * @returns {string} Die normalisierte Fassung.
+ */
+function normalizeAnswer(s, caseSensitive = false) {
+  let t = String(s ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  /* 1 — das Dezimalzeichen vor dem Satzzeichenfilter schützen. */
+  t = t.replace(/(\d)\.(?=\d)/g, '$1\u0001')
+    .replace(/(\d),(?=\d)/g, '$1\u0002')
+    .replace(/[.,!?;:'"’‘“”«»]/g, '')
+    .replace(/\u0001/g, '.')
+    .replace(/\u0002/g, ',');
+  /* 2 — Umlaute wie ihr Tastaturersatz; ß bleibt ß. */
+  t = t.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+    .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue');
+  /* 3 — Leerraum nur zwischen zwei Buchstaben oder zwei Ziffern.
+     Die Nachbarn werden aus der Zeichenkette VOR dem Ersetzen gelesen;
+     weil der Leerraum oben schon zusammengezogen ist, sind sie nie
+     selbst Leerzeichen. */
+  const buchstabe = (c) => /\p{L}/u.test(c);
+  const ziffer = (c) => /[0-9]/.test(c);
+  t = t.replace(/ /g, (_, i, s0) => {
+    const l = s0[i - 1] || '', r = s0[i + 1] || '';
+    return (buchstabe(l) && buchstabe(r)) || (ziffer(l) && ziffer(r)) ? ' ' : '';
+  });
+  return caseSensitive ? t : t.toLowerCase();
+}
+
+/**
+ * Vergleicht gegebene und erwartete Antwort nach Normalisierung.
+ * @param {unknown} given Was eingegeben wurde.
+ * @param {unknown} expected Was erwartet wird.
+ * @param {boolean} [caseSensitive] Wahr: Groß-/Kleinschreibung zählt.
+ * @returns {boolean} Wahr, wenn beide normalisiert gleich sind.
+ */
+function answersMatch(given, expected, caseSensitive = false) {
+  return normalizeAnswer(given, caseSensitive) === normalizeAnswer(expected, caseSensitive);
+}
+
+/* ===================================================================
+   Zahlen — wortgleich zur Engine (app/pwa/index.html, `num`/`numOk`).
+   Wird hier abweichend gelesen, bewertet die App anders als der Test.
+   =================================================================== */
+
+/** Toleranz des Zahlenvergleichs. Gleicher Wert wie in der Engine. */
+const ZAHL_TOLERANZ = 1e-6;
+
+/**
+ * Liest eine Zahl so, wie die Engine sie liest: Komma als Dezimaltrenner,
+ * Punkt als Tausenderpunkt, `a/b` als Bruch, Einheiten werden abgestreift.
+ * @param {unknown} v Die rohe Eingabe.
+ * @returns {number} Der Zahlwert, oder NaN.
+ */
+function zahlLesen(v) {
+  if (v == null) return NaN;
+  let s = String(v).trim().replace(/[\s\u00a0\u202f]/g, '');
+  if (/^-?\d+\/-?\d+$/.test(s)) {
+    const q = s.split('/');
+    return +q[1] === 0 ? NaN : +q[0] / +q[1];
+  }
+  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  s = s.replace(/[^0-9.\-]/g, '');
+  if (s === '' || s === '-') return NaN;
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+
+/**
+ * Zahlenvergleich mit der Toleranz der Engine.
+ * @param {unknown} given Was eingegeben wurde.
+ * @param {unknown} want Der erwartete Zahlwert.
+ * @returns {boolean} Wahr, wenn beide innerhalb der Toleranz gleich sind.
+ */
+function zahlOk(given, want) {
+  const g = zahlLesen(given);
+  if (isNaN(g) || typeof want !== 'number') return false;
+  return Math.abs(g - want) < ZAHL_TOLERANZ;
+}
+
+/* ===================================================================
+   Formerkennung und Bewertung einer einzelnen Aufgabe.
+   =================================================================== */
+
+/**
+ * Bestimmt die Antwortform aus der **Form** von `a`, nicht aus deren
+ * Aussehen.
+ * @param {unknown} a Der Wert von `item.a`.
+ * @returns {'zahl'|'textliste'|'indexliste'|'ohne'} Die Antwortform.
+ */
+function antwortForm(a) {
+  if (typeof a === 'number') return 'zahl';
+  if (Array.isArray(a) && a.length > 0) {
+    if (a.every((v) => typeof v === 'string')) return 'textliste';
+    if (a.every((v) => typeof v === 'number')) return 'indexliste';
+  }
+  return 'ohne';
+}
+
+/**
+ * @typedef {object} Urteil
+ * @property {'zahl'|'textliste'|'indexliste'|'ohne'} form Erkannte Antwortform.
+ * @property {boolean} richtig Wahr, wenn die Eingabe als richtig gilt.
+ * @property {boolean} nurGrossKlein Wahr, wenn allein die Groß-/Kleinschreibung
+ *   den Ausschlag gab — die Eingabe wäre sonst richtig gewesen.
+ * @property {string} hinweis Rückmeldung für das Kind; bei einem reinen
+ *   Groß-/Kleinschreibfehler der Rückfalltext mit Regel und richtigem Wort.
+ */
+
+/**
+ * Bewertet eine Eingabe gegen eine Aufgabe.
+ *
+ * Bei Indexlisten ist `eingabe` die Liste der angekreuzten Positionen,
+ * sonst der eingetippte Text.
+ *
+ * @param {{a?:unknown, caseSensitive?:boolean, why?:string, caseWhy?:string}} item Die Aufgabe.
+ * @param {unknown} eingabe Was das Kind eingegeben oder angekreuzt hat.
+ * @returns {Urteil} Das Urteil.
+ */
+function bewerteAntwort(item, eingabe) {
+  const form = antwortForm(item?.a);
+  const why = item?.why ?? '';
+
+  if (form === 'zahl') {
+    return { form, richtig: zahlOk(eingabe, /** @type {number} */ (item.a)),
+      nurGrossKlein: false, hinweis: why };
+  }
+
+  if (form === 'indexliste') {
+    const soll = /** @type {number[]} */ (item.a).slice().sort((x, y) => x - y);
+    const ist = (Array.isArray(eingabe) ? eingabe.slice() : [eingabe])
+      .map(Number).filter((n) => !isNaN(n)).sort((x, y) => x - y);
+    const richtig = ist.length === soll.length && soll.every((v, i) => v === ist[i]);
+    return { form, richtig, nurGrossKlein: false, hinweis: why };
+  }
+
+  if (form === 'textliste') {
+    const liste = /** @type {string[]} */ (item.a);
+    const streng = item?.caseSensitive === true;
+    const richtig = liste.some((a) => answersMatch(eingabe, a, streng));
+    // Nur wenn die Aufgabe streng ist und die Eingabe ohne die
+    // Groß-/Kleinschreibung richtig gewesen wäre, ist es ein reiner
+    // Groß-/Kleinschreibfehler — und nur dann der Rückfalltext.
+    const nurGrossKlein = !richtig && streng
+      && liste.some((a) => answersMatch(eingabe, a, false));
+    return { form, richtig, nurGrossKlein,
+      hinweis: nurGrossKlein ? (item.caseWhy ?? why) : why };
+  }
+
+  return { form, richtig: false, nurGrossKlein: false, hinweis: why };
+}
+
+/**
+ * Ähnlichkeit zweier Texte auf Wortbasis — für Aussprache-Bewertung
+ * und „Aus dem Kopf"-Auswertungen.
+ * @param {string} a Erster Text.
+ * @param {string} b Zweiter Text.
+ * @returns {number} Ähnlichkeit von 0 (nichts gemeinsam) bis 1 (gleich).
+ */
+function wordSimilarity(a, b) {
+  const wa = normalizeAnswer(a).split(' ').filter(Boolean);
+  const wb = normalizeAnswer(b).split(' ').filter(Boolean);
+  if (wa.length === 0 && wb.length === 0) return 1;
+  if (wa.length === 0 || wb.length === 0) return 0;
+  const dist = levenshtein(wa, wb);
+  return Math.max(0, 1 - dist / Math.max(wa.length, wb.length));
+}
+
+/**
+ * Levenshtein-Distanz über Token-Arrays (Einfügen, Löschen, Ersetzen).
+ * @template T
+ * @param {T[]} a Erste Tokenfolge.
+ * @param {T[]} b Zweite Tokenfolge.
+ * @returns {number} Anzahl der nötigen Einzelschritte.
+ */
+function levenshtein(a, b) {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array(n + 1);
+  let cur = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[n];
+}
+
+
+  // @ts-check
+/**
+ * Wortweiser Diff für die Diktat-Auswertung: vergleicht die Eingabe mit
+ * dem Original und markiert richtige, falsche, fehlende und
+ * überflüssige Wörter.
+ *
+ * Übernommen aus sprachlernplattform/src/lib/textdiff.ts (Strang B), 1:1;
+ * geändert wurden nur die Typannotationen (TypeScript → JSDoc).
+ *
+ * Warum, obwohl §2 dieses Modul nicht in der Übernahmetabelle führt:
+ * §14 verlangt ausdrücklich einen Unit-Test für den „Diktat-Diff".
+ * Strang A hat eine eigene, ungetestete `wordDiff`-Funktion; diese hier
+ * ist LCS-basiert und durch fünf Testfälle abgesichert.
+ *
+ * Sie ersetzt A's Fassung noch **nicht** — das wäre eine
+ * Verhaltensänderung und gehört nach M3. In M0 liegt sie als geprüfte
+ * Grundlage bereit.
+ */
+
+/**
+ * Ein Schritt der Auswertung.
+ * @typedef {{kind:'ok', word:string}
+ *         | {kind:'wrong', word:string, expected:string}
+ *         | {kind:'missing', expected:string}
+ *         | {kind:'extra', word:string}} DiffOp
+ */
+
+/**
+ * Zusammenfassung einer Auswertung.
+ * @typedef {object} DiffSummary
+ * @property {number} total    Zu schreibende Wörter (ohne überflüssige)
+ * @property {number} correct  Davon richtig
+ * @property {number} errors   Alle Abweichungen, überflüssige eingeschlossen
+ * @property {number} ratio    correct / total, bei leerem Text 1
+ */
+
+/**
+ * Zerlegt einen Text an Leerräumen in Wörter.
+ * @param {string} s Der Text.
+ * @returns {string[]} Die Wörter, ohne leere Einträge.
+ */
+function tokenize(s) {
+  return s.trim().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Vergleichsform eines Worts: klein, ohne Satzzeichen.
+ * @param {string} w Das Wort.
+ * @returns {string} Die Vergleichsform.
+ */
+function clean(w) {
+  return w.toLowerCase().replace(/[.,!?;:'"’‘“”«»()\-–]/g, '');
+}
+
+/**
+ * Klassischer LCS-basierter Diff auf Wortebene.
+ * @param {string} expectedText Der Originaltext (das Diktat).
+ * @param {string} givenText Was das Kind geschrieben hat.
+ * @returns {DiffOp[]} Die Schritte in der Reihenfolge des Textes.
+ */
+function diffWords(expectedText, givenText) {
+  const e = tokenize(expectedText);
+  const g = tokenize(givenText);
+  const m = e.length;
+  const n = g.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      dp[i][j] = clean(e[i]) === clean(g[j]) ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  /** @type {DiffOp[]} */
+  const ops = [];
+  let i = 0;
+  let j = 0;
+  while (i < m && j < n) {
+    if (clean(e[i]) === clean(g[j])) {
+      ops.push({ kind: 'ok', word: g[j] });
+      i++; j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      if (dp[i + 1][j + 1] === dp[i + 1][j] && j < n && dp[i][j + 1] <= dp[i + 1][j + 1]) {
+        ops.push({ kind: 'wrong', word: g[j], expected: e[i] });
+        i++; j++;
+      } else {
+        ops.push({ kind: 'missing', expected: e[i] });
+        i++;
+      }
+    } else {
+      ops.push({ kind: 'extra', word: g[j] });
+      j++;
+    }
+  }
+  while (i < m) { ops.push({ kind: 'missing', expected: e[i] }); i++; }
+  while (j < n) { ops.push({ kind: 'extra', word: g[j] }); j++; }
+  return ops;
+}
+
+/**
+ * Zählt eine Auswertung aus.
+ * @param {DiffOp[]} ops Die Schritte aus diffWords.
+ * @returns {DiffSummary} Die Kennzahlen.
+ */
+function summarizeDiff(ops) {
+  const total = ops.filter((o) => o.kind !== 'extra').length;
+  const correct = ops.filter((o) => o.kind === 'ok').length;
+  const errors = ops.length - correct;
+  return { total, correct, errors, ratio: total === 0 ? 1 : correct / total };
+}
+
+
+  // @ts-check
+/**
+ * Textrotation (B6) — welcher Text als Nächstes dran ist.
+ *
+ * Lesetexte, Diktate und Hörtexte begannen bei jedem Aufruf beim ersten
+ * Element (Lesen) oder in einer zufälligen Reihenfolge ohne Gedächtnis
+ * (Diktat, Hören). Regel aus AUFTRAG-v2.md §5, B6:
+ *
+ *   - Je Profil und Sammlung wird festgehalten, was bearbeitet ist.
+ *   - Angeboten wird der nächste unbearbeitete Text („Text 4 von 6").
+ *   - Sind alle bearbeitet, beginnt eine neue Runde in gemischter
+ *     Reihenfolge, und die App sagt das.
+ *   - Wiederholt wird nur auf ausdrückliche Wahl.
+ *
+ * Das Modul ist rein: kein Speicher, kein DOM, kein Zufall. Das Mischen
+ * wird hineingereicht, damit eine Runde über Neuladen hinweg dieselbe
+ * Reihenfolge behält (die Programmschicht mischt mit festem Startwert aus
+ * Profil, Sammlung und Rundennummer). Beim Bauen wird es über
+ * `/*__KERN:textrotation__*\/` in app/teile/p68-textrotation.js eingezogen.
+ */
+
+/**
+ * @typedef {{ runde: number, gesehen: string[] }} RotationsStand
+ * @typedef {{
+ *   reihenfolge: string[],
+ *   start: number,
+ *   runde: number,
+ *   neueRunde: boolean,
+ *   stand: RotationsStand
+ * }} Durchlaufplan
+ */
+
+/**
+ * Plant einen Durchlauf durch eine Sammlung.
+ *
+ * Die Reihenfolge stellt das in dieser Runde schon Bearbeitete nach vorn
+ * und das Unbearbeitete dahinter; `start` zeigt auf den ersten
+ * unbearbeiteten Text. So bleibt die vorhandene Anzeige „Text x von n"
+ * der Programmschicht richtig, ohne dass sie etwas von Runden weiß.
+ *
+ * @param {readonly string[]} ids Kennungen in der gespeicherten Reihenfolge.
+ * @param {RotationsStand | null | undefined} stand Bisheriger Stand.
+ * @param {(ids: string[], runde: number) => string[]} mische
+ *   Liefert die Reihenfolge einer Runde ab Runde 2.
+ * @param {{ wiederholen?: boolean }} [wahl] `wiederholen`: den zuletzt
+ *   bearbeiteten Text noch einmal anbieten.
+ * @returns {Durchlaufplan}
+ */
+function planeDurchlauf(ids, stand, mische, wahl) {
+  const alle = [...ids];
+  let runde = stand && Number.isInteger(stand.runde) && stand.runde >= 1 ? stand.runde : 1;
+  const vorhanden = new Set(alle);
+  let gesehen = new Set(
+    stand && Array.isArray(stand.gesehen) ? stand.gesehen.filter((id) => vorhanden.has(id)) : []
+  );
+
+  let neueRunde = false;
+  if (alle.length > 0 && gesehen.size >= alle.length) {
+    runde += 1;
+    gesehen = new Set();
+    neueRunde = true;
+  }
+
+  const rundenfolge = runde === 1 ? alle : gueltigeUmordnung(alle, mische(alle.slice(), runde));
+  const bearbeitet = rundenfolge.filter((id) => gesehen.has(id));
+  const offen = rundenfolge.filter((id) => !gesehen.has(id));
+
+  let start = bearbeitet.length;
+  if (wahl && wahl.wiederholen && start > 0) start -= 1;
+
+  return {
+    reihenfolge: bearbeitet.concat(offen),
+    start,
+    runde,
+    neueRunde,
+    stand: { runde, gesehen: bearbeitet },
+  };
+}
+
+/**
+ * Hält fest, dass ein Text bearbeitet ist. Verändert den alten Stand nicht.
+ * @param {RotationsStand} stand
+ * @param {string} id
+ * @returns {RotationsStand}
+ */
+function markiere(stand, id) {
+  if (stand.gesehen.includes(id)) return { runde: stand.runde, gesehen: stand.gesehen.slice() };
+  return { runde: stand.runde, gesehen: stand.gesehen.concat([id]) };
+}
+
+/**
+ * Nur eine echte Umordnung derselben Kennungen wird übernommen; sonst die
+ * gespeicherte Reihenfolge. Ein fehlerhaftes Mischen darf keinen Text
+ * verschlucken oder verdoppeln.
+ * @param {string[]} alle
+ * @param {unknown} kandidat
+ * @returns {string[]}
+ */
+function gueltigeUmordnung(alle, kandidat) {
+  if (!Array.isArray(kandidat) || kandidat.length !== alle.length) return alle;
+  const rest = new Set(alle);
+  for (const id of kandidat) {
+    if (!rest.has(id)) return alle;
+    rest.delete(id);
+  }
+  return /** @type {string[]} */ (kandidat);
+}
+
+
+  // @ts-check
+/* =====================================================================
+   M18.3: Die Übungswelt auf der Kernschicht (ersetzt v17Tasks, v17Adaptive,
+   v17Start, v17Check und v17Score der Engine).
+
+   Eine Aufgabe im Bestand: { id, q, o: Optionen, a: Indizes der Lösung,
+   why, skill?, mem? (Gedächtnistraining: erst merken, dann fragen) }.
+
+   * Aufbereitung wie bisher: Stufe nach Dritteln des Bestands; Alphabet
+     und Satzbau bekommen ihren Fragetext aus den Optionen.
+   * Gemischt wird GESETZT: Startwert aus Lauf + Kennung (M3, p64) — die
+     Reihenfolge bleibt beim Neuzeichnen stabil, ein neuer Lauf mischt neu.
+   * Bewertet wird an genau EINER Stelle: `pruefe` — richtig ist nur genau
+     die Lösungsmenge (M3.5: die Bewertung liegt im Kern).
+   ===================================================================== */
+
+
+const RUNDE = 10;
+const KLAUSUR = 22;
+
+/** Stabiler Schlüssel aus einem Text — FNV-1a, 32 Bit (wie p64). */
+function schluessel(text) {
+  let h = 0x811c9dc5;
+  const s = String(text == null ? '' : text);
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/** @param {number} i @param {number} n */
+function stufe(i, n) {
+  const lo = Math.ceil(n / 3), mi = Math.ceil((n * 2) / 3);
+  return i < lo ? 'low' : i < mi ? 'mid' : 'high';
+}
+
+/** @param {string} typ @param {{q: string, o?: string[], a?: number[]}} x */
+function frageText(typ, x) {
+  if (typ === 'alphabet' && x.o) return 'Welches Wort steht im Alphabet ganz vorne: ' + x.o.join(', ') + '?';
+  if (typ === 'sentence' && x.o && x.a) {
+    const satz = x.o[x.a[0]] || '', frage = /\?\s*$/.test(satz);
+    const woerter = satz.replace(/[.?!]+$/, '').split(/\s+/).sort((p, q) => p.localeCompare(q, 'de'));
+    return 'Welche Reihenfolge ergibt ' + (frage ? 'eine richtige Frage' : 'einen richtigen Satz') + '? Wörter: ' + woerter.join(', ');
+  }
+  return x.q;
+}
+
+/**
+ * Laufzeitfassung einer Aufgabe — eine Kopie, der Bestand bleibt unberührt.
+ * @param {any} x @param {string} typ @param {number} i @param {number} n @param {number} saat
+ */
+function aufgabe(x, typ, i, n, saat) {
+  const id = x.id || typ + '-' + i;
+  const o = x.o || [], richtig = new Set(x.a || []);
+  const ord = o.length > 1 ? shuffle(o.map((_, k) => k), (Math.imul((saat >>> 0) ^ schluessel(id), 0x45d9f3b) ^ ((saat >>> 0) >>> 3)) >>> 0) : o.map((_, k) => k);
+  const a = [];
+  ord.forEach((alt, neu) => { if (richtig.has(alt)) a.push(neu); });
+  const out = { id, typ, q: frageText(typ, x), o: ord.map((k) => o[k]), a, why: x.why || '', level: stufe(i, n), skill: x.skill || null };
+  if (Array.isArray(x.mem)) out.mem = x.mem.slice();
+  return out;
+}
+
+/** Alle Aufgaben eines Typs, aufbereitet. @param {Record<string, any[]>} bank */
+function vorrat(bank, typ, saat) {
+  const liste = (bank && bank[typ]) || [];
+  return liste.map((x, i) => aufgabe(x, typ, i, liste.length, saat));
+}
+
+/**
+ * Adaptive Auswahl: passende Stufe zuerst (Quote > 78 % → high, < 45 % → low).
+ * @param {ReturnType<typeof aufgabe>[]} liste @param {{ok:number, bad:number}|undefined} stat
+ */
+function auswahl(liste, stat, n, saat) {
+  const s = stat || { ok: 0, bad: 0 }, quote = s.ok / (s.ok + s.bad || 1);
+  const will = quote > 0.78 ? 'high' : quote < 0.45 ? 'low' : 'mid';
+  const vorne = shuffle(liste.filter((x) => x.level === will), saat >>> 0);
+  const rest = shuffle(liste.filter((x) => x.level !== will), (saat ^ 0x9e3779b9) >>> 0);
+  return vorne.concat(rest).slice(0, n);
+}
+
+/** Klausur: je Typ höchstens zwei Aufgaben, gemischt. */
+function klausur(bank, typen, n, saat) {
+  let p = [];
+  typen.forEach((t, k) => { p = p.concat(shuffle(vorrat(bank, t, saat), (saat + k * 7919) >>> 0).slice(0, 2)); });
+  return shuffle(p, (saat ^ 0x2545f491) >>> 0).slice(0, n);
+}
+
+/**
+ * Die Bewertung: richtig ist nur genau die Lösungsmenge.
+ * @param {{o: string[], a: number[]}} a @param {readonly number[]} gewaehlt
+ */
+function pruefe(a, gewaehlt) {
+  const g = [...new Set(gewaehlt)].sort((x, y) => x - y), l = [...a.a].sort((x, y) => x - y);
+  return { ok: g.length === l.length && g.every((v, k) => v === l[k]), richtig: l.map((k) => a.o[k]), gegeben: g.map((k) => a.o[k]) };
+}
+
+/** @param {number} ok @param {number} n */
+function ergebnis(ok, n) {
+  const r = n ? ok / n : 0;
+  return { prozent: Math.round(100 * r), note: schoolGrade(r) };
+}
+
+
+  // @ts-check
+/* =====================================================================
+   M18.4: Lesen, Diktat und Hören der Kinder auf der Kernschicht.
+
+   * Stufen wie bisher (Leicht/Mittel/Schwer, Klasse 1–3/4–6/7–10); die
+     Empfehlung kommt aus der Klasse des Profils.
+   * Fragen: Der Bestand kennt zwei Formen — Lesen `{type, o, a: [...]}`,
+     Hören `{o, c}`. Beide werden zu einer, die Optionen gesetzt gemischt
+     (Lauf + Kennung); bewertet wird mit `pruefe` (app/kern/uebungswelt.js).
+   * Diktat: richtig ist nur der gleiche Wortlaut. Satzzeichen und Leerraum
+     zählen nicht, Groß-/Kleinschreibung schon — das ist im Diktat der
+     Lernstoff (vorher nahm die Engine „die katze“ für „Die Katze“ an).
+     Dazu ein Wortvergleich für die Rückmeldung (app/kern/textdiff.js).
+   * Rotation: derselbe Startwert wie bisher (p68), damit eine laufende
+     Runde ihre Reihenfolge behält.
+   ===================================================================== */
+
+
+
+const STUFEN = [
+  { id: 'low', name: 'Leicht', klassen: 'Klasse 1–3 · kurz & einfach', farbe: 'leicht' },
+  { id: 'mid', name: 'Mittel', klassen: 'Klasse 4–6 · mittelschwer', farbe: 'mittel' },
+  { id: 'high', name: 'Schwer', klassen: 'Klasse 7–10 · lang & anspruchsvoll', farbe: 'schwer' },
+];
+
+/** @param {number|null|undefined} klasse */
+function empfohleneStufe(klasse) {
+  const k = Number(klasse);
+  if (!k) return null;
+  return k <= 3 ? 'low' : k <= 6 ? 'mid' : 'high';
+}
+
+function fnv(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return h >>> 0;
+}
+/** Startwert einer Runde — wie p68: Profil | Sammlung | Runde. */
+function rotationsSaat(profil, sammlung, runde) {
+  return fnv(String(profil) + '|' + sammlung + '|' + runde);
+}
+
+/**
+ * Die Fragen eines Textes, vereinheitlicht und gesetzt gemischt.
+ * @param {{id?: string, q?: any[]}} text @param {number} saat
+ */
+function fragen(text, saat) {
+  return (text.q || []).map((f, k) => {
+    const o = f.o || [];
+    const richtig = new Set(Array.isArray(f.a) ? f.a : typeof f.c === 'number' ? [f.c] : []);
+    const id = f.id || (text.id || 'text') + '#' + k;
+    const ord = shuffle(o.map((_, i) => i), (Math.imul((saat >>> 0) ^ fnv(id), 0x45d9f3b) ^ ((saat >>> 0) >>> 3)) >>> 0);
+    const a = [];
+    ord.forEach((alt, neu) => { if (richtig.has(alt)) a.push(neu); });
+    return { id, q: String(f.q || ''), o: ord.map((i) => o[i]), a, multi: a.length > 1 || f.type === 'multi', why: f.why || '' };
+  });
+}
+
+/**
+ * @param {string} soll @param {string} ist
+ * @returns {{ok: boolean, nurGross: boolean, woerter: ReturnType<typeof diffWords>}}
+ */
+function diktatPruefen(soll, ist) {
+  const leer = !String(ist || '').trim();
+  const ok = !leer && normalizeAnswer(ist, true) === normalizeAnswer(soll, true);
+  const nurGross = !ok && !leer && normalizeAnswer(ist, false) === normalizeAnswer(soll, false);
+  const ohneZeichen = (s) => String(s || '').replace(/[.,!?;:"“”„«»]/g, ' ');
+  return { ok, nurGross, woerter: diffWords(ohneZeichen(soll), ohneZeichen(ist)) };
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+  var ARTEN = {
+    read: { icon: "📚", titel: "Lesen & Verstehen", stueck: "Text", mehr: "Texte", w: "lesen",
+      text: "Lies den Text in Ruhe. Dann beantwortest du die Fragen — der Text ist dabei ausgeblendet.",
+      bank: function (f, t) { return (typeof READ_KIDS !== "undefined" && READ_KIDS[f]) ? READ_KIDS[f][t] : null; } },
+    dikt: { icon: "✍️", titel: "Diktate", stueck: "Satz", mehr: "Sätze", w: "diktat",
+      text: "Hör dir den Satz an und schreibe ihn genau auf — mit Groß- und Kleinschreibung.",
+      bank: function (f, t) { return (typeof DIKT_KIDS !== "undefined" && DIKT_KIDS[f]) ? DIKT_KIDS[f][t] : null; } },
+    hoer: { icon: "🎧", titel: "Hörverstehen", stueck: "Hörtext", mehr: "Hörtexte", w: "hoeren",
+      text: "Hör dir den Text an — so oft du willst. Dann beantworte die Fragen.",
+      bank: function (f, t) { return (typeof HOER_KIDS !== "undefined" && HOER_KIDS[f]) ? HOER_KIDS[f][t] : null; } }
+  };
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function h(s) { return typeof esc === "function" ? esc(String(s == null ? "" : s)) : String(s == null ? "" : s); }
+  function wer() { try { return (typeof CUR !== "undefined" && CUR) ? String(CUR) : "anon"; } catch (e) { return "anon"; } }
+  function sprache() {
+    try { var O = window.__OBERFLAECHE; var f = O && O.fachKuerzel ? O.fachKuerzel() : null; if (f === "en" || f === "de") return f; } catch (e) {}
+    try { return kstate.fach === "en" ? "en" : "de"; } catch (e) { return "de"; }
+  }
+  function klasse() {
+    var p = profil();
+    if (p && p.klasse) return +p.klasse;
+    var m = /(\d+)/.exec(String(kstate.grade || ""));
+    return m ? +m[1] : null;
+  }
+  function aktiv() {
+    var p = profil();
+    if (!p || p.type !== "kid" || (typeof showProfiles !== "undefined" && showProfiles)) return false;
+    return !!ARTEN[kstate.tab];
+  }
+  function kennung(art, x, f, t) {
+    if (art !== "dikt") return x && x.id ? String(x.id) : null;
+    try { var k = window.__KENNUNG && window.__KENNUNG.diktat(f, t, x); if (k) return String(k); } catch (e) {}
+    return typeof x === "string" ? "satz:" + x : null;
+  }
+
+  /* Der Laufstartwert kommt aus p64 (einmal je Sitzung, für Tests setzbar
+     über __MISCHEN.setzeLauf) — dieselbe Quelle wie die übrigen Mischstellen. */
+  function laufSaat() { try { if (window.__MISCHEN && window.__MISCHEN.lauf) return window.__MISCHEN.lauf() >>> 0; } catch (e) {} return (Math.random() * 0x100000000) >>> 0; }
+
+  /* ---------- Rotation (Speicher wie p68) ---------- */
+  function rotKey() { return "egl-textrotation-" + wer(); }
+  function rotLaden() { try { var v = JSON.parse(localStorage.getItem(rotKey()) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } }
+  function rotSpeichern(v) { try { localStorage.setItem(rotKey(), JSON.stringify(v)); } catch (e) {} }
+  function planen(art, fach, stufe, wiederholen) {
+    var bank = ARTEN[art].bank(fach, stufe) || [], nachId = {}, ids = [];
+    for (var i = 0; i < bank.length; i++) {
+      var k = kennung(art, bank[i], fach, stufe);
+      if (!k || nachId[k] !== undefined) k = art + ":" + fach + ":" + stufe + "#" + i;
+      nachId[k] = bank[i]; ids.push(k);
+    }
+    var sammlung = art + ":" + fach + ":" + stufe, alle = rotLaden();
+    var plan = planeDurchlauf(ids, alle[sammlung], function (liste, runde) { return shuffle(liste, rotationsSaat(wer(), sammlung, runde)); }, { wiederholen: !!wiederholen });
+    alle[sammlung] = plan.stand; rotSpeichern(alle);
+    return { art: art, fach: fach, stufe: stufe, sammlung: sammlung, nachId: nachId, reihenfolge: plan.reihenfolge, start: plan.start, i: plan.start,
+      runde: plan.runde, neueRunde: plan.neueRunde, gesamt: ids.length, saat: laufSaat() };
+  }
+  function fertig(tx) {
+    var id = tx.reihenfolge[tx.i];
+    if (!id) return;
+    var alle = rotLaden(), st = alle[tx.sammlung];
+    if (!st || st.runde !== tx.runde) st = { runde: tx.runde, gesehen: [] };
+    alle[tx.sammlung] = markiere(st, id); rotSpeichern(alle);
+  }
+  function aktuell(tx) { return tx.nachId[tx.reihenfolge[tx.i]]; }
+  function neuesStueck(tx) {
+    var x = aktuell(tx);
+    tx.phase = tx.art === "read" ? "lesen" : "fragen";
+    tx.textOffen = false; tx.eingabe = ""; tx.ergebnis = null; tx.antw = {}; tx.seit = Date.now();
+    tx.fr = x && tx.art !== "dikt" ? fragen(x, tx.saat) : [];
+  }
+
+  /* ---------- Ereignisse, Sterne ---------- */
+  function verbuche(tx, id, frage, gegeben, richtig, ok) {
+    var jetzt = Date.now();
+    try { if (window.__ELTERN) window.__ELTERN.hinzufuegen({ i: jetzt.toString(36) + Math.random().toString(36).slice(2, 7), a: id, t: jetzt,
+      f: tx.fach === "en" ? "Englisch" : "Deutsch", s: null, ok: ok ? 1 : 0, q: String(frage).slice(0, 160), g: String(gegeben).slice(0, 80),
+      r: String(richtig).slice(0, 80), d: Math.min(jetzt - tx.seit, 600000), w: ARTEN[tx.art].w, lv: tx.stufe }); } catch (e) {}
+    try { if (typeof K !== "undefined" && K) { if (ok) { K.stars++; K.ok++; } else K.bad++; if (typeof syncProfile === "function") syncProfile(); } } catch (e) {}
+    tx.seit = jetzt;
+  }
+  function sprechen(text, langsam) {
+    try {
+      var u = new SpeechSynthesisUtterance(String(text));
+      u.lang = (kstate.tx && kstate.tx.fach === "en") ? "en-GB" : "de-DE"; u.rate = langsam ? 0.6 : 0.9;
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  /* ---------- Anzeige ---------- */
+  function kopf(art, fach) { var A = ARTEN[art]; return A.icon + " " + A.titel + (fach === "en" ? " · Englisch" : ""); }
+  function htmlStufen(art) {
+    var fach = sprache(), A = ARTEN[art], emp = empfohleneStufe(klasse());
+    return '<div class="hb tx" data-testid="tx-stufen"><h2 class="hb-titel">' + h(kopf(art, fach)) + '</h2><p class="hb-sub">' + h(A.text) + "</p>"
+      + '<p class="fs-text">Wähle deine Stufe' + (emp ? " — ⭐ ist für deine Klasse empfohlen" : "") + ":</p>"
+      + '<div class="sx-stufen">' + STUFEN.map(function (s) {
+        var n = (A.bank(fach, s.id) || []).length;
+        return '<button class="sx-stufe sx-' + s.farbe + '" data-tx-stufe="' + s.id + '"><span class="kt">' + h(s.name) + (s.id === emp ? " ⭐" : "") + '</span>'
+          + '<span class="tx-km">' + h(s.klassen) + " · " + n + " " + h(n === 1 ? A.stueck : A.mehr) + "</span></button>";
+      }).join("") + "</div></div>";
+  }
+  function htmlHinweis(tx) {
+    if (tx.i !== tx.start) return "";
+    var A = ARTEN[tx.art], z = "";
+    if (tx.neueRunde) z = "🔁 Du hast alle " + tx.gesamt + " " + A.mehr + " geschafft — Runde " + tx.runde + " beginnt. Die Reihenfolge ist jetzt gemischt.";
+    else if (tx.start > 0) z = "📌 Du machst dort weiter, wo du aufgehört hast.";
+    if (!z) return "";
+    return '<div class="b6-hinweis" data-testid="b6-hinweis">' + h(z) + (tx.start > 0 ? ' <button class="btn" data-tx="vorigen">↺ Vorigen noch einmal</button>' : "") + "</div>";
+  }
+  function htmlFragen(tx) {
+    var s = "", alle = true;
+    tx.fr.forEach(function (f, k) {
+      var a = tx.antw[k] || { gewaehlt: [] }, erg = a.ergebnis;
+      if (!erg) alle = false;
+      s += '<div class="tx-frage" data-testid="tx-frage"><div class="tx-q uw-frage">' + (k + 1) + ". " + h(f.q) + "</div>"
+        + (f.multi && !erg ? '<p class="uw-hinweis">Mehrere Antworten sind richtig — wähle alle und prüfe dann.</p>' : "")
+        + '<div class="uw-opts">' + f.o.map(function (o, i) {
+          var gew = a.gewaehlt.indexOf(i) >= 0, cls = "uw-opt" + (gew ? " gewaehlt" : "");
+          if (erg) { if (f.a.indexOf(i) >= 0) cls += " richtig"; else if (gew) cls += " falsch"; }
+          return '<button class="' + cls + '" data-tx-opt="' + k + ":" + i + '"' + (f.multi ? ' aria-pressed="' + gew + '"' : "") + (erg ? " disabled" : "") + ">" + h(o) + "</button>";
+        }).join("") + "</div>"
+        + (f.multi && !erg ? '<button class="btn btn-primary" data-tx-pruefen="' + k + '"' + (a.gewaehlt.length ? "" : " disabled") + ">Antwort prüfen</button>" : "")
+        + (erg ? '<div class="uw-fb ' + (erg.ok ? "gut" : "noch") + '" role="status"><b>' + (erg.ok ? "Richtig." : "Noch nicht.") + "</b> "
+          + (erg.ok ? "" : "Richtig ist: <b>" + h(erg.richtig.join(", ")) + "</b>. ") + h(f.why) + "</div>" : "")
+        + "</div>";
+    });
+    return { html: s, alle: alle };
+  }
+  function htmlStueck(tx) {
+    var A = ARTEN[tx.art], n = tx.reihenfolge.length;
+    var s = '<div class="hb tx"><button class="back" data-tx="stufen">← Stufe wählen</button>';
+    if (tx.i >= n) {
+      return s + '<div class="lp-box" role="status" data-testid="tx-ende"><h3 style="margin:0 0 6px">🎉 Alle ' + n + " " + h(A.mehr) + " dieser Stufe geschafft!</h3>"
+        + "<p>In der nächsten Runde kommen sie in neuer Reihenfolge.</p></div>"
+        + '<div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn btn-primary" data-tx="runde">Nächste Runde</button><button class="btn" data-tx="stufen">Andere Stufe</button></div></div>';
+    }
+    var x = aktuell(tx);
+    s += '<div class="uw-kopf"><h2 class="hb-titel" data-testid="tx-titel">' + A.icon + " " + A.stueck + " " + (tx.i + 1) + " von " + n + "</h2></div>" + htmlHinweis(tx);
+    if (tx.art === "dikt") {
+      var e = tx.ergebnis;
+      s += '<p class="fs-text">' + h(A.text) + "</p>"
+        + '<div class="tx-hoeren"><button class="btn btn-primary" data-tx="hoeren">🔊 Anhören</button><button class="btn" data-tx="langsam">🐢 Langsam</button></div>'
+        + '<label class="tx-label" for="tx-eingabe">Was hast du gehört?</label>'
+        + '<textarea id="tx-eingabe" class="tx-eingabe" rows="2" lang="' + tx.fach + '" spellcheck="false" autocapitalize="off" autocomplete="off"' + (e ? " readonly" : "") + ">" + h(tx.eingabe || "") + "</textarea>";
+      if (!e) s += '<div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn btn-primary" data-tx="pruefen" data-testid="tx-pruefen">Prüfen</button></div>';
+      else {
+        s += '<div class="uw-fb ' + (e.ok ? "gut" : "noch") + '" role="status" data-testid="tx-fb">'
+          + (e.ok ? "<b>Richtig!</b> Genau so wird es geschrieben."
+            : e.nurGross ? "<b>Fast!</b> Achte auf die Groß- und Kleinschreibung. Richtig ist: <b>" + h(x) + "</b>"
+            : "<b>Noch nicht.</b> Richtig ist: <b>" + h(x) + "</b>"
+              + '<div class="tx-woerter" aria-label="Wortvergleich">' + e.woerter.map(function (w) {
+                return w.kind === "ok" ? '<span class="tx-w ok">' + h(w.word) + "</span>"
+                  : w.kind === "wrong" ? '<span class="tx-w falsch" title="richtig: ' + h(w.expected) + '">' + h(w.word) + " → " + h(w.expected) + "</span>"
+                  : w.kind === "missing" ? '<span class="tx-w fehlt">+ ' + h(w.expected) + "</span>"
+                  : '<span class="tx-w zuviel">− ' + h(w.word) + "</span>";
+              }).join(" ") + "</div>")
+          + '</div><button class="btn btn-primary" data-tx="weiter" data-testid="tx-weiter">Weiter →</button>';
+      }
+      return s + "</div>";
+    }
+    if (tx.art === "read") {
+      if (tx.phase === "lesen" || tx.textOffen) s += '<div class="tx-text" data-testid="tx-text" lang="' + tx.fach + '">' + h(x.t) + "</div>";
+      if (tx.phase === "lesen") return s + '<div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn btn-primary" data-tx="fragen" data-testid="tx-fragen">Fragen anzeigen →</button>'
+        + '<button class="btn" data-tx="vorlesen">🔊 Vorlesen</button></div></div>';
+      s += '<p class="fs-text">Der Text ist ausgeblendet. <button class="btn" data-tx="textzeigen">' + (tx.textOffen ? "Text ausblenden" : "👁 Text noch einmal ansehen") + "</button></p>";
+    }
+    if (tx.art === "hoer") s += '<div class="tx-hoeren"><button class="btn btn-primary" data-tx="hoeren" data-testid="tx-anhoeren">🔊 Anhören</button><button class="btn" data-tx="langsam">🐢 Langsam</button></div>';
+    var fr = htmlFragen(tx);
+    s += fr.html;
+    if (fr.alle) s += '<button class="btn btn-primary" data-tx="weiter" data-testid="tx-weiter">' + (tx.i + 1 < n ? "Nächster " + h(A.stueck) + " →" : "Fertig →") + "</button>";
+    return s + "</div>";
+  }
+
+  /* ---------- Einhängen ---------- */
+  var renderVorher = render;
+  var renderNeu = function () {
+    if (aktiv() && typeof document.getElementById === "function") {
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) {
+        var tx = kstate.tx;
+        if (tx && (tx.art !== kstate.tab || tx.fach !== sprache())) kstate.tx = tx = null;
+        view.innerHTML = tx ? htmlStueck(tx) : htmlStufen(kstate.tab);
+        try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
+        return;
+      }
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+  function neu() { try { render(); } catch (e) {} }
+
+  function starte(art, stufe, wiederholen) { var tx = planen(art, sprache(), stufe, wiederholen); neuesStueck(tx); kstate.tx = tx; }
+  function waehle(k, i) {
+    var tx = kstate.tx, f = tx && tx.fr[k]; if (!f) return;
+    var a = tx.antw[k] || (tx.antw[k] = { gewaehlt: [] });
+    if (a.ergebnis) return;
+    if (f.multi) { var j = a.gewaehlt.indexOf(i); if (j < 0) a.gewaehlt.push(i); else a.gewaehlt.splice(j, 1); return; }
+    a.gewaehlt = [i]; antworte(k);
+  }
+  function antworte(k) {
+    var tx = kstate.tx, f = tx.fr[k], a = tx.antw[k];
+    if (!a || a.ergebnis || !a.gewaehlt.length) return;
+    a.ergebnis = pruefe(f, a.gewaehlt);
+    verbuche(tx, f.id, f.q, a.ergebnis.gegeben.join(", "), a.ergebnis.richtig.join(", "), a.ergebnis.ok);
+  }
+  function diktatPruefe() {
+    var tx = kstate.tx, el = document.getElementById("tx-eingabe"), ein = el ? el.value : (tx.eingabe || "");
+    if (!String(ein).trim()) { if (el && el.focus) el.focus(); return; }
+    var soll = String(aktuell(tx));
+    tx.eingabe = ein; tx.ergebnis = diktatPruefen(soll, ein);
+    verbuche(tx, tx.reihenfolge[tx.i], soll, ein, soll, tx.ergebnis.ok);
+  }
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest("[data-tx],[data-tx-stufe],[data-tx-opt],[data-tx-pruefen]") : null;
+    if (!t || !aktiv()) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var tx = kstate.tx;
+    if (t.hasAttribute("data-tx-stufe")) starte(kstate.tab, t.getAttribute("data-tx-stufe"));
+    else if (t.hasAttribute("data-tx-opt")) { var p = t.getAttribute("data-tx-opt").split(":"); waehle(+p[0], +p[1]); }
+    else if (t.hasAttribute("data-tx-pruefen")) antworte(+t.getAttribute("data-tx-pruefen"));
+    else {
+      var was = t.getAttribute("data-tx");
+      if (was === "stufen") kstate.tx = null;
+      else if (!tx) return;
+      else if (was === "fragen") { tx.phase = "fragen"; tx.seit = Date.now(); }
+      else if (was === "textzeigen") tx.textOffen = !tx.textOffen;
+      else if (was === "vorlesen") { sprechen(aktuell(tx).t, false); return; }
+      else if (was === "hoeren" || was === "langsam") { var x = aktuell(tx); sprechen(tx.art === "dikt" ? x : x.t, was === "langsam"); return; }
+      else if (was === "pruefen") diktatPruefe();
+      else if (was === "weiter") { fertig(tx); tx.i++; if (tx.i < tx.reihenfolge.length) neuesStueck(tx); }
+      else if (was === "vorigen") starte(tx.art, tx.stufe, true);
+      else if (was === "runde") starte(tx.art, tx.stufe, false);
+    }
+    neu();
+    if (kstate.tx && kstate.tx.art === "dikt" && !kstate.tx.ergebnis) { try { var ein = document.getElementById("tx-eingabe"); if (ein && ein.focus) ein.focus(); } catch (x) {} }
+  }, true);
+  ziel.addEventListener("input", function (e) { if (e.target && e.target.id === "tx-eingabe" && kstate.tx) kstate.tx.eingabe = e.target.value; }, true);
+  ziel.addEventListener("keydown", function (e) {
+    if (!e.target || e.target.id !== "tx-eingabe" || !aktiv() || !kstate.tx || kstate.tx.ergebnis) return;
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); diktatPruefe(); neu(); }
+  }, true);
+
+  window.__TEXTE = { starte: function (art, stufe) { kstate.tab = art; starte(art, stufe); neu(); }, kern: { fragen: fragen, diktatPruefen: diktatPruefen }, shuffle: shuffle };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 08:10")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 08:50")}}catch(e){}
 })();
 
 </script>
