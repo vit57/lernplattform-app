@@ -966,6 +966,49 @@ html[data-theme] .nv-item.aktiv {
 /* Fuß: kein deckender Streifen über dem Hintergrund */
 html[data-theme] body.nv-an footer { background: transparent !important; border-top: 1px solid var(--glas-linie) !important; }
 
+/* Profilwahl und Kopfzeile ohne Seitenleiste: Glas statt weißer Balken.
+   Auch hier auf ::before — nie backdrop-filter auf header selbst (M31). */
+html[data-theme] body:not(.nv-an) header { background: transparent !important; isolation: isolate; border-bottom: 1px solid var(--glas-linie) !important; }
+html[data-theme] body:not(.nv-an) header::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--glas-stark); -webkit-backdrop-filter: var(--glas-blur-stark); backdrop-filter: var(--glas-blur-stark);
+}
+html[data-theme] :is(.profile-new, .profile-card, .ptype-btn) {
+  background: var(--glas) !important; color: var(--ink);
+  -webkit-backdrop-filter: var(--glas-blur); backdrop-filter: var(--glas-blur);
+  border: 1px solid var(--glas-linie) !important; border-radius: var(--radius-l) !important;
+  box-shadow: var(--glas-licht), var(--glas-schatten);
+}
+html[data-theme] .profile-new { padding: 22px !important; }
+html[data-theme] .ptype-btn { border-radius: var(--radius-m) !important; transition: transform 140ms var(--ease-out, ease-out), box-shadow 150ms ease; }
+html[data-theme] .ptype-btn:active, html[data-theme] .profile-card:active { transform: scale(.97); }
+html[data-theme] .ptype-btn.sel-type {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 20%, var(--glas)), color-mix(in srgb, var(--brand) 12%, var(--glas))) !important;
+  border-color: color-mix(in srgb, var(--brand) 60%, transparent) !important;
+}
+html[data-theme] .profile-new input#pname { border-radius: var(--radius-s); border: 1px solid var(--glas-linie); background: color-mix(in srgb, var(--paper) 80%, transparent); }
+html[data-theme] .profile-new input#pname:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 3px var(--brand-soft, color-mix(in srgb, var(--brand) 25%, transparent)); }
+html[data-theme] { accent-color: var(--brand); }
+@media (hover: hover) and (pointer: fine) { html[data-theme] .profile-card:hover { box-shadow: var(--glas-licht), var(--glas-schatten-hoch); } }
+
+/* Dialoge (Darstellung, PIN, Bestätigungen): schwere Glasfläche über gedimmtem Grund */
+html[data-theme] .ps-box {
+  background: var(--glas-stark) !important;
+  -webkit-backdrop-filter: var(--glas-blur-stark); backdrop-filter: var(--glas-blur-stark);
+  border: 1px solid var(--glas-linie); border-radius: 22px !important;
+  box-shadow: var(--glas-licht), 0 30px 80px -20px rgba(10, 8, 30, .45) !important;
+}
+html[data-theme][data-glas="aus"] .ps-box, html[data-theme][data-farbe="kontrast"] .ps-box { background: var(--paper) !important; }
+/* Auswahllisten und Eingabefelder im Inhalt passend zu den Glasflächen */
+html[data-theme] #view select {
+  font: inherit; font-size: 14px; padding: 6px 28px 6px 10px; border-radius: var(--radius-s);
+  border: 1px solid var(--glas-linie); color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 80%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  -webkit-appearance: none; appearance: none;
+}
+html[data-theme] #view :is(select, textarea, input[type="text"], input[type="search"], input[type="number"], input:not([type])):focus-visible { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
+html[data-theme] #view textarea { border-radius: var(--radius-m); border-color: var(--glas-linie); background: color-mix(in srgb, var(--paper) 82%, transparent); }
+
 /* ---------- 2. Glas: Inhalt (Karten, Kästen, Zeilen) ---------- */
 html[data-theme] #view :is(.hb-karte:not(.gross), .hb-zahlen > div, .ht-block, .lp-st, .lp-box, .el-box, .bm-ast, .bm-stamm,
   .kal-tag, .kal-form, .kal-heute, .tb-karte, .tb-st, .tb-tag, .tb-gf, .sk-karte, .sk-auftrag, .kl-karte:not(.gross), .kl-ergebnis,
@@ -32247,7 +32290,8 @@ function aktiv(u, t) {
     var ow = window.__OHNE_WERTUNG || [];
     if (!ow.length) return "";
     return '<div class="el-box" data-testid="el-ohne-wertung"><h3>ℹ️ Übungen ohne Wertung</h3><p style="margin:0;color:var(--ink2)">'
-      + h(ow.map(function (x) { return x.was.split(" — ")[0]; }).join(", "))
+      /* M31: „Simon wird nicht gemessen“ las sich wie ein Kind — Spielname in Anführungszeichen, Art dahinter */
+      + h(ow.map(function (x) { var t = x.was.split(" — "); return "Das Spiel „" + t[0] + "“" + (t[1] ? " (" + t[1] + ")" : ""); }).join(", "))
       + " " + (ow.length === 1 ? "wird" : "werden") + " nicht gemessen. Fehlt dazu eine Zahl, heißt das „nicht messbar“ — nicht „nicht geübt“.</p></div>";
   }
 
@@ -38996,7 +39040,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 21:33")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 21:45")}}catch(e){}
 })();
 
 </script>
