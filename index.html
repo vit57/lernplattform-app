@@ -833,6 +833,14 @@ html[data-theme] :is(.btn, .hb-karte, .uw-opt, .sx-stufe, .fs-fach, .k2-note, .n
 .tb-karte > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
 .tb-kurve { font-size: 18px; letter-spacing: .02em; }
 @media (max-width: 520px) { .tb-streifen { grid-template-columns: repeat(7, minmax(0, 1fr)); } .tb-st .tb-em { font-size: 28px; } }
+
+/* Karten-Import (p84, M26) */
+.k2-fach small { font-weight: 400; opacity: .75; }
+.k2-imp-wege { display: grid; gap: 6px; max-width: 760px; padding: 12px 16px; margin: 0 0 14px; border-radius: 14px; background: var(--paper2, rgba(0,0,0,.03)); font-size: 14px; line-height: 1.5; }
+.k2i-warn { margin: 0 0 10px; padding-left: 20px; color: var(--ink2); font-size: 14px; }
+.k2i-tab { max-width: 760px; margin: 10px 0 6px; }
+.k2i-tab td { vertical-align: top; }
+.k2i-sp select { display: block; width: 100%; margin-top: 6px; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -25351,7 +25359,7 @@ const FEST = {
 const JE_PROFIL = [
   ['egl-textrotation-', 'textrotation', 'objekt'], ['egl-ereignisse-', 'ereignisse', 'liste'],
   ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'], ['egl-woche-', 'woche', 'objekt'], ['egl-schreiben-', 'schreiben', 'objekt'], ['egl-lernzeit-', 'lernzeit', 'objekt'], ['egl-kalender-', 'kalender', 'objekt'], ['egl-tagebuch-', 'tagebuch', 'objekt'],
-  ['egl-fcstreak-', 'fcstreak', 'json'], ['egl-fckorr-', 'fckorr', 'objekt'], ['egl-mywords-', 'mywords', 'json'], ['egl-fchide-', 'fchide', 'json'],
+  ['egl-fcstreak-', 'fcstreak', 'json'], ['egl-fckorr-', 'fckorr', 'objekt'], ['egl-fcstapel-', 'fcstapel', 'objekt'], ['egl-mywords-', 'mywords', 'json'], ['egl-fchide-', 'fchide', 'json'],
   ['egl-m127-', 'm127', 'json'], ['egl-v17-', 'v17', 'json'], ['egl-uni-', 'uni', 'json'], ['egl-fc-', 'fc', 'json'],
 ];
 
@@ -33712,21 +33720,194 @@ function korrekturSaeubern(c) {
 }
 
 
+  // @ts-check
+/* =====================================================================
+   M26: Karteikarten importieren (Rückmeldung 2026-10-03: „Flashcards aus
+   anderen Quellen importieren … wie von Notion, Anki“). Reine Funktionen.
+
+   Erkannt werden:
+     * Anki „Notizen als Klartext“ / „Karten als Klartext“ (.txt): Tab-
+       getrennt, Kopfzeilen #separator, #html, #columns, #deck column,
+       #notetype column, #tags column; HTML, [sound:…], Lückentext {{c1::…}};
+     * Notion-Datenbank als CSV (Kopfzeile, Anführungszeichen, BOM);
+     * Tabellen CSV/TSV (Komma, Semikolon, Tab — automatisch);
+     * Markdown-Tabellen (| Wort | Übersetzung |) und Zeilen wie
+       „Wort – Übersetzung“, „Wort = Übersetzung“, „Wort: Übersetzung“.
+   Ein .apkg-Paket (SQLite) lässt sich im Browser ohne Zusatzbibliothek
+   nicht lesen — dafür in Anki „Exportieren → Notizen als Klartext“.
+   ===================================================================== */
+
+const MAX_KARTEN = 5000;
+
+/** HTML aus Anki/Notion zu Text. */
+function ohneHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/\[sound:[^\]]*\]/g, '')
+    .replace(/\{\{c\d+::(.*?)(::[^}]*)?\}\}/g, '$1')
+    .replace(/<br\s*\/?>/gi, ' / ').replace(/<\/(div|p|li)>/gi, ' / ')
+    .replace(/<img[^>]*>/gi, '').replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/(\s*\/\s*)+$/g, '').replace(/^(\s*\/\s*)+/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** Eine Zeile mit Trennzeichen lesen (Anführungszeichen wie in CSV). */
+function zelleSplit(zeile, trenn) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < zeile.length; i++) {
+    const c = zeile[i];
+    if (q) { if (c === '"') { if (zeile[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"' && cur.trim() === '') { q = true; cur = ''; }
+    else if (c === trenn) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+/** Text in Datensätze teilen — Zeilenumbrüche in Anführungszeichen bleiben im Feld. */
+function datensaetze(text, trenn) {
+  const zeilen = [], s = text; let cur = '', q = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"') { if (q && s[i + 1] === '"') { cur += '""'; i++; continue; } q = !q; cur += c; continue; }
+    if (!q && (c === '\n' || c === '\r')) { if (c === '\r' && s[i + 1] === '\n') i++; zeilen.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  if (cur) zeilen.push(cur);
+  return zeilen.filter((z) => z.trim() !== '').map((z) => zelleSplit(z, trenn));
+}
+function trennzeichen(zeilen) {
+  const probe = zeilen.slice(0, 20), kand = ['\t', ';', ',', '|'];
+  let best = null, bestScore = 0;
+  for (const t of kand) {
+    const n = probe.map((z) => zelleSplit(z, t).length);
+    const mit = n.filter((x) => x >= 2).length;
+    const gleich = n.filter((x) => x === n[0]).length;
+    const score = mit * 2 + gleich - (t === ',' ? 0.5 : 0);
+    if (mit >= Math.ceil(probe.length * 0.6) && score > bestScore) { best = t; bestScore = score; }
+  }
+  return best;
+}
+
+const VORNE = /^(front|vorderseite|vorne|frage|question|word|wort|term|begriff|name|vokabel|english|englisch|deutsch|german|title|titel)$/i;
+const HINTEN = /^(back|rückseite|rueckseite|hinten|antwort|answer|translation|übersetzung|uebersetzung|definition|meaning|bedeutung|russisch|russian|deutsch|german)$/i;
+const BEISPIEL = /^(example|examples|beispiel|beispiele|beispielsatz|satz|sentence|context|kontext)$/i;
+const KOPF = new RegExp([VORNE.source, HINTEN.source, BEISPIEL.source, '^(tags?|deck|notiz|notes?)$'].join('|'), 'i');
+
+/**
+ * Text einer Datei oder eines Einfügefelds lesen.
+ * @param {string} text @param {{dateiname?: string, vorne?: number, hinten?: number, beispiel?: number|null, tauschen?: boolean}} [opt]
+ */
+function importieren(text, opt = {}) {
+  const warn = [];
+  let s = String(text || '').replace(/^﻿/, '');
+  /* Anki-Kopfzeilen */
+  const anki = {}; let html = /\.(txt)$/i.test(opt.dateiname || '') && /<[a-z][^>]*>/i.test(s);
+  const kopfZeilen = [];
+  s = s.split(/\r?\n/).filter((z) => {
+    const m = /^#([a-z ]+):(.*)$/i.exec(z);
+    if (!m) return true;
+    kopfZeilen.push(z); anki[m[1].trim().toLowerCase()] = m[2].trim(); return false;
+  }).join('\n');
+  if (anki.html === 'true') html = true;
+  const ankiTrenn = { tab: '\t', comma: ',', semicolon: ';', pipe: '|', space: ' ' }[anki.separator || ''];
+  const ohne = new Set();
+  for (const k of ['notetype column', 'deck column', 'tags column', 'guid column']) if (anki[k]) ohne.add(Number(anki[k]) - 1);
+  let format = kopfZeilen.length ? 'anki' : 'tabelle';
+
+  /* Markdown-Tabelle */
+  let reihen;
+  const zeilen = s.split(/\r?\n/).filter((z) => z.trim());
+  if (zeilen.length && zeilen.filter((z) => /^\s*\|.*\|\s*$/.test(z)).length >= Math.max(1, zeilen.length * 0.6)) {
+    format = 'markdown';
+    reihen = zeilen.filter((z) => !/^\s*\|?\s*:?-{2,}/.test(z)).map((z) => z.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()));
+  } else {
+    const t = ankiTrenn || trennzeichen(zeilen);
+    if (t) reihen = datensaetze(s, t).map((r) => r.map((c) => c.trim()));
+    else {
+      /* „Wort – Übersetzung“ */
+      format = format === 'anki' ? 'anki' : 'zeilen';
+      reihen = zeilen.map((z) => { const m = /^\s*(?:[-*•]\s+)?(.+?)\s+(?:[–—-]|=|->|→)\s+(.+)$/.exec(z) || /^\s*(?:[-*•]\s+)?([^:]+?):\s+(.+)$/.exec(z); return m ? [m[1], m[2]] : [z]; });
+    }
+  }
+  /* Kopfzeile erkennen */
+  let kopf = null;
+  if (reihen.length > 1 && reihen[0].filter((c) => KOPF.test(c.trim())).length >= 1 && reihen[0].every((c) => c.length < 40)) kopf = reihen.shift();
+  if (anki.columns) kopf = anki.columns.split(ankiTrenn || '\t');
+  if (kopf && format === 'tabelle' && kopf.some((c) => /^(name|tags|created|erstellt)$/i.test(c))) format = 'notion';
+  const spalten = Math.max(0, ...reihen.map((r) => r.length));
+  const nutzbar = [...Array(spalten).keys()].filter((i) => !ohne.has(i));
+  const finde = (re, sonst) => { if (kopf) { const i = kopf.findIndex((c, j) => !ohne.has(j) && re.test(c.trim())); if (i >= 0) return i; } return sonst; };
+  let vorne = opt.vorne != null ? opt.vorne : finde(VORNE, nutzbar[0] ?? 0);
+  let hinten = opt.hinten != null ? opt.hinten : finde(HINTEN, nutzbar.find((i) => i !== vorne) ?? 1);
+  if (hinten === vorne) hinten = nutzbar.find((i) => i !== vorne) ?? 1;
+  const beispiel = opt.beispiel !== undefined ? opt.beispiel : (kopf ? finde(BEISPIEL, null) : (nutzbar.length >= 3 ? nutzbar.find((i) => i !== vorne && i !== hinten) ?? null : null));
+  if (opt.tauschen) [vorne, hinten] = [hinten, vorne];
+  const deckSpalte = anki['deck column'] ? Number(anki['deck column']) - 1 : -1;
+
+  const karten = [], gesehen = new Set();
+  let leer = 0, doppelt = 0, deck = null;
+  for (const r of reihen) {
+    const v = ohneHtml(r[vorne]), hi = ohneHtml(r[hinten]);
+    if (!v || !hi) { leer++; continue; }
+    const k = v.toLowerCase();
+    if (gesehen.has(k)) { doppelt++; continue; }
+    gesehen.add(k);
+    const c = { w: v.slice(0, 200), tr: hi.slice(0, 400) };
+    const ex = beispiel != null ? ohneHtml(r[beispiel]) : '';
+    if (ex) c.ex = ex.slice(0, 400);
+    karten.push(c);
+    if (!deck && deckSpalte >= 0 && r[deckSpalte]) deck = ohneHtml(r[deckSpalte]).split('::').pop();
+    if (karten.length >= MAX_KARTEN) { warn.push('Nur die ersten ' + MAX_KARTEN + ' Karten übernommen.'); break; }
+  }
+  if (leer) warn.push(leer + (leer === 1 ? ' Zeile ohne Vorder- oder Rückseite übersprungen.' : ' Zeilen ohne Vorder- oder Rückseite übersprungen.'));
+  if (doppelt) warn.push(doppelt + ' doppelte Karten übersprungen.');
+  if (!karten.length && /\.apkg$/i.test(opt.dateiname || '')) warn.push('Ein Anki-Paket (.apkg) lässt sich hier nicht lesen. In Anki: Datei → Exportieren → „Notizen als Klartext (.txt)“.');
+  return { format, kopf, spalten, vorne, hinten, beispiel, karten, warnungen: warn, deck };
+}
+
+/** Sprache der Vorderseite raten (für das Vorlesen). */
+function spracheRaten(karten) {
+  const t = karten.slice(0, 50).map((c) => c.w).join(' ');
+  if (/[А-Яа-яЁё]/.test(t)) return 'ru';
+  if (/[äöüßÄÖÜ]/.test(t) || /\b(der|die|das|und|ist|nicht)\b/i.test(t)) return 'de';
+  if (/\b(the|to|and|is|of)\b/i.test(t) || /^[\x00-\x7F]+$/.test(t)) return 'en';
+  return 'de';
+}
+
+
   if (typeof kstate === "undefined" || typeof render !== "function") return;
   function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
   function istKind() { var p = profil(); return !!(p && p.type === "kid"); }
   function h(s) { return typeof esc === "function" ? esc(s) : String(s == null ? "" : s); }
   function wer() { try { return (typeof CUR !== "undefined" && CUR) ? CUR : ((profil() || {}).id || "anon"); } catch (e) { return "anon"; } }
   function sprache() { try { return typeof curLang !== "undefined" && curLang ? curLang : "en"; } catch (e) { return "en"; } }
-  function bereich() { return istKind() ? "kid-" + (kstate.fcFach || "en") : "ad-" + sprache(); }
-  function lang(sc) { return /-de$/.test(sc) ? "de" : "en"; }
-  function fachName(sc) { return lang(sc) === "de" ? "Deutsch" : "Englisch"; }
+  function bereich() { if (kstate.fcStapel && stapel(kstate.fcStapel)) return "eigen-" + kstate.fcStapel; return istKind() ? "kid-" + (kstate.fcFach || "en") : "ad-" + sprache(); }
+  function lang(sc) { if (/^eigen-/.test(sc)) { var st = stapel(sc.slice(6)); return (st && st.sprache) || "de"; } return /-de$/.test(sc) ? "de" : "en"; }
+  function fachName(sc) { var l = lang(sc); return l === "de" ? "Deutsch" : l === "en" ? "Englisch" : "Eigene Karten"; }
+  var STIMME = { de: "de-DE", en: "en-GB", ru: "ru-RU", fr: "fr-FR", es: "es-ES", it: "it-IT", uk: "uk-UA", tr: "tr-TR" };
+
+  /* ---------- M26: eigene Stapel (importiert aus Anki, Notion, Tabellen) ---------- */
+  function stapelKey() { return "egl-fcstapel-" + wer(); }
+  function stapelAlle() { var v = lies(stapelKey(), {}); v.stapel = v.stapel || {}; return v; }
+  function stapel(id) { return stapelAlle().stapel[id] || null; }
+  function stapelListe() { var a = stapelAlle().stapel; return Object.keys(a).map(function (k) { return a[k]; }).sort(function (x, y) { return (x.t || 0) - (y.t || 0); }); }
+  function eigenVorrat(sc, alle) {
+    var st = stapel(sc.slice(6)); if (!st) return [];
+    var korr = korrLaden().korr[sc] || {}, weg = alle ? {} : lies(versteckKey(sc), {});
+    return (st.karten || []).filter(function (c) { return !weg[c.w]; }).map(function (c) {
+      var k = korr[c.w], r = { w: c.w, tr: c.tr, haupt: c.tr, neben: "", ex: c.ex || "", exUe: "", korrigiert: !!k, quelle: "eigen" };
+      if (k) ["haupt", "neben", "ex", "exUe"].forEach(function (f) { if (typeof k[f] === "string") r[f] = k[f]; });
+      r.tr = r.haupt; return r;
+    });
+  }
   function lies(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || "null"); return v && typeof v === "object" ? v : d; } catch (e) { return d; } }
   function schreib(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function standKey(sc) { return "egl-fc-" + wer() + "-" + sc; }
   function versteckKey(sc) { return "egl-fchide-" + wer() + "-" + sc; }
   function enginePool(sc) { try { var f = window.fcPool || (typeof fcPool === "function" ? fcPool : null); return f ? (f(sc) || []) : []; } catch (e) { return []; } }
-  function vorrat(sc) { return /^kid-/.test(sc) ? nachKlasse(kinderVorrat(sc), klasse(), umfang()) : enginePool(sc); }
+  function vorrat(sc) { return /^eigen-/.test(sc) ? eigenVorrat(sc) : /^kid-/.test(sc) ? nachKlasse(kinderVorrat(sc), klasse(), umfang()) : enginePool(sc); }
 
   /* ---------- Kinder: eigener Vorrat ---------- */
   function klasse() {
@@ -33758,7 +33939,7 @@ function korrekturSaeubern(c) {
     if (f === "en") { if (!cacheDe) cacheDe = ruNachDeutsch(vorratBauen({ sprache: "de", basis: basisWoerter("de"), zusatz: zusatz("de") })); o.ruVonDeutsch = cacheDe; }
     return vorratBauen(o);
   }
-  function karteVon(sc, w) { var v = /^kid-/.test(sc) ? kinderVorrat(sc, true) : enginePool(sc); for (var i = 0; i < v.length; i++) if (v[i].w === w) return v[i]; return null; }
+  function karteVon(sc, w) { var v = /^eigen-/.test(sc) ? eigenVorrat(sc, true) : /^kid-/.test(sc) ? kinderVorrat(sc, true) : enginePool(sc); for (var i = 0; i < v.length; i++) if (v[i].w === w) return v[i]; return null; }
   function flagge(sc, text, haupt) {
     var ru = /[А-Яа-яЁё]/.test(text || "");
     if (ru) return "🇷🇺";
@@ -33779,11 +33960,16 @@ function korrekturSaeubern(c) {
     var sc = bereich(), l = lage(vorrat(sc), lies(standKey(sc), {}), Date.now());
     var s = '<div class="hb k2" data-testid="k2-start"><h2 class="hb-titel">🃏 Karteikarten</h2>'
       + '<p class="hb-sub">Erst überlegen, dann aufdecken. Was sitzt, kommt seltener wieder — nach 1, 2, 4, 7, 15 und 30 Tagen. Was noch nicht sitzt, kommt gleich nochmal.</p>';
-    if (istKind()) s += '<div class="k2-fach" role="group" aria-label="Fach">' + ["en", "de"].map(function (f) {
-      var an = (kstate.fcFach || "en") === f;
+    var eigen = /^eigen-/.test(sc), liste = stapelListe();
+    s += '<div class="k2-fach" role="group" aria-label="Stapel">' + (istKind() ? ["en", "de"].map(function (f) {
+      var an = !eigen && (kstate.fcFach || "en") === f;
       return '<button class="btn' + (an ? " btn-primary" : "") + '" aria-pressed="' + an + '" data-k2="fach" data-k2-fach="' + f + '">' + (f === "en" ? "🇬🇧 Englisch" : "🇩🇪 Deutsch") + "</button>";
-    }).join("") + "</div>";
-    if (istKind()) {
+    }).join("") : (liste.length ? '<button class="btn' + (!eigen ? " btn-primary" : "") + '" aria-pressed="' + !eigen + '" data-k2="fach" data-k2-fach="">📚 Vokabeln</button>' : ""))
+      + liste.map(function (st) {
+        var an = eigen && sc === "eigen-" + st.id;
+        return '<button class="btn' + (an ? " btn-primary" : "") + '" aria-pressed="' + an + '" data-k2="stapel" data-k2-stapel="' + h(st.id) + '">📥 ' + h(st.name) + " <small>(" + (st.karten || []).length + ")</small></button>";
+      }).join("") + '<button class="btn" data-k2="import" data-testid="k2-import">＋ Karten importieren</button></div>';
+    if (istKind() && !eigen) {
       var kl = klasse(), u = umfang();
       if (kl) s += '<div class="k2-fach k2-umfang" role="group" aria-label="Welche Wörter?">' + [["bis", "Klasse 1–" + kl + " ⭐"], ["klasse", "nur Klasse " + kl], ["alle", "alle Klassen"]].map(function (x) {
         return '<button class="btn' + (u === x[0] ? " btn-primary" : "") + '" aria-pressed="' + (u === x[0]) + '" data-k2="umfang" data-k2-umfang="' + x[0] + '">' + h(x[1]) + "</button>";
@@ -33798,6 +33984,65 @@ function korrekturSaeubern(c) {
     } else s += '<p class="lm-hinweis" data-testid="k2-nichts">🎉 Im Moment ist keine Karte fällig. Komm später wieder!</p>';
     return s + htmlVerwalten(sc) + "</div>";
   }
+
+  /* ---------- M26: Import ---------- */
+  var SPRACHEN = [["de", "🇩🇪 Deutsch"], ["en", "🇬🇧 Englisch"], ["ru", "🇷🇺 Russisch"], ["fr", "🇫🇷 Französisch"], ["es", "🇪🇸 Spanisch"], ["it", "🇮🇹 Italienisch"], ["uk", "🇺🇦 Ukrainisch"], ["tr", "🇹🇷 Türkisch"]];
+  var FORMATE = { anki: "Anki (Klartext)", notion: "Notion (CSV)", tabelle: "Tabelle (CSV/TSV)", markdown: "Markdown-Tabelle", zeilen: "Zeilen „Wort – Übersetzung“" };
+  function htmlImport() {
+    var im = kstate.k2import, s = '<div class="hb k2" data-testid="k2-importseite"><button class="back" data-k2="import-zu">← Karteikarten</button><h2 class="hb-titel">📥 Karten importieren</h2>';
+    if (!im.r) {
+      return s + '<p class="hb-sub">Aus Anki, Notion, Quizlet oder einer Tabelle. Die Karten kommen in einen eigenen Stapel — mit eigener Wiederholung.</p>'
+        + '<div class="k2-imp-wege"><div><b>Anki:</b> Datei → Exportieren → „Notizen als Klartext (.txt)“.</div><div><b>Notion:</b> Datenbank → ••• → Exportieren → „Markdown & CSV“, dann die .csv wählen — oder die Tabelle kopieren und unten einfügen.</div>'
+        + "<div><b>Tabelle / Quizlet:</b> je Zeile Vorderseite und Rückseite, getrennt durch Tab, Semikolon oder Komma.</div></div>"
+        + '<label class="k2e-f" for="k2i-datei">Datei wählen <small>(.txt, .csv, .tsv, .md)</small><input id="k2i-datei" type="file" accept=".txt,.csv,.tsv,.md,.apkg,text/plain,text/csv" data-k2-datei></label>'
+        + '<label class="k2e-f" for="k2i-text">… oder Text einfügen<textarea id="k2i-text" rows="7" class="tx-eingabe" placeholder="house;das Haus&#10;tree;der Baum">' + h(im.text || "") + "</textarea></label>"
+        + (im.fehler ? '<p class="uw-fb noch" role="alert">' + h(im.fehler) + "</p>" : "")
+        + '<div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn btn-primary" data-k2="import-lesen" data-testid="k2-import-lesen">Vorschau</button></div></div>';
+    }
+    var r = im.r, spalten = [];
+    for (var i = 0; i < r.spalten; i++) spalten.push(i);
+    var wahl = function (id, label, wert, leer) {
+      return '<label class="k2e-f k2i-sp" for="' + id + '">' + h(label) + '<select id="' + id + '" data-k2-spalte="' + id + '">' + (leer ? '<option value="">—</option>' : "")
+        + spalten.map(function (i) { return '<option value="' + i + '"' + (wert === i ? " selected" : "") + ">" + h(r.kopf && r.kopf[i] ? r.kopf[i] : "Spalte " + (i + 1)) + "</option>"; }).join("") + "</select></label>";
+    };
+    s += '<p class="hb-sub" data-testid="k2-import-info">Erkannt: <b>' + h(FORMATE[r.format] || r.format) + "</b> · <b>" + r.karten.length + "</b> " + (r.karten.length === 1 ? "Karte" : "Karten") + "</p>"
+      + (r.warnungen.length ? '<ul class="k2i-warn">' + r.warnungen.map(function (w) { return "<li>" + h(w) + "</li>"; }).join("") + "</ul>" : "");
+    if (r.spalten >= 2) s += '<div class="kal-reihe">' + wahl("k2i-vorne", "Vorderseite", r.vorne) + wahl("k2i-hinten", "Rückseite", r.hinten) + (r.spalten >= 3 ? wahl("k2i-bsp", "Beispiel", r.beispiel, true) : "") + "</div>"
+      + '<button class="btn" data-k2="import-tauschen">⇄ Vorder- und Rückseite tauschen</button>';
+    s += '<table class="el-tab k2i-tab"><thead><tr><th>Vorderseite</th><th>Rückseite</th>' + (r.karten.some(function (c) { return c.ex; }) ? "<th>Beispiel</th>" : "") + "</tr></thead><tbody>"
+      + r.karten.slice(0, 6).map(function (c) { return "<tr><td>" + h(c.w) + "</td><td>" + h(c.tr) + "</td>" + (r.karten.some(function (x) { return x.ex; }) ? "<td>" + h(c.ex || "") + "</td>" : "") + "</tr>"; }).join("")
+      + "</tbody></table>" + (r.karten.length > 6 ? '<p class="fs-text">… und ' + (r.karten.length - 6) + " weitere.</p>" : "")
+      + '<div class="kal-reihe"><label class="k2e-f" for="k2i-name">Name des Stapels<input id="k2i-name" type="text" maxlength="60" value="' + h(im.name || "") + '"></label>'
+      + '<label class="k2e-f" for="k2i-sprache">Sprache der Vorderseite <small>(zum Vorlesen)</small><select id="k2i-sprache">' + SPRACHEN.map(function (x) { return '<option value="' + x[0] + '"' + (im.sprache === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + "</select></label></div>"
+      + '<div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn btn-primary" data-k2="import-ok" data-testid="k2-import-ok"' + (r.karten.length ? "" : " disabled") + ">" + r.karten.length + " Karten übernehmen</button>"
+      + '<button class="btn" data-k2="import-neu">Andere Datei</button></div>';
+    return s + "</div>";
+  }
+  function importLesen(opt) {
+    var im = kstate.k2import, el = document.getElementById("k2i-text");
+    if (el && el.value.trim()) { im.text = el.value; im.dateiname = im.dateiname || ""; }
+    if (!String(im.text || "").trim()) { im.fehler = "Bitte eine Datei wählen oder Text einfügen."; return; }
+    im.fehler = null; im.opt = opt || {};
+    im.r = importieren(im.text, Object.assign({ dateiname: im.dateiname }, im.opt));
+    if (!im.r.karten.length) { im.fehler = (im.r.warnungen[0] || "Keine Karten gefunden.") + " Erwartet: je Zeile Vorderseite und Rückseite."; im.r = null; return; }
+    if (!im.name) im.name = im.r.deck || String(im.dateiname || "").replace(/\.[a-z]+$/i, "").replace(/\s+[0-9a-f]{32}$/, "").slice(0, 60) || "Mein Stapel";
+    if (!im.sprache) im.sprache = spracheRaten(im.r.karten);
+  }
+  function importSpalten() {
+    var im = kstate.k2import, v = function (id) { var el = document.getElementById(id); return el ? el.value : null; };
+    var o = { vorne: +v("k2i-vorne"), hinten: +v("k2i-hinten") };
+    if (document.getElementById("k2i-bsp")) o.beispiel = v("k2i-bsp") === "" ? null : +v("k2i-bsp");
+    namenMerken(); importLesen(o);
+  }
+  function namenMerken() { var im = kstate.k2import, n = document.getElementById("k2i-name"), sp = document.getElementById("k2i-sprache"); if (n) im.name = n.value; if (sp) im.sprache = sp.value; }
+  function importUebernehmen() {
+    var im = kstate.k2import; if (!im || !im.r) return;
+    namenMerken();
+    var v = stapelAlle(), id = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    v.stapel[id] = { id: id, name: String(im.name || "Mein Stapel").trim().slice(0, 60) || "Mein Stapel", sprache: im.sprache || "de", quelle: im.r.format, karten: im.r.karten, t: Date.now() };
+    schreib(stapelKey(), v);
+    kstate.k2import = null; kstate.fcStapel = id; kstate.k2 = null;
+  }
   function htmlVerwalten(sc) {
     var weg = lies(versteckKey(sc), {}), nWeg = Object.keys(weg).length;
     if (!kstate.k2verwalten) return '<details class="k2-verw"><summary data-k2="verwalten">📋 Wörter ansehen, bearbeiten, verstecken' + (nWeg ? " · " + nWeg + " versteckt" : "") + "</summary></details>";
@@ -33807,9 +34052,10 @@ function korrekturSaeubern(c) {
         return '<li class="aus"><span class="k2-w">' + h(w) + '</span><button class="btn" data-k2="freischalten" data-k2-w="' + h(w) + '">↺ freischalten</button></li>';
       }).join("") + sichtbar.map(function (c) {
         return '<li><span class="k2-w">' + h(c.w) + '</span><span class="k2-t">' + h(c.haupt || c.tr || "") + (c.korrigiert ? " ✎" : "") + "</span>"
-          + (/^kid-/.test(sc) ? '<button class="btn" data-k2="bearbeiten" data-k2-w="' + h(c.w) + '" aria-label="' + h(c.w) + ' bearbeiten">✏️</button>' : "")
+          + (/^(kid|eigen)-/.test(sc) ? '<button class="btn" data-k2="bearbeiten" data-k2-w="' + h(c.w) + '" aria-label="' + h(c.w) + ' bearbeiten">✏️</button>' : "")
           + '<button class="btn" data-k2="verstecken" data-k2-w="' + h(c.w) + '">verstecken</button></li>';
-      }).join("") + '</ul><button class="btn" data-k2="verwalten-zu">Fertig</button></div>';
+      }).join("") + '</ul><div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn" data-k2="verwalten-zu">Fertig</button>'
+      + (/^eigen-/.test(sc) ? '<button class="btn" data-k2="stapel-loeschen">🗑 Stapel löschen</button>' : "") + "</div></div>";
   }
 
   /* ---------- Runde ---------- */
@@ -33840,6 +34086,13 @@ function korrekturSaeubern(c) {
     return s + "</div>";
   }
   function htmlRueckseite(sc, c0) {
+    if (/^eigen-/.test(sc)) {
+      var ce = karteVon(sc, c0.w) || c0;
+      return '<div class="k2-uebers" data-testid="k2-antwort">' + h(ce.haupt || ce.tr || "") + "</div>"
+        + (ce.neben ? '<div class="k2-neben" data-testid="k2-neben">' + h(ce.neben) + "</div>" : "")
+        + (ce.ex ? '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispiel <button class="vl-knopf" type="button" aria-label="Beispiel vorlesen" data-k2="sprechen-bsp"></button></div><div class="k2-bsp-s" lang="' + lang(sc) + '">' + h(ce.ex) + "</div></div>" : "")
+        + '<button class="k2-bearb" data-k2="bearbeiten" data-k2-w="' + h(ce.w) + '" data-testid="k2-bearbeiten">✏️ Stimmt etwas nicht? Bearbeiten' + (ce.korrigiert ? " · von dir korrigiert" : "") + "</button>";
+    }
     if (!/^kid-/.test(sc)) return '<div class="k2-uebers" data-testid="k2-antwort">' + h(c0.tr || "") + "</div>";
     var c = karteVon(sc, c0.w) || c0, ue = lang(sc) === "de" ? "ru" : "de";
     /* Ohne eigenen Beispielsatz: der aus dem Engine-Lexikon, wenn es einen hat */
@@ -33852,15 +34105,15 @@ function korrekturSaeubern(c) {
   }
   function htmlBearbeiten() {
     var e = kstate.k2edit, c = karteVon(e.sc, e.w); if (!c) { kstate.k2edit = null; return htmlStart(); }
-    var de = lang(e.sc) === "de";
+    var de = lang(e.sc) === "de", eig = /^eigen-/.test(e.sc);
     var feld = function (id, label, wert, hilfe) { return '<label class="k2e-f" for="' + id + '">' + h(label) + (hilfe ? ' <small>' + h(hilfe) + "</small>" : "") + '<input id="' + id + '" type="text" autocomplete="off" value="' + h(wert || "") + '"></label>'; };
     return '<div class="hb k2" data-testid="k2-edit"><button class="back" data-k2="e-abbrechen">← zurück</button><h2 class="hb-titel">✏️ Karte bearbeiten</h2>'
       + '<p class="k2-wort" lang="' + lang(e.sc) + '">' + h(c.w) + "</p>"
       + '<p class="fs-text">Deine Änderung gilt nur für dein Profil. Leere Felder bleiben wie im Original.</p>'
-      + feld("k2e-haupt", de ? "Übersetzung (Russisch)" : "Übersetzung (Deutsch)", c.haupt)
-      + feld("k2e-neben", de ? "Englisch" : "Russisch", c.neben, "optional")
-      + feld("k2e-ex", "Beispielsatz", c.ex, "optional")
-      + feld("k2e-exue", de ? "Beispielsatz auf Russisch" : "Beispielsatz auf Deutsch", c.exUe, "optional")
+      + feld("k2e-haupt", eig ? "Rückseite" : de ? "Übersetzung (Russisch)" : "Übersetzung (Deutsch)", c.haupt)
+      + feld("k2e-neben", eig ? "Zusatz" : de ? "Englisch" : "Russisch", c.neben, "optional")
+      + feld("k2e-ex", eig ? "Beispiel" : "Beispielsatz", c.ex, "optional")
+      + (eig ? "" : feld("k2e-exue", de ? "Beispielsatz auf Russisch" : "Beispielsatz auf Deutsch", c.exUe, "optional"))
       + '<div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn btn-primary" data-k2="e-speichern" data-testid="k2-e-speichern">Speichern</button><button class="btn" data-k2="e-abbrechen">Abbrechen</button>'
       + (c.korrigiert ? '<button class="btn" data-k2="e-original">↺ Original wiederherstellen</button>' : "") + "</div></div>";
   }
@@ -33891,7 +34144,7 @@ function korrekturSaeubern(c) {
     var r = kstate.k2; if (!r) return;
     var c = r.karten[r.i], text = c.w;
     if (bsp) { var k = karteVon(r.sc, c.w); if (!k || !k.ex) return; text = k.ex; }
-    try { var u = new SpeechSynthesisUtterance(text); u.lang = lang(r.sc) === "de" ? "de-DE" : "en-GB"; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+    try { var u = new SpeechSynthesisUtterance(text); u.lang = STIMME[lang(r.sc)] || "de-DE"; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
   }
 
   /* ---------- Einhängen ---------- */
@@ -33903,7 +34156,7 @@ function korrekturSaeubern(c) {
       if (view) {
         if (kstate.k2 && kstate.k2.sc !== bereich()) kstate.k2 = null;
         if (kstate.k2edit && kstate.k2edit.sc !== bereich()) kstate.k2edit = null;
-        view.innerHTML = kstate.k2edit ? htmlBearbeiten() : kstate.k2 ? htmlRunde() : htmlStart();
+        view.innerHTML = kstate.k2import ? htmlImport() : kstate.k2edit ? htmlBearbeiten() : kstate.k2 ? htmlRunde() : htmlStart();
         try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
         return;
       }
@@ -33920,7 +34173,20 @@ function korrekturSaeubern(c) {
     if (!t || !aktiv()) return;
     e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
     var was = t.getAttribute("data-k2"), w = t.getAttribute("data-k2-w"), sc = bereich();
-    if (was === "fach") { kstate.fcFach = t.getAttribute("data-k2-fach"); kstate.k2 = null; }
+    if (was === "fach") { if (t.getAttribute("data-k2-fach")) kstate.fcFach = t.getAttribute("data-k2-fach"); kstate.fcStapel = null; kstate.k2 = null; }
+    else if (was === "stapel") { kstate.fcStapel = t.getAttribute("data-k2-stapel"); kstate.k2 = null; kstate.k2verwalten = false; }
+    else if (was === "import") { kstate.k2import = { text: "", dateiname: "" }; }
+    else if (was === "import-zu") kstate.k2import = null;
+    else if (was === "import-lesen") importLesen();
+    else if (was === "import-tauschen") { namenMerken(); var o0 = kstate.k2import.opt || {}; importLesen({ vorne: kstate.k2import.r.hinten, hinten: kstate.k2import.r.vorne, beispiel: o0.beispiel !== undefined ? o0.beispiel : kstate.k2import.r.beispiel }); }
+    else if (was === "import-neu") kstate.k2import = { text: "", dateiname: "" };
+    else if (was === "import-ok") importUebernehmen();
+    else if (was === "stapel-loeschen") {
+      if (t.getAttribute("data-k2-sicher") !== "1") { t.setAttribute("data-k2-sicher", "1"); t.textContent = "Wirklich löschen? Noch einmal tippen"; return; }
+      var sv = stapelAlle(), sid = sc.slice(6); delete sv.stapel[sid]; schreib(stapelKey(), sv);
+      try { localStorage.removeItem(standKey(sc)); localStorage.removeItem(versteckKey(sc)); } catch (x) {}
+      kstate.fcStapel = null; kstate.k2verwalten = false;
+    }
     else if (was === "start") starten();
     else if (was === "zeigen" && kstate.k2) kstate.k2.offen = true;
     else if (was === "note") benoten(+t.getAttribute("data-k2-note"));
@@ -33936,6 +34202,15 @@ function korrekturSaeubern(c) {
     else if (was === "verwalten-zu") kstate.k2verwalten = false;
     else if (was === "verstecken" || was === "freischalten") { var m = lies(versteckKey(sc), {}); if (was === "verstecken") m[w] = 1; else delete m[w]; schreib(versteckKey(sc), m); }
     neu();
+  }, true);
+  ziel.addEventListener("change", function (e) {
+    var t = e.target; if (!t || !aktiv() || !kstate.k2import || !t.getAttribute) return;
+    if (t.hasAttribute("data-k2-datei") && t.files && t.files[0]) {
+      var f = t.files[0], im = kstate.k2import, fr = new FileReader();
+      fr.onload = function () { im.text = String(fr.result || ""); im.dateiname = f.name; im.name = ""; im.sprache = ""; importLesen(); neu(); };
+      fr.onerror = function () { im.fehler = "Die Datei ließ sich nicht lesen."; neu(); };
+      fr.readAsText(f, "utf-8");
+    } else if (t.hasAttribute("data-k2-spalte")) { importSpalten(); neu(); }
   }, true);
   ziel.addEventListener("keydown", function (e) {
     var r = kstate.k2;
@@ -33962,16 +34237,16 @@ function korrekturSaeubern(c) {
 
   /* für „🔁 Wiederholen“ (p78) und Tests */
   window.__KARTEN = {
-    faellig: function () { var p = profil(); if (!p) return []; var b = p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()];
+    faellig: function () { var p = profil(); if (!p) return []; var b = (p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()]).concat(stapelListe().map(function (st) { return "eigen-" + st.id; }));
       return b.map(function (sc) { return { sc: sc, fach: fachName(sc), n: faellig(sc) }; }).filter(function (x) { return x.n > 0; }); },
-    oeffnen: function (sc) { kstate.k2 = null; if (istKind()) { kstate.fcFach = lang(sc || "kid-en"); kstate.tab = "cards"; } else { kstate.tab = null; try { state.tab = "Karten"; } catch (e) {} } neu(); },
-    kern: { lage: lage, bewerte: bewerte }, vorrat: function (sc) { return vorrat(sc || bereich()); },
+    oeffnen: function (sc) { kstate.k2 = null; kstate.fcStapel = sc && /^eigen-/.test(sc) ? sc.slice(6) : null; if (istKind()) { kstate.fcFach = lang(sc || "kid-en"); kstate.tab = "cards"; } else { kstate.tab = null; try { state.tab = "Karten"; } catch (e) {} } neu(); },
+    kern: { lage: lage, bewerte: bewerte, importieren: importieren }, stapel: stapelListe, vorrat: function (sc) { return vorrat(sc || bereich()); },
     /* M24: fällige Karten je Tag (Kalender) — Überfälliges zählt heute */
     prognose: function () {
       var p = profil(), out = {}; if (!p) return out;
       var zwei = function (n) { return (n < 10 ? "0" : "") + n; }, tag = function (t) { var d = new Date(t); return d.getFullYear() + "-" + zwei(d.getMonth() + 1) + "-" + zwei(d.getDate()); };
       var jetzt = Date.now(), heute = tag(jetzt);
-      (p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()]).forEach(function (sc) {
+      (p.type === "kid" ? ["kid-en", "kid-de"] : ["ad-" + sprache()]).concat(stapelListe().map(function (st) { return "eigen-" + st.id; })).forEach(function (sc) {
         var da = {}; vorrat(sc).forEach(function (c) { da[c.w] = 1; });
         var d = lies(standKey(sc), {});
         Object.keys(d).forEach(function (w) { if (!da[w] || !d[w]) return; var nx = d[w].nx || 0, t = nx <= jetzt ? heute : tag(nx); out[t] = (out[t] || 0) + 1; });
@@ -37826,7 +38101,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 11:54")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 12:09")}}catch(e){}
 })();
 
 </script>
