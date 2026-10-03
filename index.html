@@ -681,6 +681,31 @@ html[data-theme] :is(.btn, .hb-karte, .uw-opt, .sx-stufe, .fs-fach, .k2-note, .n
 .ps-box { animation: dlg-in 200ms var(--ease-out) both; }
 @keyframes dlg-scrim { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dlg-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+
+/* Die Woche (p88) */
+.wo { margin: 0 0 8px; }
+.wo-tage { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
+.wo-tag { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink2); font-weight: 700; font-size: 13px; }
+.wo-tag.an { background: var(--good-soft, #e8f5ec); border-color: var(--good, #1e7e46); color: var(--ink); }
+.wo-tag.heute { box-shadow: 0 0 0 2px var(--brand-line); }
+.wo-themen, .wo-gut { margin: 0 0 10px; }
+.wo-knoepfe { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 14px; }
+.wo-test { padding: 10px 14px; border-radius: 12px; background: var(--paper); border: 1px solid var(--line); }
+.wo-h4 { font-size: 15px; margin: 12px 0 8px; color: var(--ink); }
+.wo-prio { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; counter-reset: wo; }
+.wo-start { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 12px 14px 12px 46px; position: relative; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); color: var(--ink); font: inherit; cursor: pointer; }
+.wo-prio li { counter-increment: wo; }
+.wo-start::before { content: counter(wo); position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.wo-ti { font-weight: 700; }
+.wo-grund { font-size: 13px; color: var(--ink2); }
+.wo-schaetzen, .wo-stimmung { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.wo-zahl { min-width: 52px; font-size: 18px; }
+.wo-st.an { border-color: var(--brand) !important; background: var(--brand-soft) !important; }
+.wo-frage { display: block; font-weight: 650; margin: 0 0 12px; max-width: 640px; }
+.wo-frage textarea { display: block; width: 100%; margin-top: 6px; font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); box-sizing: border-box; }
+.wo-eltern p { margin: 0 0 10px; }
+.wo-hinweis { padding: 10px 14px; border-radius: 12px; background: var(--warn-soft, #fff4e4); }
+.wo-gespraech summary { cursor: pointer; font-weight: 700; margin: 8px 0; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -25198,7 +25223,7 @@ const FEST = {
 /** Schlüssel je Profil: Präfix → Teil und Form. Längste Präfixe zuerst (fcstreak vor fc). */
 const JE_PROFIL = [
   ['egl-textrotation-', 'textrotation', 'objekt'], ['egl-ereignisse-', 'ereignisse', 'liste'],
-  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'],
+  ['egl-tagesplan-', 'tagesplan', 'objekt'], ['egl-lernpfad-', 'lernpfad', 'objekt'], ['egl-abzeichen-', 'abzeichen', 'objekt'], ['egl-woche-', 'woche', 'objekt'],
   ['egl-fcstreak-', 'fcstreak', 'json'], ['egl-mywords-', 'mywords', 'json'], ['egl-fchide-', 'fchide', 'json'],
   ['egl-m127-', 'm127', 'json'], ['egl-v17-', 'v17', 'json'], ['egl-uni-', 'uni', 'json'], ['egl-fc-', 'fc', 'json'],
 ];
@@ -29627,6 +29652,8 @@ function fokusUmziehen(fokus, skills) {
 
   /* M9: Einstiege für den Tagesplan (p73). */
   function starte(ziel) {
+    /* M21: Wochentest — erst die Vorhersage (p88) */
+    if (ziel.typ === "wochentest" && window.__WOCHE) return window.__WOCHE.testOeffnen();
     /* M7: fällige Wiederholungen (p78); sind inzwischen keine mehr fällig,
        wird es ein Aufwärmen aus schon Geübtem. */
     if (ziel.typ === "wiederholung") {
@@ -29716,7 +29743,11 @@ function tageBis(a, b) {
 
 /**
  * @param {{ datum: string, profil: string, faecher: FachLage[], wiederholung?: number,
- *           fokus?: { skills: string[], titel?: string, datum?: string } | null }} lage
+ *           fokus?: { skills: string[], titel?: string, datum?: string } | null,
+ *           prio?: { skill: string, grund: string, kind?: string }[], wochentest?: boolean }} lage
+ *   `prio` (M21): Prioritäten der Woche (app/kern/woche.js) — die Schwachstelle
+ *   kommt zuerst aus Testfehlern und Schwierigkeiten. `wochentest` (M21): der
+ *   Test dieser Woche ist offen (ab Freitag) — eigener Block.
  *   `fokus` (M19): Schwerpunkt der Eltern; mit `datum` eine Klassenarbeit —
  *   Countdown, am Vortag und am Tag selbst eine Probearbeit.
  *   `wiederholung`: Anzahl fälliger Wiederholungen (app/kern/lernmodell.js)
@@ -29783,16 +29814,21 @@ function tagesplan(lage) {
       ziel: { typ: 'lektion', skill: letzte.skill, stufe: 4, su: letzte.f.su } });
   }
 
-  /* 4 Schwachstelle: die schwächste begonnene Station. */
+  /* 4 Schwachstelle: zuerst aus den Prioritäten der Woche (M21 — Testfehler,
+     Schwierigkeiten), sonst die schwächste begonnene Station. */
   let schwach = null;
-  for (const f of reihe) for (const s of f.stationen) {
+  for (const p of lage.prio || []) {
+    if (schwach || (p.grund !== 'test' && p.grund !== 'schwierigkeit') || vergeben.has(p.skill)) continue;
+    for (const f of reihe) { const s = f.stationen.find((x) => x.skill === p.skill && x.zustand !== 'gesperrt'); if (s) { schwach = { f, s, grund: p.kind }; break; } }
+  }
+  if (!schwach) for (const f of reihe) for (const s of f.stationen) {
     if (s.zustand !== 'begonnen' && s.zustand !== 'wiederholung-faellig') continue;
     if (vergeben.has(s.skill)) continue;
     if (!schwach || s.score < schwach.s.score) schwach = { f, s };
   }
   if (schwach) {
     vergeben.add(schwach.s.skill);
-    bloecke.push({ id: 'schwach', art: 'schwach', titel: 'Schwachstelle', text: schwach.f.fach + ' · ' + schwach.s.titel, minuten: 5,
+    bloecke.push({ id: 'schwach', art: 'schwach', titel: 'Schwachstelle', text: schwach.f.fach + ' · ' + schwach.s.titel + (schwach.grund ? ' · ' + schwach.grund : ''), minuten: 5,
       ziel: { typ: 'lektion', skill: schwach.s.skill, stufe: 3, su: schwach.f.su } });
   }
 
@@ -29802,11 +29838,15 @@ function tagesplan(lage) {
     if (f !== erstes) neuLernen(f, 2);
   }
 
+  /* 4b Wochentest (M21): ab Freitag, solange der Test dieser Woche offen ist. */
+  if (lage.wochentest) bloecke.push({ id: 'wochentest', art: 'wochentest', titel: 'Wochentest', text: '10 Aufgaben — erst schätzen, dann allein lösen', minuten: 15,
+    ziel: { typ: 'wochentest' } });
+
   /* 5 Kür: freie Wahl. */
   bloecke.push({ id: 'kuer', art: 'kuer', titel: 'Kür', text: 'Du wählst: Übungswelt, Lesen oder ein Spiel', minuten: 5, ziel: { typ: 'kuer' } });
 
   /* Reihenfolge nach §8. */
-  const rang = { aufwaermen: 1, fokus: 1.5, probe: 1.6, neu: 2, festigen: 3, schwach: 4, kuer: 5 };
+  const rang = { aufwaermen: 1, fokus: 1.5, probe: 1.6, wochentest: 1.7, neu: 2, festigen: 3, schwach: 4, kuer: 5 };
   bloecke.sort((a, b) => rang[a.art] - rang[b.art]);
   return { datum: lage.datum, bloecke };
 }
@@ -29853,11 +29893,19 @@ function tagVon(d) {
     /* M20: ein Schwerpunkt aus der Zeit vor dem feineren Skill-Graphen umfasst
        die abgespaltenen Stationen mit — dann auch den Plan von heute neu bilden */
     if (p && p.fokus && LP.fokusUmziehen) { var fu = LP.fokusUmziehen(p.fokus); if (fu !== p.fokus) { p.fokus = fu; st.datum = null; try { save("egl-profiles", PROFILES); } catch (e) {} } }
+    /* M21: Wochenthemen je Fach (Profilfeld themen; ein alter Schwerpunkt wird
+       zum Wochenthema seines Fachs) — ebenfalls auf den feineren Graphen */
+    if (p && p.themen && LP.fokusUmziehen) Object.keys(p.themen).forEach(function (su) {
+      var tu = LP.fokusUmziehen(p.themen[su]); if (tu !== p.themen[su]) { p.themen[su] = tu; st.datum = null; try { save("egl-profiles", PROFILES); } catch (e) {} }
+    });
     if (st.datum === tag && Array.isArray(st.bloecke)) return st;
     /* M7: fällige Wiederholungen (p78) werden das Aufwärmen. */
     var wdh = 0;
     try { wdh = window.__LERNMODELL ? window.__LERNMODELL.faellig().length : 0; } catch (e) {}
-    var plan = tagesplan({ datum: tag, profil: p ? p.id : "anon", faecher: lageErheben(), wiederholung: wdh, fokus: (p && p.fokus) || null });
+    /* M21: Wochenthema von heute, Prioritäten der Woche, offener Wochentest */
+    var W = window.__WOCHE, fokus = (p && p.fokus) || null, prio = [], wtest = false;
+    try { if (W) { fokus = W.fokusHeute(tag) || null; prio = W.prio(5); wtest = W.testOffen(); } } catch (e) {}
+    var plan = tagesplan({ datum: tag, profil: p ? p.id : "anon", faecher: lageErheben(), wiederholung: wdh, fokus: fokus, prio: prio, wochentest: wtest });
     var neu = { datum: tag, bloecke: plan.bloecke, erledigt: {}, sek: st.datum === tag ? st.sek || 0 : 0 };
     speichere(neu);
     return neu;
@@ -29932,6 +29980,11 @@ function tagVon(d) {
       if (neuAz.length) out += '<div class="ht-abzeichen" role="status" data-testid="ht-abzeichen"><span class="az-ic" aria-hidden="true">' + neuAz.map(function (a) { return a.icon; }).join(" ")
         + "</span><span><b>Neues Abzeichen!</b> " + h(neuAz.map(function (a) { return a.titel; }).join(" · ")) + '</span><button class="btn" data-heute="abzeichen">Super!</button></div>';
     } catch (e) {}
+    /* M21: Wochen-Rückblick am Wochenende (und montags für die Vorwoche) */
+    try {
+      if (window.__WOCHE && window.__WOCHE.rueckblickOffen()) out += '<div class="ht-abzeichen" role="status" data-testid="ht-rueckblick"><span class="az-ic" aria-hidden="true">✏️</span><span><b>Dein Wochen-Rückblick wartet.</b> '
+        + (istKind() ? "Wie war deine Woche? Zwei Minuten." : "Wie lief die Woche? Zwei Minuten.") + '</span><button class="btn" data-heute="rueckblick">Ausfüllen</button></div>';
+    } catch (e) {}
     if (offen.length) {
       var b = offen[0];
       out += '<button class="ht-hero" data-heute-block="' + b.id + '" data-testid="ht-weiter"><span style="font-size:30px">▶</span><span>'
@@ -29994,23 +30047,27 @@ function tagVon(d) {
     frage.then(function (ok) {
       if (!ok) return;
       var faecher = LP.faecherHeute ? LP.faecherHeute() : [];
-      var alt = p.fokus || {}, su = alt.su || (faecher[0] && faecher[0].su);
+      /* M21: je Fach ein Wochenthema (p.themen[su]) */
+      var themen = window.__WOCHE ? window.__WOCHE.themenObj(p) : {};
+      var su = (p.fokus && p.fokus.su) || Object.keys(themen)[0] || (faecher[0] && faecher[0].su);
+      var alt = themen[su] || {};
       var hinter = document.createElement("div");
       hinter.className = "ps-hinter"; hinter.setAttribute("role", "dialog"); hinter.setAttribute("aria-modal", "true");
       hinter.setAttribute("aria-labelledby", "ht-fokus-titel"); hinter.setAttribute("data-testid", "ht-fokusdialog");
       var zeichnen = function () {
         var f = faecher.filter(function (x) { return x.su === su; })[0] || faecher[0];
         var st = f ? LP.pfad(f.fach).filter(function (x) { return x.zustand !== "gesperrt"; }) : [];
-        var gewaehlt = alt.su === su ? (alt.skills || []) : [];
-        hinter.innerHTML = '<div class="ps-box"><h3 id="ht-fokus-titel">📌 Schwerpunkt & Klassenarbeit</h3>'
-          + '<p class="ps-text">Was gerade in der Schule dran ist: „Heute“ übt diese Stationen zuerst. Mit Datum zählt es bis zur Arbeit herunter und bietet am Vortag eine Probearbeit an.</p>'
+        alt = themen[su] || {};
+        var gewaehlt = alt.skills || [];
+        hinter.innerHTML = '<div class="ps-box"><h3 id="ht-fokus-titel">📌 Wochenthema & Klassenarbeit</h3>'
+          + '<p class="ps-text">Was gerade in der Schule dran ist — je Fach. „Heute“, der Wochentest und die nächsten Lektionen nehmen diese Stationen zuerst. Mit Datum zählt es bis zur Arbeit herunter und bietet am Vortag eine Probearbeit an.</p>'
           + '<label style="display:block;margin:8px 0">Fach <select data-ht-fokus="fach">' + faecher.map(function (x) { return '<option value="' + h(x.su) + '"' + (x.su === su ? " selected" : "") + ">" + h(x.titel) + "</option>"; }).join("") + "</select></label>"
           + '<div class="ht-fokus-liste" role="group" aria-label="Stationen">' + st.map(function (x) {
             return '<label><input type="checkbox" data-ht-fokus-skill="' + h(x.skill) + '"' + (gewaehlt.indexOf(x.skill) >= 0 ? " checked" : "") + "> " + h(x.titel) + "</label>";
           }).join("") + "</div>"
-          + '<label style="display:block;margin:8px 0">Titel (optional) <input type="text" data-ht-fokus="titel" value="' + h(alt.su === su ? alt.titel || "" : "") + '" placeholder="z. B. Mathearbeit"></label>'
-          + '<label style="display:block;margin:8px 0">Datum der Arbeit (optional) <input type="date" data-ht-fokus="datum" value="' + h(alt.su === su ? alt.datum || "" : "") + '"></label>'
-          + '<div class="ps-knoepfe"><button class="btn" data-ht-fdlg="weg">Schwerpunkt entfernen</button><button class="btn" data-ht-fdlg="nein">Abbrechen</button><button class="btn btn-primary" data-ht-fdlg="ja">Speichern</button></div></div>';
+          + '<label style="display:block;margin:8px 0">Titel (optional) <input type="text" data-ht-fokus="titel" value="' + h(alt.titel || "") + '" placeholder="z. B. Mathearbeit"></label>'
+          + '<label style="display:block;margin:8px 0">Datum der Arbeit (optional) <input type="date" data-ht-fokus="datum" value="' + h(alt.datum || "") + '"></label>'
+          + '<div class="ps-knoepfe"><button class="btn" data-ht-fdlg="weg">Thema dieses Fachs entfernen</button><button class="btn" data-ht-fdlg="nein">Abbrechen</button><button class="btn btn-primary" data-ht-fdlg="ja">Speichern</button></div></div>';
       };
       zeichnen();
       document.body.appendChild(hinter);
@@ -30023,10 +30080,12 @@ function tagVon(d) {
         if (was === "ja") {
           var skills = [].map.call(hinter.querySelectorAll("[data-ht-fokus-skill]:checked"), function (x) { return x.getAttribute("data-ht-fokus-skill"); });
           var titel = hinter.querySelector('[data-ht-fokus="titel"]').value.trim(), datum = hinter.querySelector('[data-ht-fokus="datum"]').value;
-          p.fokus = skills.length ? { su: su, skills: skills, titel: titel || undefined, datum: datum || undefined, graph: 2 } : undefined;
-          if (!p.fokus) delete p.fokus;
+          p.themen = themen;
+          if (skills.length) p.themen[su] = { su: su, skills: skills, titel: titel || undefined, datum: datum || undefined, graph: 2 };
+          else delete p.themen[su];
+          delete p.fokus;   /* M21: steckt jetzt in p.themen */
         }
-        if (was === "weg") delete p.fokus;
+        if (was === "weg") { p.themen = themen; delete p.themen[su]; delete p.fokus; }
         if (was === "ja" || was === "weg") {
           save("egl-profiles", PROFILES);
           var stand = lade(); stand.datum = null; speichere(stand);   /* Plan für heute neu bilden */
@@ -30150,6 +30209,7 @@ function tagVon(d) {
     a = t.getAttribute("data-heute");
     if (a === "einrichten" || a === "weitermachen") { kstate.tab = "lernpfad"; return rerender(); }
     if (a === "ziel") return zielAendern();
+    if (a === "rueckblick") { kstate.tab = "rueckblick"; return rerender(); }
     if (a === "abzeichen") { if (window.__ABZEICHEN) window.__ABZEICHEN.alleGesehen(); return rerender(); }
   }, true);
 
@@ -30424,7 +30484,7 @@ function tagVon(d) {
       if (testen.length) s += '<h3 class="hb-zw">Testen und wiederholen</h3><div class="hb-raster">' + testen.map(function (e) { return karte(e); }).join("") + "</div>";
       return s + "</div>";
     }
-    if (id === "fortschritt") { s += fortschrittKopf(); if (window.__FORTSCHRITT) { try { s += window.__FORTSCHRITT.html(); } catch (e) {} } if (window.__ABZEICHEN) { try { s += window.__ABZEICHEN.html(); window.__ABZEICHEN.alleGesehen(); } catch (e) {} } }
+    if (id === "fortschritt") { s += fortschrittKopf(); if (window.__WOCHE) { try { s += window.__WOCHE.html(); } catch (e) {} } if (window.__FORTSCHRITT) { try { s += window.__FORTSCHRITT.html(); } catch (e) {} } if (window.__ABZEICHEN) { try { s += window.__ABZEICHEN.html(); window.__ABZEICHEN.alleGesehen(); } catch (e) {} } }
     if (id === "eltern") s += elternKopf();
     s += '<div class="hb-raster">' + liste.map(function (e) { return karte(e); }).join("") + "</div>";
     return s + "</div>";
@@ -30448,7 +30508,7 @@ function tagVon(d) {
     var s = '<div class="hb-raster">';
     if (window.__ELTERN && istKind()) s += '<button class="hb-karte gross" data-eltern="dashboard"><span class="hb-ic" aria-hidden="true">📈</span><span class="hb-tx"><span class="hb-ti">Eltern-Überblick</span><span class="hb-me">Tag, Woche, Monat, Tendenzen und Wochenbericht.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="pin"><span class="hb-ic" aria-hidden="true">🔒</span><span class="hb-tx"><span class="hb-ti">PINs</span><span class="hb-me">Profile und Elternbereich schützen.</span></span></button>';
-    s += '<button class="hb-karte" data-eltern="fokus"><span class="hb-ic" aria-hidden="true">📌</span><span class="hb-tx"><span class="hb-ti">Schwerpunkt & Klassenarbeit</span><span class="hb-me">Was in der Schule dran ist — „Heute“ übt es zuerst.</span></span></button>';
+    s += '<button class="hb-karte" data-eltern="fokus"><span class="hb-ic" aria-hidden="true">📌</span><span class="hb-tx"><span class="hb-ti">Wochenthema & Klassenarbeit</span><span class="hb-me">Was in der Schule dran ist — je Fach. „Heute“ übt es zuerst.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="csv"><span class="hb-ic" aria-hidden="true">📥</span><span class="hb-tx"><span class="hb-ti">Eigene Wörter (CSV)</span><span class="hb-me">Wortlisten in „Meine Wörter“ übernehmen.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="quellen"><span class="hb-ic" aria-hidden="true">ℹ️</span><span class="hb-tx"><span class="hb-ti">Quellen & Lizenzen</span><span class="hb-me">Woher die Inhalte stammen.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="pakete"><span class="hb-ic" aria-hidden="true">📦</span><span class="hb-tx"><span class="hb-ti">Inhaltspakete</span><span class="hb-me">Zusätzliche Aufgaben, nur auf diesem Gerät.</span></span></button>';
@@ -31597,7 +31657,9 @@ function aktiv(u, t) {
   }
   function htmlBericht(ev, name) {
     var b = bericht(ev, name);
-    return '<div class="el-knoepfe"><button class="btn btn-primary" data-el="drucken">🖨️ Drucken</button><button class="btn" data-el="kopieren">📋 Als Text kopieren</button></div>'
+    /* M21: Woche mit Wochenthema, Test, Rückblick des Kindes, Prioritäten (p88) */
+    var wo = ""; try { wo = window.__WOCHE ? window.__WOCHE.htmlEltern() : ""; } catch (e) {}
+    return wo + '<div class="el-knoepfe"><button class="btn btn-primary" data-el="drucken">🖨️ Drucken</button><button class="btn" data-el="kopieren">📋 Als Text kopieren</button></div>'
       + '<div class="el-box el-bericht" data-testid="el-bericht"><h3>' + h(b.titel) + "</h3><ul style=\"margin:0;padding-left:18px;line-height:1.8\">" + b.zeilen.map(function (z) { return "<li>" + h(z) + "</li>"; }).join("") + "</ul></div>"
       + htmlWoche(ev);
   }
@@ -35227,12 +35289,706 @@ function diktatPruefen(soll, ist) {
   try { window.render = renderNeu; } catch (e) {}
 })();
 
+/* =====================================================================
+   M21 — Die Woche: Wochenthemen, Wochentest, Rückblick, Prioritäten.
+
+   Nach dem Lernplan der Familie (Notion, 12.08.2026), verallgemeinert auf
+   jede Klasse, jedes Fach und Erwachsene:
+     * Wochenthemen je Fach (Profilfeld `themen`, gesetzt im Elternbereich
+       bzw. von Erwachsenen selbst) — „Heute“ und die nächsten Lektionen
+       richten sich zuerst danach (app/kern/woche.js);
+     * Wochentest ab Freitag: erst schätzen, dann 10 Aufgaben ohne Hilfe —
+       60 % Wochenthema, 40 % Wiederholung aus den Wochen −1, −3, −6;
+     * Wochen-Rückblick: Stimmung und fünf Fragen, vom Kind selbst;
+     * Prioritäten mit Begründung: Schulthema, Testfehler unter 70 %,
+       Schwierigkeiten, Wiederholung, nächster Schritt;
+     * Eltern: Bericht mit Rückblick, Test (Vorhersage/Ergebnis),
+       Fehlerwörtern, Anpassungs-Hinweis und Leitfaden fürs Wochengespräch.
+   Gespeichert je Profil in egl-woche-<Profil> ({ wochen: { <Montag>: { test, rueckblick } } }).
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/**
+ * Auswertung des Ereignis-Logs für das Eltern-Dashboard (AUFTRAG-v2.md §9)
+ * — reine Funktionen.
+ *
+ * Ein Ereignis ist eine beantwortete Aufgabe:
+ *   { i: Kennung, t: Zeitpunkt ms, f: Fach, s: Skill|null, ok: 0|1,
+ *     q: Frage, g: gegebene Antwort, r: richtige Antwort, d: Dauer ms }
+ *
+ * Sitzung: Ereignisse mit weniger als 5 Minuten Abstand. Ihre Dauer ist die
+ * Spanne vom ersten bis zum letzten Ereignis plus dessen Bearbeitungszeit —
+ * reine Bearbeitungszeit, keine Pausen.
+ *
+ * Tendenz (§9.4): erst ab mindestens 8 Bearbeitungen im Zeitraum, sonst
+ * `null` („noch zu wenig Daten") — eine falsche Tendenz ist schlimmer als
+ * keine.
+ */
+
+/** @typedef {{ i: string, t: number, f: string, s?: string|null, ok: number, q?: string, g?: string, r?: string, d?: number }} Ereignis */
+
+const PAUSE_MS = 5 * 60 * 1000;
+const MIN_FUER_TREND = 8;
+const TAG_MS = 86400000;
+
+/** Lokales Datum JJJJ-MM-TT. @param {number|Date} t */
+function datum(t) {
+  const d = new Date(t), z = (x) => String(x).padStart(2, '0');
+  return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+}
+/** Montag der Woche (lokal) als Datum. @param {number} t */
+function montag(t) {
+  const d = new Date(t); d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return datum(d);
+}
+const quote = (ok, n) => (n ? Math.round((100 * ok) / n) : null);
+const sortiert = (ev) => ev.slice().sort((a, b) => a.t - b.t);
+
+/** @param {readonly Ereignis[]} ev */
+function sitzungen(ev) {
+  const out = [];
+  let akt = null;
+  for (const e of sortiert(ev)) {
+    if (!akt || e.t - akt.letzt > PAUSE_MS) {
+      akt = { start: e.t, letzt: e.t, ereignisse: [] };
+      out.push(akt);
+    }
+    akt.ereignisse.push(e);
+    akt.letzt = e.t;
+  }
+  return out.map((s) => {
+    const letzte = s.ereignisse[s.ereignisse.length - 1];
+    const ms = s.letzt - s.start + Math.min(letzte.d || 30000, 120000);
+    const ok = s.ereignisse.filter((e) => e.ok).length;
+    const faecher = {};
+    for (const e of s.ereignisse) faecher[e.f] = (faecher[e.f] || 0) + 1;
+    return {
+      start: s.start, ende: s.letzt, minuten: Math.max(1, Math.round(ms / 60000)), n: s.ereignisse.length, quote: quote(ok, s.ereignisse.length),
+      faecher: Object.keys(faecher), skills: [...new Set(s.ereignisse.map((e) => e.s).filter(Boolean))], ereignisse: s.ereignisse,
+    };
+  });
+}
+
+/** Lernminuten je Fach aus Sitzungen (anteilig nach Ereignissen). */
+function minutenJeFach(sitz) {
+  const m = {};
+  for (const s of sitz) for (const f of s.faecher) {
+    const anteil = s.ereignisse.filter((e) => e.f === f).length / s.n;
+    m[f] = (m[f] || 0) + s.minuten * anteil;
+  }
+  for (const f of Object.keys(m)) m[f] = Math.round(m[f]);
+  return m;
+}
+
+/** Tagesansicht (§9.1). @param {readonly Ereignis[]} ev @param {string} tag */
+function tag(ev, tag) {
+  const heute = ev.filter((e) => datum(e.t) === tag);
+  const sitz = sitzungen(heute);
+  const fehler = sortiert(heute).filter((e) => !e.ok).map((e) => ({ i: e.i, t: e.t, f: e.f, s: e.s || null, q: e.q || '', g: e.g || '', r: e.r || '' }));
+  const minuten = sitz.reduce((a, s) => a + s.minuten, 0);
+  return { tag, sitzungen: sitz, fehler, minuten, minutenJeFach: minutenJeFach(sitz), n: heute.length, quote: quote(heute.filter((e) => e.ok).length, heute.length) };
+}
+
+/** Wochenraster 7 Tage × Fächer (§9.2). @param {readonly Ereignis[]} ev @param {string} montagsDatum */
+function woche(ev, montagsDatum) {
+  const start = new Date(montagsDatum + 'T12:00:00').getTime();
+  const tage = Array.from({ length: 7 }, (_, i) => datum(start + i * TAG_MS));
+  const faecher = [...new Set(ev.filter((e) => tage.includes(datum(e.t))).map((e) => e.f))].sort();
+  const zelle = (tg, f) => {
+    const x = ev.filter((e) => datum(e.t) === tg && e.f === f);
+    return { minuten: minutenJeFach(sitzungen(ev.filter((e) => datum(e.t) === tg)))[f] || 0, n: x.length, quote: quote(x.filter((e) => e.ok).length, x.length) };
+  };
+  const raster = faecher.map((f) => ({ f, tage: tage.map((tg) => zelle(tg, f)) }));
+  const summeFach = raster.map((r) => ({ f: r.f, minuten: r.tage.reduce((a, z) => a + z.minuten, 0), n: r.tage.reduce((a, z) => a + z.n, 0) }));
+  const summeTag = tage.map((tg, i) => raster.reduce((a, r) => a + r.tage[i].minuten, 0));
+  const inWoche = ev.filter((e) => tage.includes(datum(e.t)));
+  const vorTage = Array.from({ length: 7 }, (_, i) => datum(start + (i - 7) * TAG_MS));
+  const vorWoche = ev.filter((e) => vorTage.includes(datum(e.t)));
+  const q = quote(inWoche.filter((e) => e.ok).length, inWoche.length), qv = quote(vorWoche.filter((e) => e.ok).length, vorWoche.length);
+  return { tage, faecher, raster, summeFach, summeTag, quote: q, vergleichPP: q != null && qv != null ? q - qv : null };
+}
+
+/** Monat (§9.3): Heatmap nach Minuten, Verlauf je Fach. @param {readonly Ereignis[]} ev @param {number} jahr @param {number} monat 1–12 */
+function monat(ev, jahr, monat) {
+  const tageImMonat = new Date(jahr, monat, 0).getDate();
+  const tage = Array.from({ length: tageImMonat }, (_, i) => datum(new Date(jahr, monat - 1, i + 1, 12)));
+  const heat = tage.map((tg) => ({ tag: tg, minuten: tag(ev, tg).minuten }));
+  const imMonat = ev.filter((e) => tage.includes(datum(e.t)));
+  const faecher = [...new Set(imMonat.map((e) => e.f))].sort();
+  const verlauf = faecher.map((f) => ({ f, punkte: tage.map((tg) => {
+    const x = imMonat.filter((e) => e.f === f && datum(e.t) === tg);
+    return quote(x.filter((e) => e.ok).length, x.length);
+  }) }));
+  return { tage, heat, verlauf, skills: [...new Set(imMonat.map((e) => e.s).filter(Boolean))], n: imMonat.length };
+}
+
+/**
+ * Tendenzen je Skill (§9.4).
+ * @param {readonly Ereignis[]} ev
+ * @param {number} jetzt
+ */
+function trends(ev, jetzt) {
+  const jeSkill = {};
+  for (const e of ev) if (e.s) (jeSkill[e.s] = jeSkill[e.s] || []).push(e);
+  const fenster = (liste, von, bis) => liste.filter((e) => e.t > jetzt - von * TAG_MS && e.t <= jetzt - bis * TAG_MS);
+  const trend = (liste, tage) => {
+    const neu = fenster(liste, tage, 0), alt = fenster(liste, 2 * tage, tage);
+    if (neu.length < MIN_FUER_TREND || alt.length < MIN_FUER_TREND) return null;
+    return quote(neu.filter((e) => e.ok).length, neu.length) - quote(alt.filter((e) => e.ok).length, alt.length);
+  };
+  return Object.keys(jeSkill).map((s) => {
+    const l = sortiert(jeSkill[s]);
+    const letzte = l[l.length - 1].t;
+    const t7 = trend(l, 7), t30 = trend(l, 30);
+    const lange = jetzt - letzte > 14 * TAG_MS;
+    const zeichen = lange ? '⚠' : t7 == null ? '·' : t7 >= 5 ? '↑' : t7 <= -5 ? '↓' : '→';
+    return {
+      skill: s, fach: l[0].f, n: l.length, quote: quote(l.filter((e) => e.ok).length, l.length),
+      trend7: t7, trend30: t30, letzte, oDauer: Math.round(l.reduce((a, e) => a + (e.d || 0), 0) / l.length / 1000), zeichen,
+    };
+  }).sort((a, b) => (a.trend7 ?? 0) - (b.trend7 ?? 0) || (a.quote ?? 0) - (b.quote ?? 0));
+}
+
+/**
+ * Drei Listen (§9.4). `mastery`: Skill → Score (0–100) aus dem Lernpfad;
+ * ohne Mastery zählt die Trefferquote.
+ */
+function listen(tr, mastery = {}) {
+  const wert = (x) => (mastery[x.skill] != null ? mastery[x.skill] : x.quote ?? 0);
+  const brauchtUebung = tr.filter((x) => wert(x) < 50 || (x.trend7 != null && x.trend7 <= -10));
+  const sitzt = tr.filter((x) => !brauchtUebung.includes(x) && wert(x) >= 75);
+  const inArbeit = tr.filter((x) => !brauchtUebung.includes(x) && !sitzt.includes(x));
+  return { brauchtUebung, inArbeit, sitzt };
+}
+
+/** Ein Satz Zusammenfassung (§9.1). */
+function zusammenfassung(t, name, titel = (s) => s) {
+  if (!t.n) return name + ' hat an diesem Tag nicht gelernt.';
+  const faecher = Object.entries(t.minutenJeFach).sort((a, b) => b[1] - a[1]);
+  let satz = name + ' hat ' + t.minuten + (t.minuten === 1 ? ' Minute' : ' Minuten') + ' gelernt';
+  if (faecher.length > 1) satz += ', davon ' + faecher[0][1] + ' Minuten ' + faecher[0][0];
+  else if (faecher.length === 1) satz += ' (' + faecher[0][0] + ')';
+  satz += ' — ' + t.n + ' Aufgaben, ' + t.quote + ' % richtig.';
+  const fehlerJeSkill = {};
+  for (const f of t.fehler) if (f.s) fehlerJeSkill[f.s] = (fehlerJeSkill[f.s] || 0) + 1;
+  const schwer = Object.entries(fehlerJeSkill).sort((a, b) => b[1] - a[1])[0];
+  if (schwer && schwer[1] >= 2) satz += ' Bei ' + titel(schwer[0]) + ' gab es ' + schwer[1] + ' Fehler.';
+  return satz;
+}
+
+/** Aufeinanderfolgende Lerntage bis heute (Kindersicht §9.6). */
+function serie(ev, jetzt) {
+  const tage = new Set(ev.map((e) => datum(e.t)));
+  let n = 0, t = jetzt;
+  if (!tage.has(datum(t))) t -= TAG_MS;          /* heute noch nichts — gestern zählt weiter */
+  while (tage.has(datum(t))) { n++; t -= TAG_MS; }
+  return n;
+}
+
+/** CSV der Rohdaten (§9.5), Semikolon-getrennt für Tabellenprogramme. */
+function csv(ev) {
+  const feld = (x) => {
+    const s = String(x == null ? '' : x);
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const kopf = ['Zeitpunkt', 'Datum', 'Fach', 'Skill', 'Richtig', 'Frage', 'Gegeben', 'Richtige Antwort', 'Dauer (s)'];
+  const zeilen = sortiert(ev).map((e) => [new Date(e.t).toISOString(), datum(e.t), e.f, e.s || '', e.ok ? 'ja' : 'nein', e.q || '', e.g || '', e.r || '', Math.round((e.d || 0) / 1000)]);
+  return [kopf, ...zeilen].map((z) => z.map(feld).join(';')).join('\n');
+}
+
+
+  // @ts-check
+/**
+ * Wortweiser Diff für die Diktat-Auswertung: vergleicht die Eingabe mit
+ * dem Original und markiert richtige, falsche, fehlende und
+ * überflüssige Wörter.
+ *
+ * Übernommen aus sprachlernplattform/src/lib/textdiff.ts (Strang B), 1:1;
+ * geändert wurden nur die Typannotationen (TypeScript → JSDoc).
+ *
+ * Warum, obwohl §2 dieses Modul nicht in der Übernahmetabelle führt:
+ * §14 verlangt ausdrücklich einen Unit-Test für den „Diktat-Diff".
+ * Strang A hat eine eigene, ungetestete `wordDiff`-Funktion; diese hier
+ * ist LCS-basiert und durch fünf Testfälle abgesichert.
+ *
+ * Sie ersetzt A's Fassung noch **nicht** — das wäre eine
+ * Verhaltensänderung und gehört nach M3. In M0 liegt sie als geprüfte
+ * Grundlage bereit.
+ */
+
+/**
+ * Ein Schritt der Auswertung.
+ * @typedef {{kind:'ok', word:string}
+ *         | {kind:'wrong', word:string, expected:string}
+ *         | {kind:'missing', expected:string}
+ *         | {kind:'extra', word:string}} DiffOp
+ */
+
+/**
+ * Zusammenfassung einer Auswertung.
+ * @typedef {object} DiffSummary
+ * @property {number} total    Zu schreibende Wörter (ohne überflüssige)
+ * @property {number} correct  Davon richtig
+ * @property {number} errors   Alle Abweichungen, überflüssige eingeschlossen
+ * @property {number} ratio    correct / total, bei leerem Text 1
+ */
+
+/**
+ * Zerlegt einen Text an Leerräumen in Wörter.
+ * @param {string} s Der Text.
+ * @returns {string[]} Die Wörter, ohne leere Einträge.
+ */
+function tokenize(s) {
+  return s.trim().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Vergleichsform eines Worts: klein, ohne Satzzeichen.
+ * @param {string} w Das Wort.
+ * @returns {string} Die Vergleichsform.
+ */
+function clean(w) {
+  return w.toLowerCase().replace(/[.,!?;:'"’‘“”«»()\-–]/g, '');
+}
+
+/**
+ * Klassischer LCS-basierter Diff auf Wortebene.
+ * @param {string} expectedText Der Originaltext (das Diktat).
+ * @param {string} givenText Was das Kind geschrieben hat.
+ * @returns {DiffOp[]} Die Schritte in der Reihenfolge des Textes.
+ */
+function diffWords(expectedText, givenText) {
+  const e = tokenize(expectedText);
+  const g = tokenize(givenText);
+  const m = e.length;
+  const n = g.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      dp[i][j] = clean(e[i]) === clean(g[j]) ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  /** @type {DiffOp[]} */
+  const ops = [];
+  let i = 0;
+  let j = 0;
+  while (i < m && j < n) {
+    if (clean(e[i]) === clean(g[j])) {
+      ops.push({ kind: 'ok', word: g[j] });
+      i++; j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      if (dp[i + 1][j + 1] === dp[i + 1][j] && j < n && dp[i][j + 1] <= dp[i + 1][j + 1]) {
+        ops.push({ kind: 'wrong', word: g[j], expected: e[i] });
+        i++; j++;
+      } else {
+        ops.push({ kind: 'missing', expected: e[i] });
+        i++;
+      }
+    } else {
+      ops.push({ kind: 'extra', word: g[j] });
+      j++;
+    }
+  }
+  while (i < m) { ops.push({ kind: 'missing', expected: e[i] }); i++; }
+  while (j < n) { ops.push({ kind: 'extra', word: g[j] }); j++; }
+  return ops;
+}
+
+/**
+ * Zählt eine Auswertung aus.
+ * @param {DiffOp[]} ops Die Schritte aus diffWords.
+ * @returns {DiffSummary} Die Kennzahlen.
+ */
+function summarizeDiff(ops) {
+  const total = ops.filter((o) => o.kind !== 'extra').length;
+  const correct = ops.filter((o) => o.kind === 'ok').length;
+  const errors = ops.length - correct;
+  return { total, correct, errors, ratio: total === 0 ? 1 : correct / total };
+}
+
+
+  // @ts-check
+/* =====================================================================
+   M21: Die Woche — Auswertung, Wochentest und was als Nächstes dran ist.
+
+   Übernommen aus dem Lernplan der Familie (Notion, Stand 12.08.2026) und
+   verallgemeinert auf jede Klasse, jedes Fach und Erwachsene:
+   * Wochenthema je Fach (was gerade in der Schule dran ist) geht vor.
+   * Wochentest: 60 % aktuelles Thema, 40 % verteilte Wiederholung aus den
+     Wochen −1, −3, −6 — vorher eine Vorhersage (Selbsteinschätzung).
+   * Themen mit Testergebnis unter 70 % bleiben Priorität.
+   * Drei Wochen unter dem Ziel oder überwiegend „zu viel“: Methode oder
+     Tageszeit ändern — nicht den Umfang erhöhen.
+   Reine Funktionen; Speicher und Anzeige liegen in p88.
+   ===================================================================== */
+
+const ZIEL_QUOTE = 0.7;
+const TAG = 86400000;
+const KIND = {
+  schulthema: 'Ist gerade in der Schule dran',
+  test: 'Im Wochentest noch unsicher',
+  schwierigkeit: 'Hat zuletzt noch gehakt',
+  wiederholung: 'Zeit zum Wiederholen',
+  weiter: 'Dein nächster Schritt',
+};
+
+/** Kalendertage von a bis b (JJJJ-MM-TT). */
+function tageBis(a, b) {
+  const utc = (d) => { const [j, m, t] = String(d).split('-').map(Number); return Date.UTC(j, m - 1, t); };
+  return Math.round((utc(b) - utc(a)) / TAG);
+}
+const pct = (q) => Math.round(100 * q) + ' %';
+
+/**
+ * Was als Nächstes dran ist — mit Begründung für Kind und Eltern.
+ * @param {{ faecher: {fach: string, su: string, stationen: {skill: string, titel: string, zustand: string, score: number, jetzt?: boolean}[]}[],
+ *           ereignisse?: {t: number, s?: string|null, ok: number}[], themen?: {su: string, skills: string[], titel?: string, datum?: string}[],
+ *           tests?: {quote: number, fehlerSkills: string[]}[], jetzt: number, n?: number }} lage
+ */
+function prioritaeten(lage) {
+  const heute = datum(lage.jetzt), wo = new Map(), out = new Map();
+  for (const f of lage.faecher || []) for (const s of f.stationen || []) wo.set(s.skill, { f, s });
+  const add = (skill, grund, wert, eltern) => {
+    const x = wo.get(skill);
+    if (!x || x.s.zustand === 'gesperrt') return;
+    const alt = out.get(skill);
+    if (alt && alt.wert >= wert) return;
+    out.set(skill, { skill, su: x.f.su, fach: x.f.fach, titel: x.s.titel, grund, wert, kind: KIND[grund], eltern, nr: alt ? alt.nr : out.size });
+  };
+  for (const t of lage.themen || []) {
+    const rest = t.datum ? tageBis(heute, t.datum) : null;
+    if (rest != null && rest < 0) continue;
+    for (const skill of t.skills || []) {
+      const x = wo.get(skill);
+      const wert = (x && x.s.zustand === 'gemeistert' ? 60 : 100) + (rest != null && rest <= 7 ? 50 - rest * 3 : 0);
+      add(skill, 'schulthema', wert, 'Wochenthema' + (t.titel ? ' „' + t.titel + '“' : '') + (rest == null ? '' : rest === 0 ? ' · Klassenarbeit heute' : ' · Klassenarbeit in ' + rest + (rest === 1 ? ' Tag' : ' Tagen')));
+    }
+  }
+  for (const t of lage.tests || []) if (t && t.quote < ZIEL_QUOTE) for (const skill of t.fehlerSkills || []) add(skill, 'test', 90, 'Im Wochentest ' + pct(t.quote) + ' — unter 70 %');
+  const jeSkill = new Map();
+  for (const e of lage.ereignisse || []) {
+    if (!e.s || e.t < lage.jetzt - 14 * TAG) continue;
+    const x = jeSkill.get(e.s) || { n: 0, ok: 0 };
+    x.n++; if (e.ok) x.ok++;
+    jeSkill.set(e.s, x);
+  }
+  for (const [skill, x] of jeSkill) {
+    const q = x.ok / x.n;
+    if (x.n >= 4 && q < 0.6) add(skill, 'schwierigkeit', 50 + (0.6 - q) * 50, pct(q) + ' richtig (' + x.n + ' Aufgaben, 14 Tage)');
+  }
+  for (const f of lage.faecher || []) {
+    let naechste = f.stationen.find((s) => s.jetzt) || f.stationen.find((s) => s.zustand === 'verfuegbar');
+    for (const s of f.stationen) {
+      if (s.zustand === 'wiederholung-faellig') add(s.skill, 'wiederholung', 40, 'Wiederholung fällig');
+      else if (s.zustand === 'begonnen') add(s.skill, 'weiter', 25 + (1 - (s.score || 0)) * 10, 'Begonnen, noch nicht sicher');
+    }
+    if (naechste) add(naechste.skill, 'weiter', 20, 'Nächster Schritt im Lernpfad');
+  }
+  return [...out.values()].sort((a, b) => b.wert - a.wert || a.nr - b.nr).slice(0, lage.n || 5)
+    .map(({ nr, ...x }) => x);
+}
+
+/**
+ * Plan für den Wochentest: n Plätze, 60 % aus dem aktuellen Thema,
+ * 40 % aus den Skills, die in den Wochen −1, −3 und −6 geübt wurden.
+ * @param {{ aktuell: string[], ereignisse: {t: number, s?: string|null}[], jetzt: number, n?: number }} l
+ */
+function wochentestPlan(l) {
+  const n = l.n || 10, nAkt = Math.round(n * 0.6);
+  const m0 = new Date(montag(l.jetzt) + 'T12:00:00').getTime();
+  const proWoche = { 1: [], 3: [], 6: [] };
+  for (const e of l.ereignisse || []) {
+    if (!e.s || l.aktuell.includes(e.s)) continue;
+    const k = Math.round((m0 - new Date(montag(e.t) + 'T12:00:00').getTime()) / (7 * TAG));
+    if (proWoche[k] && !proWoche[k].includes(e.s)) proWoche[k].push(e.s);
+  }
+  const wdh = [];
+  for (let i = 0; wdh.length < [...proWoche[1], ...proWoche[3], ...proWoche[6]].length; i++) {
+    for (const k of [1, 3, 6]) if (proWoche[k][i] && !wdh.includes(proWoche[k][i])) wdh.push(proWoche[k][i]);
+    if (i > 50) break;
+  }
+  const plan = [];
+  const akt = l.aktuell.length ? l.aktuell : wdh;
+  for (let i = 0; i < (wdh.length ? nAkt : n); i++) if (akt.length) plan.push({ skill: akt[i % akt.length], art: l.aktuell.length ? 'aktuell' : 'wiederholung' });
+  for (let i = 0; wdh.length && plan.length < n; i++) plan.push({ skill: wdh[i % wdh.length], art: 'wiederholung' });
+  return plan;
+}
+
+/** Zahlen der Woche (Montag bis Sonntag) um `jetzt`. */
+function wochenZahlen(ereignisse, jetzt) {
+  const mo = montag(jetzt), start = new Date(mo + 'T12:00:00').getTime();
+  const tage = Array.from({ length: 7 }, (_, i) => datum(start + i * TAG));
+  const imWoche = (ereignisse || []).filter((e) => tage.includes(datum(e.t)));
+  const tageZ = tage.map((tag) => { const l = imWoche.filter((e) => datum(e.t) === tag); return { tag, n: l.length, minuten: sitzungen(l).reduce((a, s) => a + s.minuten, 0) }; });
+  const jeSkill = new Map();
+  for (const e of imWoche) { if (!e.s) continue; const x = jeSkill.get(e.s) || { skill: e.s, n: 0, ok: 0 }; x.n++; if (e.ok) x.ok++; jeSkill.set(e.s, x); }
+  const liste = [...jeSkill.values()].map((x) => ({ skill: x.skill, n: x.n, quote: x.ok / x.n }));
+  const ok = imWoche.filter((e) => e.ok).length;
+  return {
+    montag: mo, tage: tageZ, aktiveTage: tageZ.filter((t) => t.n > 0).length, minuten: tageZ.reduce((a, t) => a + t.minuten, 0),
+    aufgaben: imWoche.length, quote: imWoche.length ? ok / imWoche.length : null,
+    staerken: liste.filter((x) => x.n >= 5 && x.quote >= 0.8).sort((a, b) => b.quote - a.quote || b.n - a.n),
+    baustellen: liste.filter((x) => x.n >= 4 && x.quote < 0.6).sort((a, b) => a.quote - b.quote || b.n - a.n),
+  };
+}
+
+/**
+ * Anpassungs-Hinweis aus den letzten Wochen (älteste zuerst).
+ * @param {{test?: {n: number, ergebnis: number, vorhersage?: number}, rueckblick?: {stimmung?: string}}[]} wochen
+ */
+function anpassung(wochen) {
+  const mitTest = (wochen || []).filter((w) => w && w.test && w.test.n);
+  const letzte3 = mitTest.slice(-3);
+  const stimmungen = (wochen || []).slice(-3).map((w) => w && w.rueckblick && w.rueckblick.stimmung).filter(Boolean);
+  let hinweis = null;
+  if (letzte3.length === 3 && letzte3.every((w) => w.test.ergebnis / w.test.n < ZIEL_QUOTE))
+    hinweis = 'Drei Wochen in Folge unter dem Ziel (70 %): Methode oder Tageszeit ändern — nicht den Umfang erhöhen.';
+  else if (stimmungen.filter((s) => s === 'zu viel' || s === 'schwer').length >= 2)
+    hinweis = 'Überwiegend „zu viel“ oder „schwer“: Methode oder Tageszeit ändern — nicht den Umfang erhöhen.';
+  return { hinweis, abstand: mitTest.filter((w) => w.test.vorhersage != null).map((w) => w.test.vorhersage - w.test.ergebnis) };
+}
+
+/** Welches Wochenthema heute vorn steht: die nächste Klassenarbeit, sonst täglich wechselnd. */
+function wochenthemaFuerHeute(themen, heute) {
+  const gueltig = (themen || []).filter((t) => t && t.skills && t.skills.length && !(t.datum && tageBis(heute, t.datum) < 0));
+  if (!gueltig.length) return null;
+  const mitDatum = gueltig.filter((t) => t.datum).sort((a, b) => (a.datum < b.datum ? -1 : 1));
+  if (mitDatum.length) return mitDatum[0];
+  return gueltig[Math.abs(tageBis('2026-01-05', heute)) % gueltig.length];
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+  var STIMMUNG = [["super", "😄"], ["gut", "🙂"], ["geht so", "😐"], ["schwer", "😟"], ["zu viel", "😵"]];
+  var FRAGEN_KIND = ["Was hat mir diese Woche gefallen?", "Was hat mir nicht gefallen?", "Was habe ich diese Woche gelernt?",
+    "Was möchte ich nächste Woche besser machen?", "Wobei sollen Mama und Papa mir helfen?"];
+  var FRAGEN_ERW = ["Was hat diese Woche gut funktioniert?", "Was nicht?", "Was habe ich gelernt?", "Was mache ich nächste Woche anders?", "Wobei brauche ich Unterstützung?"];
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function istKind() { var p = profil(); return !!(p && p.type === "kid"); }
+  function h(s) { return typeof esc === "function" ? esc(String(s == null ? "" : s)) : String(s == null ? "" : s); }
+  function LP() { return window.__LERNPFAD || null; }
+  function ereignisse() { try { return window.__ELTERN ? window.__ELTERN.ereignisse() : []; } catch (e) { return []; } }
+  function schluessel() { var p = profil(); return "egl-woche-" + (p ? p.id : "anon"); }
+  function laden() { try { var v = JSON.parse(localStorage.getItem(schluessel()) || "{}") || {}; v.wochen = v.wochen || {}; return v; } catch (e) { return { wochen: {} }; } }
+  function speichern(v) { try { localStorage.setItem(schluessel(), JSON.stringify(v)); } catch (e) {} }
+  function woche(mo) { var v = laden(); return v.wochen[mo] || {}; }
+  function setzeWoche(mo, feld, wert) { var v = laden(); v.wochen[mo] = v.wochen[mo] || {}; v.wochen[mo][feld] = wert; speichern(v); }
+  function heuteMo() { return montag(Date.now()); }
+  function vorMo(mo, w) { return montag(new Date(mo + "T12:00:00").getTime() - w * 7 * 86400000); }
+  function titelVon(skill) { var L = LP(); return (L && L.SKILLS && L.SKILLS[skill] && L.SKILLS[skill].titel) || skill; }
+
+  /* ---------- Wochenthemen (Profil) ---------- */
+  function themenObj(p) {
+    p = p || profil();
+    if (!p) return {};
+    if (!p.themen && p.fokus && p.fokus.su) { p.themen = {}; p.themen[p.fokus.su] = p.fokus; }   /* M19 → M21: Schwerpunkt wird Wochenthema seines Fachs */
+    return p.themen || {};
+  }
+  function themen(p) { var o = themenObj(p); return Object.keys(o).map(function (su) { var t = o[su]; return { su: su, skills: t.skills || [], titel: t.titel, datum: t.datum }; }); }
+  function faecher() {
+    var L = LP(); if (!L || !L.faecherHeute) return [];
+    return L.faecherHeute().map(function (f) { var st = []; try { st = L.pfad(f.fach); } catch (e) {} return { fach: f.titel, su: f.su, stationen: st }; });
+  }
+  function tests() { var mo = heuteMo(); return [woche(vorMo(mo, 1)).test, woche(mo).test].filter(Boolean); }
+  function prio(n) { return prioritaeten({ faecher: faecher(), ereignisse: ereignisse(), themen: themen(), tests: tests(), jetzt: Date.now(), n: n || 5 }); }
+  /* Ab Freitag — aber nur, wenn es in dieser Woche etwas zu prüfen gibt:
+     ein Wochenthema oder mindestens 10 gelöste Aufgaben. Ein neues Kind
+     bekommt am ersten Tag keinen Test. */
+  function testOffen() {
+    var d = new Date().getDay();
+    if (!(d === 5 || d === 6 || d === 0) || woche(heuteMo()).test) return false;
+    return themen().length > 0 || wochenZahlen(ereignisse(), Date.now()).aufgaben >= 10;
+  }
+  function rueckblickOffen() {
+    var d = new Date().getDay(), mo = heuteMo();
+    if (d === 6 || d === 0) return woche(mo).rueckblick ? null : mo;
+    if (d === 1) { var vm = vorMo(mo, 1); return !woche(vm).rueckblick && wochenZahlen(ereignisse(), new Date(vm + "T12:00:00").getTime()).aufgaben ? vm : null; }
+    return null;
+  }
+  function fehlerwoerter(mo) {
+    var start = new Date(mo + "T00:00:00").getTime(), ende = start + 7 * 86400000, w = [];
+    ereignisse().forEach(function (e) {
+      if (e.w !== "diktat" || e.ok || e.t < start || e.t >= ende || !e.r) return;
+      diffWords(String(e.r).replace(/[.,!?;:"“”„]/g, " "), String(e.g || "").replace(/[.,!?;:"“”„]/g, " ")).forEach(function (o) {
+        var x = o.kind === "wrong" || o.kind === "missing" ? o.expected : null;
+        if (x && w.indexOf(x) < 0) w.push(x);
+      });
+    });
+    return w.slice(0, 10);
+  }
+
+  /* ---------- Wochentest ---------- */
+  var lauf = null;
+  function testStarten(vorhersage) {
+    var L = LP(); if (!L) return false;
+    var spielbar = function (sk) { try { return L.aufgabenVon(sk).length > 0; } catch (e) { return false; } };
+    var aktuell = [];
+    themen().forEach(function (t) { t.skills.forEach(function (s) { if (spielbar(s) && aktuell.indexOf(s) < 0) aktuell.push(s); }); });
+    if (!aktuell.length) prio(4).forEach(function (x) { if (spielbar(x.skill)) aktuell.push(x.skill); });
+    var plan = wochentestPlan({ aktuell: aktuell, ereignisse: ereignisse().filter(function (e) { return e.s && spielbar(e.s); }), jetzt: Date.now(), n: 10 });
+    var benutzt = {}, liste = [];
+    plan.forEach(function (x) {
+      var pool = L.aufgabenVon(x.skill).filter(function (q) { return !benutzt[q.id || q.q]; });
+      if (!pool.length) return;
+      var q = pool[Math.floor(Math.random() * pool.length)];
+      benutzt[q.id || q.q] = 1; liste.push(q);
+    });
+    if (!liste.length) return false;
+    for (var i = liste.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = liste[i]; liste[i] = liste[j]; liste[j] = t; }
+    lauf = { vorhersage: vorhersage, n: liste.length, antworten: [], mo: heuteMo() };
+    kstate.lp = { art: "runde", titel: "📝 Wochentest", liste: liste, i: 0, auswahl: [], fb: null, stufe: 4, richtig: 0, hinweise: 0, wochentest: true, ruecksprung: "wochentest" };
+    kstate.tab = "lernpfad";
+    return true;
+  }
+  document.addEventListener("lp:antwort", function (e) {
+    if (!lauf || !kstate.lp || !kstate.lp.wochentest) return;
+    var d = e.detail || {}; lauf.antworten.push({ skill: d.skill, ok: !!d.ok });
+  });
+  document.addEventListener("lp:runde-fertig", function () {
+    if (!lauf || !kstate.lp || !kstate.lp.wochentest) return;
+    var ok = lauf.antworten.filter(function (a) { return a.ok; }).length, fehler = [];
+    lauf.antworten.forEach(function (a) { if (!a.ok && a.skill && fehler.indexOf(a.skill) < 0) fehler.push(a.skill); });
+    setzeWoche(lauf.mo, "test", { vorhersage: lauf.vorhersage, n: lauf.n, ergebnis: ok, quote: lauf.n ? ok / lauf.n : 0, fehlerSkills: fehler, am: Date.now() });
+    try { if (window.__HEUTE && window.__HEUTE.abhaken) window.__HEUTE.abhaken("wochentest"); } catch (x) {}
+    lauf = null;
+  });
+
+  /* ---------- Anzeige: Meine Woche (Fortschritt) ---------- */
+  var TAGNAME = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  function htmlPrio(liste, kind) {
+    if (!liste.length) return "";
+    return '<ol class="wo-prio" data-testid="wo-prio">' + liste.map(function (x) {
+      return '<li><button class="wo-start" data-wo-start="' + h(x.skill) + '"><span class="wo-ti">' + h(x.titel) + '</span><span class="wo-grund">' + h(x.fach) + " · " + h(kind ? x.kind : x.eltern) + "</span></button></li>";
+    }).join("") + "</ol>";
+  }
+  function html() {
+    var kind = istKind(), jetzt = Date.now(), z = wochenZahlen(ereignisse(), jetzt), w = woche(z.montag), th = themen();
+    var s = '<section class="wo" data-testid="wo-woche"><h3 class="hb-zw">📅 ' + (kind ? "Meine Woche" : "Diese Woche") + "</h3>"
+      + '<div class="wo-tage" aria-label="Lerntage dieser Woche">' + z.tage.map(function (t) {
+        var d = new Date(t.tag + "T12:00:00");
+        return '<span class="wo-tag' + (t.n ? " an" : "") + (t.tag === datum(jetzt) ? " heute" : "") + '" title="' + h(t.tag + ": " + t.minuten + " Min.") + '">' + TAGNAME[d.getDay()] + "</span>";
+      }).join("") + '</div><p class="fs-text" data-testid="wo-zahlen">' + z.aktiveTage + (z.aktiveTage === 1 ? " Tag" : " Tage") + " gelernt · " + z.minuten + " Minuten · " + z.aufgaben + " Aufgaben"
+      + (!kind && z.quote != null ? " · " + Math.round(100 * z.quote) + " % richtig" : "") + "</p>";
+    if (th.length) s += '<p class="wo-themen" data-testid="wo-themen"><b>Wochenthema:</b> ' + th.map(function (t) { return h((t.titel || titelVon(t.skills[0])) + (t.datum ? " (Arbeit am " + t.datum.split("-").reverse().join(".") + ")" : "")); }).join(" · ") + "</p>";
+    if (z.staerken.length) s += '<p class="wo-gut">🌟 <b>Super gemacht:</b> ' + z.staerken.slice(0, 3).map(function (x) { return h(titelVon(x.skill)); }).join(", ") + "</p>";
+    s += '<div class="wo-knoepfe">';
+    if (w.test) s += '<div class="wo-test" data-testid="wo-test">📝 Wochentest: geschätzt <b>' + w.test.vorhersage + "</b> · geschafft <b>" + w.test.ergebnis + " von " + w.test.n + "</b></div>";
+    else s += '<button class="btn' + (testOffen() ? " btn-primary" : "") + '" data-wo="test" data-testid="wo-test-start">📝 Wochentest' + (testOffen() ? " — jetzt dran" : " (ab Freitag)") + "</button>";
+    s += '<button class="btn" data-wo="rueckblick" data-testid="wo-rueckblick-start">' + (w.rueckblick ? "✏️ Rückblick ansehen" : "✏️ Wochen-Rückblick") + "</button></div>";
+    var p = prio(3);
+    if (p.length) s += '<h4 class="wo-h4">' + (kind ? "Das üben wir als Nächstes" : "Als Nächstes dran") + "</h4>" + htmlPrio(p, kind);
+    return s + "</section>";
+  }
+
+  /* ---------- Seiten: Wochentest-Vorhersage/Ergebnis, Rückblick ---------- */
+  function htmlTest() {
+    var w = woche(heuteMo()), kind = istKind();
+    var s = '<div class="hb wo-seite"><button class="back" data-wo="zurueck">← Fortschritt</button><h2 class="hb-titel">📝 Wochentest</h2>';
+    if (w.test) {
+      var t = w.test, d = t.vorhersage - t.ergebnis;
+      s += '<div class="lp-box" role="status" data-testid="wo-ergebnis"><p style="font-size:20px;margin:0 0 8px">Geschätzt <b>' + t.vorhersage + "</b> · geschafft <b>" + t.ergebnis + " von " + t.n + "</b></p><p>"
+        + (Math.abs(d) <= 1 ? "Gut eingeschätzt! Du weißt, was du kannst." : d > 1 ? "Du hast mehr erwartet — schau dir die Themen unten noch einmal an." : "Du kannst mehr, als du dachtest! 💪") + "</p>"
+        + (t.fehlerSkills.length ? "<p><b>Kommt nächste Woche wieder dran:</b> " + t.fehlerSkills.map(function (sk) { return h(titelVon(sk)); }).join(", ") + "</p>" : "<p>Alles richtig — stark!</p>") + "</div>";
+      return s + "</div>";
+    }
+    return s + '<p class="hb-sub">10 Aufgaben ohne Hilfe — aus ' + (themen().length ? "deinem Wochenthema" : "dem, was gerade dran ist") + " und etwas Wiederholung von früher.</p>"
+      + '<p style="font-weight:700">' + (kind ? "Wie viele von 10 schaffst du? Schätz mal!" : "Wie viele von 10 erwarten Sie? (Selbsteinschätzung)") + "</p>"
+      + '<div class="wo-schaetzen" role="group" aria-label="Vorhersage">' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (n) { return '<button class="btn wo-zahl" data-wo-vorhersage="' + n + '">' + n + "</button>"; }).join("") + "</div></div>";
+  }
+  var entwurf = null;
+  function htmlRueckblick() {
+    var mo = rueckblickOffen() || heuteMo(), w = woche(mo), kind = istKind(), F = kind ? FRAGEN_KIND : FRAGEN_ERW;
+    if (!entwurf || entwurf.mo !== mo) entwurf = { mo: mo, stimmung: w.rueckblick ? w.rueckblick.stimmung : null, antworten: w.rueckblick ? w.rueckblick.antworten.slice() : ["", "", "", "", ""] };
+    var s = '<div class="hb wo-seite"><button class="back" data-wo="zurueck">← Fortschritt</button><h2 class="hb-titel">✏️ Wochen-Rückblick</h2>'
+      + '<p class="hb-sub">Woche ab ' + mo.split("-").reverse().join(".") + (kind ? " — es gibt keine falschen Antworten." : "") + "</p>"
+      + '<p style="font-weight:700;margin:0 0 8px">Wie war deine Woche?</p><div class="wo-stimmung" role="group" aria-label="Stimmung">' + STIMMUNG.map(function (x) {
+        var an = entwurf.stimmung === x[0];
+        return '<button class="btn wo-st' + (an ? " an" : "") + '" aria-pressed="' + an + '" data-wo-stimmung="' + x[0] + '"><span aria-hidden="true">' + x[1] + "</span> " + h(x[0]) + "</button>";
+      }).join("") + "</div>";
+    F.forEach(function (f, i) { s += '<label class="wo-frage">' + (i + 1) + ". " + h(f) + '<textarea rows="2" data-wo-antwort="' + i + '">' + h(entwurf.antworten[i] || "") + "</textarea></label>"; });
+    var z = wochenZahlen(ereignisse(), new Date(mo + "T12:00:00").getTime());
+    s += '<p class="fs-text">Diese Woche: ' + z.aktiveTage + " Tage · " + z.minuten + " Minuten · " + z.aufgaben + " Aufgaben" + (w.test ? " · Wochentest " + w.test.ergebnis + " von " + w.test.n + " (geschätzt " + w.test.vorhersage + ")" : "") + "</p>";
+    return s + '<div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn btn-primary" data-wo="speichern" data-testid="wo-speichern"' + (entwurf.stimmung ? "" : " disabled") + ">Speichern</button></div></div>";
+  }
+
+  /* ---------- Eltern-Wochenbericht ---------- */
+  function htmlEltern() {
+    var jetzt = Date.now(), mo = heuteMo(), z = wochenZahlen(ereignisse(), jetzt), w = woche(mo), vw = woche(vorMo(mo, 1)), th = themen();
+    var alle = laden().wochen, liste = Object.keys(alle).sort().slice(-6).map(function (k) { return alle[k]; });
+    var an = anpassung(liste), rb = w.rueckblick || vw.rueckblick, rbWoche = w.rueckblick ? mo : vorMo(mo, 1), fw = fehlerwoerter(mo);
+    var s = '<div class="el-box wo-eltern" data-testid="wo-eltern"><h3>📅 Woche ab ' + mo.split("-").reverse().join(".") + "</h3>"
+      + "<p>" + z.aktiveTage + " Lerntage · " + z.minuten + " Minuten · " + z.aufgaben + " Aufgaben" + (z.quote != null ? " · " + Math.round(100 * z.quote) + " % richtig" : "") + "</p>"
+      + "<p><b>Wochenthemen:</b> " + (th.length ? th.map(function (t) { return h((t.titel || titelVon(t.skills[0])) + " (" + t.skills.length + (t.skills.length === 1 ? " Station" : " Stationen") + (t.datum ? ", Arbeit am " + t.datum.split("-").reverse().join(".") : "") + ")"); }).join(" · ") : "noch keine")
+      + ' <button class="btn" data-eltern="fokus">Wochenthema festlegen</button></p>';
+    var t = w.test || vw.test;
+    s += "<p><b>Wochentest:</b> " + (t ? "geschätzt " + t.vorhersage + ", geschafft " + t.ergebnis + " von " + t.n + (t.fehlerSkills.length ? " · unsicher: " + t.fehlerSkills.map(function (sk) { return h(titelVon(sk)); }).join(", ") : "") : "diese Woche noch nicht (ab Freitag in „Heute“)") + "</p>";
+    if (an.abstand.length > 1) s += "<p><b>Selbsteinschätzung</b> (Vorhersage minus Ergebnis, ältere zuerst): " + an.abstand.join(" · ") + " — nähert sich das der 0, kennt sich das Kind besser.</p>";
+    if (fw.length) s += "<p><b>Fehlerwörter der Woche (Diktat):</b> " + fw.map(h).join(", ") + "</p>";
+    if (z.baustellen.length) s += "<p><b>Hakt gerade:</b> " + z.baustellen.slice(0, 3).map(function (x) { return h(titelVon(x.skill)) + " (" + Math.round(100 * x.quote) + " %)"; }).join(", ") + "</p>";
+    if (rb) s += '<div class="wo-rb"><p><b>Rückblick des Kindes</b> (Woche ab ' + rbWoche.split("-").reverse().join(".") + "): Stimmung „" + h(rb.stimmung) + "“</p><ol>"
+      + FRAGEN_KIND.map(function (f, i) { return "<li>" + h(f) + " <i>" + h(rb.antworten[i] || "—") + "</i></li>"; }).join("") + "</ol></div>";
+    if (an.hinweis) s += '<p class="wo-hinweis" role="status" data-testid="wo-anpassung">⚠️ ' + h(an.hinweis) + "</p>";
+    s += "<h4 class=\"wo-h4\">Nächste Lektionen (Reihenfolge der App)</h4>" + htmlPrio(prio(5), false)
+      + '<details class="wo-gespraech"><summary>Wochengespräch in 5 Schritten</summary><ol>'
+      + "<li>Das Kind liest vor, was ihm gefallen hat und was nicht — zuhören, nicht widersprechen.</li>"
+      + "<li>Es erklärt eine Sache, die es gelernt hat, in eigenen Worten (die eigentliche Lernkontrolle).</li>"
+      + "<li>Wochentest: Vorhersage und Ergebnis vergleichen — fragen „Woran hat das gelegen?“, nicht „Warum hast du das falsch gemacht?“.</li>"
+      + "<li>Ein Vorsatz für die neue Woche, vom Kind formuliert.</li><li>Eine Zusage von Ihnen: was Sie nächste Woche anders machen.</li></ol>"
+      + "<p>Alle 4 Wochen: Was hat nicht funktioniert, was gelingt, was bleibt schwer — und genau eine Änderung (Methode, Tageszeit oder Material, nicht den Umfang).</p></details></div>";
+    return s;
+  }
+
+  /* ---------- Einhängen ---------- */
+  function aktiv() { var p = profil(); return p && p.type !== "baby" && !(typeof showProfiles !== "undefined" && showProfiles) && (kstate.tab === "wochentest" || kstate.tab === "rueckblick"); }
+  var renderVorher = render;
+  var renderNeu = function () {
+    if (aktiv() && typeof document.getElementById === "function") {
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) { view.innerHTML = kstate.tab === "wochentest" ? htmlTest() : htmlRueckblick(); return; }
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+  function neu() { try { render(); } catch (e) {} }
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest("[data-wo],[data-wo-start],[data-wo-vorhersage],[data-wo-stimmung]") : null;
+    if (!t) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var was = t.getAttribute("data-wo");
+    if (t.hasAttribute("data-wo-start")) {
+      var sk = t.getAttribute("data-wo-start"), st = null, L = LP();
+      faecher().forEach(function (f) { f.stationen.forEach(function (x) { if (x.skill === sk) st = x; }); });
+      if (L && L.starte) return L.starte({ typ: "lektion", skill: sk, stufe: st && st.zustand === "verfuegbar" ? 1 : 3, ruecksprung: kstate.tab });
+    }
+    else if (t.hasAttribute("data-wo-vorhersage")) { if (!testStarten(+t.getAttribute("data-wo-vorhersage"))) return; }
+    else if (t.hasAttribute("data-wo-stimmung")) { if (entwurf) entwurf.stimmung = t.getAttribute("data-wo-stimmung"); }
+    else if (was === "test") kstate.tab = "wochentest";
+    else if (was === "rueckblick") { entwurf = null; kstate.tab = "rueckblick"; }
+    else if (was === "zurueck") kstate.tab = "hub-fortschritt";
+    else if (was === "speichern" && entwurf && entwurf.stimmung) { setzeWoche(entwurf.mo, "rueckblick", { stimmung: entwurf.stimmung, antworten: entwurf.antworten.slice(), am: Date.now() }); entwurf = null; kstate.tab = "hub-fortschritt"; }
+    neu();
+  }, true);
+  ziel.addEventListener("input", function (e) {
+    var i = e.target && e.target.getAttribute && e.target.getAttribute("data-wo-antwort");
+    if (i != null && entwurf) entwurf.antworten[+i] = e.target.value;
+  }, true);
+
+  window.__WOCHE = { html: html, htmlEltern: htmlEltern, prio: prio, themen: themen, themenObj: themenObj, testOffen: testOffen, rueckblickOffen: rueckblickOffen,
+    testOeffnen: function () { kstate.tab = "wochentest"; neu(); }, fokusHeute: function (tag) { return wochenthemaFuerHeute(themen(), tag); }, testStarten: testStarten, laden: laden, fehlerwoerter: fehlerwoerter };
+})();
+
 /* ---------- Abschluss: erste Anzeige & Versionshinweis ---------- */
 try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 09:13")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 09:31")}}catch(e){}
 })();
 
 </script>
