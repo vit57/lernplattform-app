@@ -938,11 +938,22 @@ html[data-theme] body.nv-an #tabs {
   box-shadow: inset -1px 0 0 var(--glas-kante);
 }
 @media (max-width: 900px) {
+  /* Das Glas liegt auf einer eigenen Ebene (::before), NICHT auf header
+     selbst: backdrop-filter macht ein Element zum Bezugsrahmen für
+     position:fixed — das ausklappbare Menü (#tabs steckt im header) war
+     dann nur so hoch wie die Kopfzeile (Fehlerbericht iPad 2026-10-03). */
   html[data-theme] body.nv-an header {
-    background: var(--glas-stark) !important;
-    -webkit-backdrop-filter: var(--glas-blur-stark); backdrop-filter: var(--glas-blur-stark);
+    background: transparent !important;
+    isolation: isolate;
     border-bottom: 1px solid var(--glas-linie) !important;
   }
+  html[data-theme] body.nv-an header::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: var(--glas-stark);
+    -webkit-backdrop-filter: var(--glas-blur-stark); backdrop-filter: var(--glas-blur-stark);
+  }
+  /* Der Menüknopf (☰, fest links oben) verdeckt sonst das Profil oben im Menü */
+  html[data-theme] body.nv-an.navopen #tabs { padding-top: 64px !important; }
 }
 html[data-theme] .nv-profil { background: var(--glas); border-color: var(--glas-linie); box-shadow: var(--glas-licht); }
 html[data-theme] .nv-item { transition: background-color 150ms ease, color 150ms ease, transform 140ms var(--ease-out, ease-out); }
@@ -1048,6 +1059,24 @@ html[data-theme] #view :is(.wo-h4, .hb-zw) { letter-spacing: -.005em; }
   html[data-theme] { --glas: color-mix(in srgb, var(--paper) 94%, transparent); --glas-stark: var(--paper); }
 }
 html[data-theme][data-farbe="kontrast"] { --glas: var(--paper); --glas-stark: var(--paper); --glas-linie: var(--ink3); }
+/* M31: Oberfläche „Schlicht“ (Darstellung → Oberfläche). Gleiche Breiten,
+   Rundungen und Abstände — nur ohne Glas: feste Flächen, ruhiger Grund,
+   flache Hauptaktionen, leichte Schatten. */
+html[data-theme][data-glas="aus"] {
+  --glas: var(--paper); --glas-stark: var(--paper);
+  --glas-linie: var(--line);
+  --glas-licht: inset 0 0 0 0 transparent;
+  --glas-schatten: 0 1px 2px rgba(20, 16, 40, .06);
+  --glas-schatten-hoch: 0 4px 14px -6px rgba(20, 16, 40, .18);
+}
+html[data-theme="dunkel"][data-glas="aus"] { --glas-schatten: 0 1px 2px rgba(0, 0, 0, .3); --glas-schatten-hoch: 0 6px 18px -8px rgba(0, 0, 0, .6); }
+html[data-theme][data-glas="aus"] *, html[data-theme][data-glas="aus"] *::before { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html[data-theme][data-glas="aus"] body { background: var(--paper2) !important; }
+html[data-theme][data-glas="aus"] #view :is(.ht-hero, .lp-hero, .hb-karte.gross, .kl-karte.gross) {
+  background: var(--brand) !important;
+  box-shadow: 0 6px 18px -10px color-mix(in srgb, var(--brand) 70%, transparent) !important;
+}
+html[data-theme][data-glas="aus"] #view .btn.btn-primary { background: var(--brand) !important; box-shadow: none; }
 @media print { html[data-theme] body { background: #fff !important; } html[data-theme] * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; } }
 </style>
 <script>
@@ -1318,6 +1347,7 @@ function abgleichen(lokal, fremd) {
     if (PALETTE[t]) r.setAttribute("data-farbe", t);
     if (d.schrift === "gross" || d.schrift === "sehr-gross") r.setAttribute("data-schrift", d.schrift);
     if (d.lese) r.setAttribute("data-lesefreundlich", "1");
+    if (d.glas === "aus") r.setAttribute("data-glas", "aus");   /* M31: Glasdesign abschaltbar */
   } catch (e) {
     r.setAttribute("data-theme", "hell");
   }
@@ -28694,7 +28724,8 @@ function neuerRuecksetzCode() {
    M12 — Darstellung und Barrierefreiheit (AUFTRAG-v2.md §12).
 
    * Knopf „◐ Darstellung“ in der Kopfzeile: Hell · Dunkel · wie das Gerät,
-     Schriftgröße (normal / groß / sehr groß), lesefreundliche Schrift.
+     Schriftgröße (normal / groß / sehr groß), lesefreundliche Schrift,
+     M31: Oberfläche Glas (Standard) oder schlicht.
      Gespeichert in `egl-darstellung`; angewendet schon im <head>
      (app/design/thema-kopf.js), hier nur umgeschaltet.
    * Skip-Link „Zum Inhalt springen“.
@@ -28736,6 +28767,8 @@ function neuerRuecksetzCode() {
     if (d.schrift === "gross" || d.schrift === "sehr-gross") wurzel.setAttribute("data-schrift", d.schrift);
     else wurzel.removeAttribute("data-schrift");
     if (d.lese) wurzel.setAttribute("data-lesefreundlich", "1"); else wurzel.removeAttribute("data-lesefreundlich");
+    /* M31: Liquid Glass ist Standard; „Schlicht“ zeigt feste Flächen ohne Weichzeichner. */
+    if (d.glas === "aus") wurzel.setAttribute("data-glas", "aus"); else wurzel.removeAttribute("data-glas");
   }
   try {
     anwenden(lade());
@@ -28908,6 +28941,9 @@ function neuerRuecksetzCode() {
         return '<label><span class="dz-muster" aria-hidden="true">' + x.muster.map(function (c) { return '<i style="background:' + c + '"></i>'; }).join("")
           + '</span><span class="dz-name"><input type="radio" name="dz-theme" value="' + x.id + '"' + (t === x.id ? " checked" : "") + "> " + x.name + "</span></label>";
       }).join("") + "</div></fieldset>"
+      + '<fieldset class="dz-gruppe"><legend>Oberfläche</legend>'
+      + feld("dz-glas", "an", "Glas (Liquid Glass): durchscheinende Flächen, weicher Hintergrund", d.glas !== "aus")
+      + feld("dz-glas", "aus", "Schlicht: feste Flächen ohne Glaseffekt (ruhiger, schneller auf älteren Geräten)", d.glas === "aus") + "</fieldset>"
       + '<fieldset class="dz-gruppe"><legend>Schriftgröße</legend>'
       + feld("dz-schrift", "normal", "Normal", s === "normal") + feld("dz-schrift", "gross", "Groß", s === "gross")
       + feld("dz-schrift", "sehr-gross", "Sehr groß", s === "sehr-gross") + "</fieldset>"
@@ -28922,6 +28958,8 @@ function neuerRuecksetzCode() {
       var th = hinter.querySelector('input[name="dz-theme"]:checked'), sc = hinter.querySelector('input[name="dz-schrift"]:checked');
       n.theme = th ? th.value : "system";
       n.schrift = sc && sc.value !== "normal" ? sc.value : undefined;
+      var gl = hinter.querySelector('input[name="dz-glas"]:checked');
+      n.glas = gl && gl.value === "aus" ? "aus" : undefined;
       n.lese = hinter.querySelector('input[name="dz-lese"]').checked || undefined;
       n.vorlesen = hinter.querySelector('input[name="dz-vorlesen"]').checked || undefined;
       speichere(n); anwenden(n);
@@ -38958,7 +38996,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 21:19")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 03.10.2026 21:33")}}catch(e){}
 })();
 
 </script>
