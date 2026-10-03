@@ -1252,6 +1252,11 @@ html[data-theme] #view .fs-abzeichen .az .az-me { font-size: 11.5px; }
 @media (min-width: 1100px) {
   html[data-theme] :is(.m127-hd h2, .kid-head h2, .m132-head h1, .m133-hero h1, #view > h2, .m140-hero h2) { font-size: 32px !important; letter-spacing: -.025em !important; line-height: 1.1; }
 }
+/* M35: Übungen der Aufgabenwelt im Lernpfad */
+.lp-quelle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-radius: 999px; padding: 4px 10px; margin: 0 0 10px; }
+.lp-uw { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--glas-linie, var(--line)); }
+.lp-uw .lp-knoepfe { flex-wrap: wrap; justify-content: flex-start; margin-top: 8px; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -29728,6 +29733,98 @@ function auswertung(antworten, titelVon = (s) => s) {
 function klausurSaat(profil, id, t) { return fnv(String(profil) + '|' + id + '|' + t); }
 
 
+  // @ts-check
+/* =====================================================================
+   M35: Übungen im Lernpfad (Rückmeldung 2026-10-03: „Die Übungen sollten
+   auch direkt in den Lernpfad integriert werden. D.h. wenn man ein
+   Thema/Lektion gelernt hat, sollten die entsprechenden Übungen abgefragt
+   werden.“). Reine Funktionen.
+
+   * BEZUG: welche Formate der Übungswelt zu welcher Station passen — nur
+     bis Klasse 5/6, denn die Übungswelt ist Grundschul- und
+     Unterstufenstoff. Spielformate (Kreuzworträtsel, Suchsel, Wortkette,
+     Gedächtnis), Prüfungs- und Sprechformate gehören zu keiner Station.
+   * alsAufgabe: eine Übungswelt-Aufgabe in die Form des Lernpfads
+     (mc/multi mit Index), die Optionen gemischt — der Lernpfad zeigt die
+     Optionen in gespeicherter Reihenfolge, die Übungswelt mischt selbst.
+   * uebungenFuer: die passenden Aufgaben einer Station, gemischt über die
+     Formate, ohne schon gezeigte.
+   ===================================================================== */
+
+/** @type {Record<string, string[]>} Format → Stationen */
+const BEZUG = {
+  wordclass: ['deutsch.wortarten', 'deutsch.nomen12', 'deutsch.verben12', 'deutsch.adjektive12', 'deutsch.wortarten56'],
+  article: ['deutsch.nomen12', 'deutsch.wortarten'],
+  ending: ['deutsch.faelle', 'deutsch.faelle56'],
+  kasus: ['deutsch.faelle', 'deutsch.faelle56'],
+  family: ['deutsch.wortbau'],
+  affix: ['deutsch.wortbau'],
+  ss: ['deutsch.rechtschreibung', 'deutsch.recht56'],
+  double: ['deutsch.rechtschreibung', 'deutsch.recht12'],
+  sounds: ['deutsch.laute12', 'deutsch.recht12'],
+  homophone: ['deutsch.rechtschreibung'],
+  syllable: ['deutsch.silben', 'deutsch.silben12'],
+  case: ['deutsch.gross', 'deutsch.recht12'],
+  punct: ['deutsch.satz', 'deutsch.satz12', 'deutsch.rede'],
+  sentence: ['deutsch.satz', 'deutsch.satz12', 'deutsch.satzglieder56'],
+  rhyme: ['deutsch.laute12'],
+  alphabet: ['deutsch.abc12'],
+  'en-plural': ['englisch.nomen'],
+  'en-verb': ['englisch.zeiten', 'englisch.present56'],
+  'en-article': ['englisch.artikel'],
+  'en-prep': ['englisch.prep', 'englisch.prep56'],
+  'en-quest': ['englisch.saetze'],
+  'en-sent': ['englisch.saetze'],
+  'en-vocab': ['englisch.wortschatz', 'englisch.vocab56'],
+  'en-opp': ['englisch.adj', 'englisch.vocab56'],
+  'en-spell': ['englisch.wortschatz'],
+  'en-time': ['englisch.zeit'],
+  'en-read': ['englisch.reading56'],
+};
+
+/** Formate, die zu einer Station passen. @param {string} skill */
+function formateFuer(skill) {
+  return Object.keys(BEZUG).filter((t) => BEZUG[t].indexOf(skill) >= 0);
+}
+
+/**
+ * Übungswelt-Aufgabe → Lernpfad-Aufgabe. null, wenn sie nicht passt
+ * (Gedächtnisformat, weniger als zwei Optionen, Lösungsindex ungültig).
+ * @param {{ id?: string, q?: string, o?: string[], a?: number[], why?: string, mem?: any }} x
+ * @param {string} skill @param {string} format @param {() => number} r Zufall in [0, 1)
+ */
+function alsAufgabe(x, skill, format, r) {
+  if (!x || x.mem || typeof x.q !== 'string' || !x.q.trim() || !Array.isArray(x.o) || x.o.length < 2) return null;
+  const a = Array.isArray(x.a) ? x.a : [];
+  if (!a.length || a.some((i) => !Number.isInteger(i) || i < 0 || i >= x.o.length)) return null;
+  const reihe = x.o.map((_, i) => i);
+  for (let i = reihe.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [reihe[i], reihe[j]] = [reihe[j], reihe[i]]; }
+  const o = reihe.map((i) => x.o[i]);
+  const neu = (/** @type {number} */ i) => reihe.indexOf(i);
+  return {
+    id: x.id, q: x.q, o, why: x.why || '', skill, quelle: 'uebungswelt', format,
+    ...(a.length > 1 ? { t: 'multi', c: a.map(neu).sort((p, q) => p - q) } : { t: 'mc', c: neu(a[0]) }),
+  };
+}
+
+/**
+ * Passende Übungswelt-Aufgaben einer Station.
+ * @param {string} skill
+ * @param {Record<string, any[]>} bank Format → Aufgaben (deutsche und englische Bank zusammen)
+ * @param {{ anzahl: number, ohne?: string[], r: () => number }} o
+ */
+function uebungenFuer(skill, bank, { anzahl, ohne = [], r }) {
+  const schon = new Set(ohne);
+  const listen = formateFuer(skill).map((f) => (bank[f] || []).filter((x) => !schon.has(x.id)).map((x) => alsAufgabe(x, skill, f, r)).filter(Boolean));
+  /* reihum über die Formate, je Format zufällig */
+  listen.forEach((l) => { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } });
+  const out = [];
+  for (let runde = 0; out.length < anzahl && listen.some((l) => l.length > runde); runde++)
+    for (const l of listen) { if (out.length >= anzahl) break; if (l[runde]) out.push(l[runde]); }
+  return out;
+}
+
+
   if (typeof kstate === "undefined" || typeof render !== "function" || typeof PROFILES === "undefined") return;
   var INHALT = window.__INHALT_DATEN;
   if (!INHALT || !INHALT.skills) return;
@@ -30082,9 +30179,41 @@ function klausurSaat(profil, id, t) { return fnv(String(profil) + '|' + id + '|'
          der Nachweis bleibt gemischt. */
       if (stufe === 3 || stufe === 4) l.pool = l.pool.slice(0, l.pos).concat(nachLevel(l.pool.slice(l.pos), levelJetzt(l.skill)));
       l.liste = l.pool.slice(l.pos, l.pos + n); l.pos += n;
+      /* M35: nach dem Lernen die passenden Übungen der Übungswelt mit abfragen
+         (geführt 1, frei 2 — der Nachweis bleibt bei den Aufgaben der Station) */
+      if ((stufe === 3 || stufe === 4) && l.art === "lektion") {
+        var extra = [];
+        try { extra = uebungenFuer(l.skill, uwBank(), { anzahl: stufe === 3 ? 1 : 2, ohne: l.uwIds || [], r: Math.random }); } catch (e) {}
+        if (extra.length) {
+          l.liste = l.liste.slice(0, Math.max(1, l.liste.length - extra.length)).concat(extra);
+          l.uwIds = (l.uwIds || []).concat(extra.map(function (x) { return x.id; }));
+        }
+      }
     } else l.liste = [];
     l.i = 0; l.auswahl = []; l.fb = null; l.hinweise = 0; l.regel = false; l.richtig = 0;
   }
+  /* M35: Übungswelt-Bänke (deutsch aus der Engine, englisch aus den Inhalten) */
+  function uwBank() {
+    var de = {}, out = {};
+    try { de = window.V17_BANK || (typeof V17_BANK !== "undefined" ? V17_BANK : {}) || {}; } catch (e) {}
+    Object.keys(de).forEach(function (k) { out[k] = de[k]; });
+    var en = INHALT.V17_BANK_EN || {};
+    Object.keys(en).forEach(function (k) { out[k] = en[k]; });
+    return out;
+  }
+  function uwFormatName(f) {
+    var T = INHALT.V17_TYPEN || {}, l = (T.de || []).concat(T.en || []);
+    var x = l.filter(function (t) { return t[0] === f; })[0];
+    return x ? x[2] + " " + x[1] : f;
+  }
+  /* Am Ende einer Station: weiter in der Aufgabenwelt mit genau diesen Formaten */
+  function uwWeiter(skill) {
+    var f = formateFuer(skill);
+    if (!f.length || !window.__UEBUNGSWELT) return "";
+    return '<div class="lp-uw" data-testid="lp-uw"><b>Mehr dazu in der Aufgabenwelt</b><div class="lp-knoepfe">'
+      + f.map(function (x) { return '<button class="btn" data-lp-uwformat="' + h(x) + '">' + h(uwFormatName(x)) + "</button>"; }).join("") + "</div></div>";
+  }
+
   /* ---------- M7: adaptive Schwierigkeit (Kern: app/kern/lernmodell.js über p78) ---------- */
   function levelJetzt(skill) {
     var LM = window.__LERNMODELL;
@@ -30148,6 +30277,7 @@ function klausurSaat(profil, id, t) { return fnv(String(profil) + '|' + id + '|'
 
   function frageHtml(l) {
     var q = l.liste[l.i], fertig = !!l.fb, s = "";
+    if (q && q.quelle === "uebungswelt") s += '<div class="lp-quelle" data-testid="lp-quelle">🧩 Aus der Aufgabenwelt · ' + h(uwFormatName(q.format)) + "</div>";   /* M35 */
     s += '<div class="lp-box"><div style="font-size:13px;color:var(--ink3);margin-bottom:6px">Aufgabe ' + (l.i + 1) + " von " + l.liste.length + "</div>"
       + '<div style="font-size:18px;font-weight:700;margin-bottom:6px" data-testid="lp-frage">' + q.q + "</div>";
     if (q.t === "mc" || q.t === "multi") {
@@ -30218,7 +30348,7 @@ function klausurSaat(profil, id, t) { return fnv(String(profil) + '|' + id + '|'
         + "</h3><p>Im Nachweis " + l.richtig + " von " + l.liste.length + " richtig · Mastery " + st.score + " %.</p>"
         + (ok ? "<p>Die nächsten Stationen sind jetzt frei.</p>" : "<p>Übe noch einmal — ab 75 % geht es weiter.</p>")
         + '<div class="lp-knoepfe"><button class="btn btn-primary" data-lp="zurueck">Zum Lernpfad</button>'
-        + (ok ? "" : '<button class="btn" data-lp="nochmal">Noch einmal üben</button>') + "</div></div>";
+        + (ok ? "" : '<button class="btn" data-lp="nochmal">Noch einmal üben</button>') + "</div>" + uwWeiter(l.skill) + "</div>";
     }
     return s;
   }
@@ -30435,7 +30565,7 @@ function klausurSaat(profil, id, t) { return fnv(String(profil) + '|' + id + '|'
 
   document.addEventListener("click", function (e) {
     if (!kstate || kstate.tab !== "lernpfad") return;
-    var t = e.target && e.target.closest ? e.target.closest("[data-lp],[data-lp-start],[data-lp-opt],[data-lp-klasse],[data-lp-ueben]") : null;
+    var t = e.target && e.target.closest ? e.target.closest("[data-lp],[data-lp-start],[data-lp-opt],[data-lp-klasse],[data-lp-ueben],[data-lp-uwformat]") : null;
     if (!t || t.closest(".ps-hinter")) return;
     e.stopPropagation();
     var l = kstate.lp, a;
@@ -30446,6 +30576,11 @@ function klausurSaat(profil, id, t) { return fnv(String(profil) + '|' + id + '|'
     if ((a = t.getAttribute("data-lp-start")) != null) {
       if (t.disabled) return;
       lektionStarten(a); return rerenderLp();
+    }
+    if ((a = t.getAttribute("data-lp-uwformat")) != null) {   /* M35: in die Übungswelt, im passenden Format und in der passenden Sprache */
+      kstate.lp = null; kstate.tab = "v17practice";
+      try { window.__UEBUNGSWELT.starten(a, /^en-/.test(a) ? "en" : "de"); } catch (x) {}
+      return;
     }
     if ((a = t.getAttribute("data-lp-ueben")) != null) { var rs = l && l.ruecksprung; lektionStarten(a, 3); kstate.lp.ruecksprung = rs; return rerenderLp(); }
     if (t.getAttribute("data-lp") === "klausur-nochmal" && l && l.art === "klausur") { klausurStarten({ id: l.id, titel: l.titel, skills: l.skills, anzahl: l.anzahl, ruecksprung: l.ruecksprung }); return rerenderLp(); }
@@ -35748,14 +35883,14 @@ function ergebnis(ok, n) {
   }
 
   /* ---------- Läufe ---------- */
-  function starten(t) {
-    var sp = sprache(), saat = neueSaat(), items;
+  function starten(t, spWahl) {
+    var sp = spWahl === "en" || spWahl === "de" ? spWahl : sprache(), saat = neueSaat(), items;   /* M35: der Lernpfad gibt die Sprache vor */
     if (t === "pronounce") { kstate.uw = null; kstate.tab = "v17pron"; return; }
     if (t === "dragbuild") { kstate.uw = null; try { V17.drag = null; } catch (e) {} kstate.tab = "v17drag"; return; }
     if (t === "exam") items = klausur(bank(sp), KLAUSUR_TYPEN[sp], KLAUSUR, saat);
     else items = auswahl(vorrat(bank(sp), t, saat), stat(t), RUNDE, saat);
     if (!items.length) return;
-    kstate.uw = { typ: t, sp: sp, items: items, i: 0, gewaehlt: [], antwort: null, ok: 0, exam: t === "exam", seit: Date.now() };
+    kstate.uw = { typ: t, sp: sp, items: items, i: 0, gewaehlt: [], antwort: null, ok: 0, exam: t === "exam", seit: Date.now(), fest: spWahl === sp };   /* fest: Sprache vom Lernpfad vorgegeben */
   }
   function tagesLauf() {
     var d = new Date(), saat = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(), b = bank("de"), items = [], gesehen = {};
@@ -35841,7 +35976,7 @@ function ergebnis(ok, n) {
           var heute = new Date(), tag = heute.getFullYear() * 10000 + (heute.getMonth() + 1) * 100 + heute.getDate();
           if (!kstate.uw || kstate.uw.typ !== "daily" || kstate.uw.tag !== tag) kstate.uw = tagesLauf();
         } else if (kstate.uw && kstate.uw.typ === "daily") kstate.uw = null;
-        if (kstate.uw && kstate.uw.sp !== sprache() && kstate.uw.typ !== "daily") kstate.uw = null;
+        if (kstate.uw && kstate.uw.sp !== sprache() && kstate.uw.typ !== "daily" && !kstate.uw.fest) kstate.uw = null;
         view.innerHTML = kstate.uw ? htmlLauf() : htmlStart();
         try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
         return;
@@ -35889,7 +36024,7 @@ function ergebnis(ok, n) {
   }, true);
 
   /* shuffle: für den Gleichlauf Kern ↔ Erzeugnis (mischen-probe.js prüft jede eingebettete Kopie) */
-  window.__UEBUNGSWELT = { starten: function (t) { starten(t); neu(); }, kern: { pruefe: pruefe, vorrat: vorrat }, typen: typen, bank: bank, shuffle: shuffle, formateHtml: formateHtml };
+  window.__UEBUNGSWELT = { starten: function (t, sp) { starten(t, sp); neu(); }, kern: { pruefe: pruefe, vorrat: vorrat }, typen: typen, bank: bank, shuffle: shuffle, formateHtml: formateHtml };
 })();
 
 /* =====================================================================
@@ -39547,7 +39682,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 04.10.2026 01:29")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 04.10.2026 01:40")}}catch(e){}
 })();
 
 </script>
