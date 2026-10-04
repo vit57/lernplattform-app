@@ -1257,6 +1257,33 @@ html[data-theme] #view .fs-abzeichen .az .az-me { font-size: 11.5px; }
   border-radius: 999px; padding: 4px 10px; margin: 0 0 10px; }
 .lp-uw { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--glas-linie, var(--line)); }
 .lp-uw .lp-knoepfe { flex-wrap: wrap; justify-content: flex-start; margin-top: 8px; }
+
+/* =====================================================================
+   M36 — Feinschliff nach Rückmeldung 2026-10-04 (iPad)
+   ===================================================================== */
+/* Profilwahl: Kopfzeile in einer Reihe (die leere Leiste #tabs schob
+   „Darstellung“ in eine zweite Zeile), Titel ohne Platz für den Menüknopf */
+html[data-theme] body:not(.nv-an) header .head-in { display: flex !important; flex-wrap: nowrap !important; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 60px; padding-top: 8px !important; padding-bottom: 8px !important; }
+html[data-theme] body:not(.nv-an) header #tabs { display: none !important; }
+html[data-theme] body:not(.nv-an) #nv-titel { margin-left: 0 !important; font-size: 20px; }
+/* Profilkarten mittig, gleich breit; „Neues Profil“ darunter in derselben Breite */
+html[data-theme] .profile-grid { display: flex !important; flex-wrap: wrap; justify-content: center; gap: 14px !important; max-width: 640px; margin: 0 auto 22px !important; }
+html[data-theme] .profile-grid > .profile-card { width: 190px; flex: 0 0 190px; }
+html[data-theme] .profile-new { max-width: 640px; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
+html[data-theme] .profile-screen .ptype-row { justify-content: center; }
+
+/* Bereichsname neben Zurück/Menü größer (iPad) */
+@media (max-width: 900px) {
+  html[data-theme] body.nv-an #nv-titel { font-size: 21px; font-weight: 800; letter-spacing: -.015em; }
+}
+
+/* Darstellung: Auswahlzeilen mit Luft zum Rand */
+html[data-theme] .ps-box .dz-gruppe > label { padding: 10px 14px !important; margin: 0 0 4px; border-radius: var(--radius-s, 12px); }
+html[data-theme] .ps-box .dz-gruppe > label > input { margin-right: 12px !important; }
+html[data-theme] .ps-box .dz-designs label { padding: 10px !important; }
+html[data-theme] body:not(.nv-an) header .head-in { padding-left: 16px !important; padding-right: 10px !important; }
+@media (max-width: 900px) { html[data-theme] header .dz-knopf { margin-right: 10px; } }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -25429,7 +25456,12 @@ try{fuelleObjekt(window.READ_ADULT,INHALT.READ_ADULT,"READ_ADULT")}catch(e){beri
    das den Bestand nicht anfasst. */
 try{fuelleObjekt(WRITE_ADULT,INHALT.WRITE_ADULT,"WRITE_ADULT")}catch(e){bericht.uebersprungen.push("WRITE_ADULT")}
 try{fuelleObjekt(DIKT_ADULT,INHALT.DIKT_ADULT,"DIKT_ADULT")}catch(e){bericht.uebersprungen.push("DIKT_ADULT")}
-try{fuelleObjekt(DATA,INHALT.SPRACHTHEMEN,"SPRACHTHEMEN")}catch(e){bericht.uebersprungen.push("SPRACHTHEMEN")}
+/* M36 (2026-10-04): SPRACHTHEMEN sind die ENGLISCHEN Sprachthemen. `DATA` ist
+   aber das gerade aktive Paket — hat die Engine beim Start schon auf Deutsch
+   umgeschaltet (Profilsprache Deutsch), überschrieb dieser Block das deutsche
+   Paket mit den englischen Themen („Sprachthemen Deutsch“ zeigte englische
+   Grammatik). Ziel ist deshalb immer das englische Paket. */
+try{fuelleObjekt((typeof EN_PACK!=="undefined"&&EN_PACK&&EN_PACK.DATA)||DATA,INHALT.SPRACHTHEMEN,"SPRACHTHEMEN")}catch(e){bericht.uebersprungen.push("SPRACHTHEMEN")}
 
 /* ---------- Wortschatz ---------- */
 try{fuelleObjekt(KIDS,INHALT.KIDS,"KIDS")}catch(e){bericht.uebersprungen.push("KIDS")}
@@ -30963,7 +30995,7 @@ function tagVon(d) {
     + ".ht-kuer{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}";
   function stil() { try { if (!document.getElementById("ht-stil")) { var s = document.createElement("style"); s.id = "ht-stil"; s.textContent = STIL; document.head.appendChild(s); } } catch (e) {} }
 
-  var SYMBOL = { aufwaermen: "🔁", fokus: "📌", probe: "📝", neu: "✨", festigen: "🧱", schwach: "🎯", kuer: "🎈" };
+  var SYMBOL = { aufwaermen: "🔁", fokus: "📌", probe: "📝", wochentest: "🗓️", neu: "✨", festigen: "🧱", schwach: "🎯", kuer: "🎈" };   /* M36: wochentest fehlte („undefined“) */
   function gruss() { var s = new Date().getHours(); return s < 11 ? "Guten Morgen" : s < 18 ? "Guten Tag" : "Guten Abend"; }
   function ring(min, ziel) {
     var anteil = Math.max(0, Math.min(1, min / ziel)), u = 2 * Math.PI * 22;
@@ -31021,7 +31053,7 @@ function tagVon(d) {
     st.bloecke.forEach(function (b) {
       var fertig = !!erledigt[b.id];
       out += '<button class="ht-block' + (fertig ? " fertig" : "") + '" data-heute-block="' + b.id + '" data-ht-art="' + b.art + '"' + (fertig ? ' aria-label="' + h(b.titel) + ' — erledigt"' : "") + ">"
-        + '<span class="ic" aria-hidden="true">' + (fertig ? "✔" : SYMBOL[b.art]) + '</span><span><span class="ti">' + h(b.titel) + '</span><span class="me">' + h(blockText(b)) + "</span></span>"
+        + '<span class="ic" aria-hidden="true">' + (fertig ? "✔" : SYMBOL[b.art] || "•") + '</span><span><span class="ti">' + h(b.titel) + '</span><span class="me">' + h(blockText(b)) + "</span></span>"
         + '<span class="zu">' + (fertig ? "erledigt" : b.minuten + " Min.") + "</span></button>";
     });
     out += "</div>";
@@ -31587,7 +31619,7 @@ function tagVon(d) {
      die übrigen Übungen des Bereichs (Übungswelt) als eigener Abschnitt. */
   function aufgabenweltNachbessern() {
     var view = document.getElementById("view");
-    if (!view || istKind() || !view.querySelector(".m137-hub")) return;
+    if (!view || istKind() || !view.querySelector(".m137-hub") || !view.querySelector(".m137-chips")) return;   /* M36: Sprachthemen haben auch .m137-hub */
     var h2 = view.querySelector("h2"); if (h2 && !h2.classList.contains("hb-titel")) h2.classList.add("hb-titel");
     var secs = view.querySelectorAll(".m137-sec"), filter = null, i;
     for (i = 0; i < secs.length; i++) if (/Thema eingrenzen/.test(secs[i].textContent)) filter = secs[i];
@@ -31603,7 +31635,7 @@ function tagVon(d) {
       if (start && start.parentNode) start.parentNode.insertBefore(box, start);
     }
     var mehr = eintraegeFuer("ueben").filter(function (e) { return schluesselVon(e) !== "Aufgaben"; });
-    if (!view.querySelector(".aw-mehr")) {
+    if (!view.querySelector(".aw-mehr") && view.querySelector(".m137-start")) {   /* M36: nur die Aufgabenwelt hat „Hier anfangen“ — nicht die Sprachthemen */
       var d = document.createElement("div");
       d.className = "aw-mehr";
       d.innerHTML = '<div class="m137-sec">Wiederholen und mehr</div><div class="hb-raster">' + mehr.map(function (e) { return karte(e); }).join("") + "</div>";
@@ -39682,7 +39714,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 04.10.2026 01:40")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 04.10.2026 02:14")}}catch(e){}
 })();
 
 </script>
