@@ -291,8 +291,16 @@ html[data-theme="dunkel"] .btn:not(.btn-primary) { background: var(--paper); col
 }
 
 /* Schriftgröße — die Engine rechnet in px, deshalb Zoom statt rem. */
-html[data-schrift="gross"] body { zoom: 1.12; }
-html[data-schrift="sehr-gross"] body { zoom: 1.25; }
+/* M37 (2026-10-04): vergrößert wird der Inhalt und die Dialoge — NICHT body.
+   `zoom` auf body brachte auf dem iPad (Safari, Hochformat) feste und klebende
+   Elemente durcheinander: Kopfzeile und ☰ verschwanden beim Scrollen und
+   waren nicht mehr erreichbar. Leiste, Kopfzeile und ☰ bekommen dafür
+   größere Schrift statt Zoom. */
+html[data-schrift="gross"] :is(main, .ps-box) { zoom: 1.12; }
+html[data-schrift="sehr-gross"] :is(main, .ps-box) { zoom: 1.25; }
+html[data-schrift="gross"] :is(.nv-item, .nv-name) { font-size: 17.5px; }
+html[data-schrift="sehr-gross"] :is(.nv-item, .nv-name) { font-size: 19px; }
+html[data-schrift="sehr-gross"] #nv-titel { font-size: 23px !important; }
 
 /* Lesefreundliche Schrift (Legasthenie): keine eingebettete Spezialschrift
    (die App bleibt eine offline lauffähige Datei), sondern eine klare
@@ -1284,6 +1292,27 @@ html[data-theme] .ps-box .dz-gruppe > label > input { margin-right: 12px !import
 html[data-theme] .ps-box .dz-designs label { padding: 10px !important; }
 html[data-theme] body:not(.nv-an) header .head-in { padding-left: 16px !important; padding-right: 10px !important; }
 @media (max-width: 900px) { html[data-theme] header .dz-knopf { margin-right: 10px; } }
+
+/* =====================================================================
+   M37 — Navigation darf nie unerreichbar werden (Rückmeldung 2026-10-04:
+   „Die Navigationsleiste verschwindet manchmal im Hochformat … geht
+   komplett weg und ist dann nicht erreichbar“). Die Engine zeigt ☰ und
+   das ausklappbare Menü nur mit body.kidnav; dieselben Regeln gelten
+   jetzt auch für die eigene Oberfläche (body.nv-an) — fällt kidnav auf
+   einem Engine-Weg weg, bleibt die Navigation trotzdem da.
+   ===================================================================== */
+body.nv-an #tabs { position: fixed; left: 0; top: 0; bottom: 0; overflow-y: auto; z-index: 50; display: block; }
+@media (min-width: 901px) {
+  body.nv-an header, body.nv-an main, body.nv-an footer { margin-left: 248px !important; }
+}
+@media (max-width: 900px) {
+  body.nv-an header, body.nv-an main, body.nv-an footer { margin-left: 0 !important; }
+  body.nv-an #tabs { transform: translateX(-105%); transition: transform .2s; }
+  body.nv-an.navopen #tabs { transform: translateX(0); }
+  body.nv-an #knav-burger { display: flex !important; position: fixed; top: 10px; left: 10px; z-index: 70; align-items: center; justify-content: center;
+    border: 1px solid var(--glas-linie, var(--line)); background: var(--glas-stark, var(--paper)); color: var(--ink);
+    border-radius: 12px; min-width: 44px; height: 45px; padding: 0 12px; font-size: 18px; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, .08); }
+}
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -39664,12 +39693,16 @@ function nachOben(alt, neu) { return alt !== null && alt !== neu; }
       try { if (window.__OBERFLAECHE && window.__OBERFLAECHE.nachZeichnen) window.__OBERFLAECHE.nachZeichnen(); } catch (e) {}   /* M34 */
       var a = abschnitt();
       if (nachOben(zuletzt, a)) {
+        /* M37: neue Seite → Menü zu. „Heute“ (p73) fängt den Klick vor p74 ab, das Menü blieb offen. */
+        try { document.body.classList.remove("navopen"); } catch (e) {}
         try { window.scrollTo(0, 0); } catch (e) {}
         var v = document.getElementById("view"); if (v) v.scrollTop = 0;
       }
       zuletzt = a;
       schleier();
       knoepfeSetzen();
+      /* M37: ☰ muss immer da sein — fehlt er, legt die Engine ihn neu an */
+      try { if (p && !picker() && !document.getElementById("knav-burger") && typeof ensureBurger === "function") ensureBurger(); } catch (e) {}
     } catch (e) {}
     return r;
   };
@@ -39714,7 +39747,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v1.53</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 04.10.2026 02:14")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 1.53 · Stand 04.10.2026 20:15")}}catch(e){}
 })();
 
 </script>
