@@ -1515,9 +1515,14 @@ html[data-theme="dunkel"] .el-brett, html[data-theme="nacht"] .el-brett { backgr
 .rs-hoeren { font-size: 18px; min-height: 56px; }
 
 /* M52 — Wissensraum: Boards */
-.wr-bkarte { display: flex; align-items: stretch; gap: 6px; padding: 0 !important; }
-.wr-boeffnen { flex: 1; display: flex; gap: 12px; align-items: center; text-align: left; border: 0; background: none; font: inherit; color: inherit; padding: 14px 16px; cursor: pointer; }
-.wr-weg { align-self: center; margin-right: 8px; min-height: 36px; }
+.wr-bkarte { position: relative; display: flex; align-items: stretch; padding: 0 !important; }
+/* Der Mülleimer sitzt klein in der Ecke; der Titel behält die volle Breite und bricht lange Dateinamen
+   ohne Leerzeichen (Montageanleitung_WC-Taste_…) um, statt den Knopf aus der Karte zu schieben. */
+.wr-boeffnen { flex: 1; min-width: 0; display: flex; gap: 12px; align-items: center; text-align: left; border: 0; background: none; font: inherit; color: inherit; padding: 14px 56px 14px 16px; cursor: pointer; }
+.wr-boeffnen .hb-tx, .wr-boeffnen .hb-ti { min-width: 0; overflow-wrap: anywhere; }
+.btn.wr-weg { position: absolute; top: 8px; right: 8px; min-height: 40px; min-width: 40px; padding: 0 10px; white-space: nowrap; }
+/* Rückfrage „Löschen?“: rot — gegen das Glas-Design der Knöpfe (#view .btn … !important) */
+html[data-theme] #view .btn.wr-weg.sicher, .btn.wr-weg.sicher { background: #d23c3c !important; border-color: #d23c3c !important; color: #fff !important; }
 .wr-kopf { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .wr-titel { font-size: 22px !important; font-weight: 750; border: 0 !important; background: transparent !important; flex: 1 1 200px; padding: 4px 6px !important; }
 .wr-werkzeuge { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 4px; }
@@ -44403,7 +44408,12 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
   /* ---------- Zeiger: zeichnen, verschieben, zoomen ---------- */
   var zeiger = {}, aktion = null, stiftGesehen = false;
   function flaecheVon(t) { return t && t.closest ? t.closest("[data-wr-flaeche]") : null; }
-  function lokal(e, fl) { var r = fl.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  /* Zeigerposition in Board-Pixeln. M56: Mit Schriftgröße „Groß“/„Sehr groß“ ist der Hauptbereich per
+     CSS-zoom vergrößert — die Zeigerposition kommt in Bildschirmpixeln, das Board rechnet in Layoutpixeln.
+     Der Faktor (Bildschirmbreite : Layoutbreite) gleicht das aus; sonst lag der Strich neben dem Stift. */
+  function zoomFaktor(fl, r) { return fl.offsetWidth ? (r || fl.getBoundingClientRect()).width / fl.offsetWidth : 1; }
+  function lokal(e, fl) { var r = fl.getBoundingClientRect(), f = zoomFaktor(fl, r) || 1; return [(e.clientX - r.left) / f, (e.clientY - r.top) / f]; }
+  function flaechenGroesse(fl) { return fl ? { width: fl.clientWidth || 800, height: fl.clientHeight || 500 } : { width: 800, height: 500 }; }
   function weltSetzen() { var el = document.querySelector(".wr-welt"); if (el) el.style.transform = weltTransform(W().ansicht); }
   document.addEventListener("pointerdown", function (e) {
     var fl = flaecheVon(e.target); if (!fl || kstate.tab !== "wissen-board") return;
@@ -44518,7 +44528,7 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
     if (was === "neu") { boardsLaden(); var nb = neuesBoard("Board " + (Object.keys(BOARDS).length + 1)); speichern(nb); w.boardId = nb.id; w.ansicht = { x: -40, y: -40, z: 1 }; verlauf = []; kstate.tab = "wissen-board"; return neu(); }
     if (was === "oeffnen") { w.boardId = id; verlauf = []; kstate.tab = "wissen-board"; var bb = BOARDS[id], fl0 = { b: 900, h: 560 }; w.ansicht = allesZeigen(bb, fl0.b, fl0.h); if (!bb.karten.length && !bb.striche.length) w.ansicht = { x: -40, y: -40, z: 1 }; return neu(); }
     if (was === "loeschen") {
-      if (t.getAttribute("data-wr-sicher") !== "1") { t.setAttribute("data-wr-sicher", "1"); t.textContent = "Wirklich? 🗑"; return; }
+      if (t.getAttribute("data-wr-sicher") !== "1") { t.setAttribute("data-wr-sicher", "1"); t.textContent = "Löschen?"; t.classList.add("sicher"); return; }
       delete BOARDS[id]; schreiben("boards", id, true); return neu();
     }
     if (was === "liste") { kstate.tab = "hub-wissen"; w.verbinderVon = null; return neu(); }
@@ -44526,8 +44536,8 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
     if (was === "werkzeug") { w.werkzeug = wert; w.verbinderVon = null; }
     else if (was === "farbe") w.farbe = wert;
     else if (was === "rueckgaengig") { tippFeld = null; var alt = verlauf.pop(); if (alt) speichern(alt); }
-    else if (was === "zoom") { var fl = document.querySelector("[data-wr-flaeche]"), r = fl ? fl.getBoundingClientRect() : { width: 800, height: 500 }; w.ansicht = zoomen(w.ansicht, +wert, r.width / 2, r.height / 2); }
-    else if (was === "alles") { var fl2 = document.querySelector("[data-wr-flaeche]"), r2 = fl2 ? fl2.getBoundingClientRect() : { width: 800, height: 500 }; w.ansicht = allesZeigen(b, r2.width, r2.height); }
+    else if (was === "zoom") { var fl = document.querySelector("[data-wr-flaeche]"), r = flaechenGroesse(fl); w.ansicht = zoomen(w.ansicht, +wert, r.width / 2, r.height / 2); }
+    else if (was === "alles") { var fl2 = document.querySelector("[data-wr-flaeche]"), r2 = flaechenGroesse(fl2); w.ansicht = allesZeigen(b, r2.width, r2.height); }
     else if (was === "kweg") aendern(karteEntfernen(b, id));
     else if (was === "kfarbe") aendern(karteAendern(b, id, { farbe: wert }));
     neu();
@@ -45099,7 +45109,7 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
     var was = t.getAttribute("data-pdf"), wert = t.getAttribute("data-pdf-wert"), p = P(), d = dok();
     if (was === "oeffnen") { p.id = t.getAttribute("data-pdf-id"); p.notizenOffen = false; kstate.tab = "wissen-pdf"; return neu(); }
     if (was === "liste") { kstate.tab = "hub-wissen"; leisteWeg(); return neu(); }
-    if (was === "loeschen") { var id = t.getAttribute("data-pdf-id"); if (t.getAttribute("data-pdf-sicher") !== "1") { t.setAttribute("data-pdf-sicher", "1"); t.textContent = "Wirklich? 🗑"; return; } delete DOKS[id]; delete dateiCache[id]; WI.schreiben("dokumente", id, true); WI.schreiben("dateien", id, true); return neu(); }
+    if (was === "loeschen") { var id = t.getAttribute("data-pdf-id"); if (t.getAttribute("data-pdf-sicher") !== "1") { t.setAttribute("data-pdf-sicher", "1"); t.textContent = "Löschen?"; t.classList.add("sicher"); return; } delete DOKS[id]; delete dateiCache[id]; WI.schreiben("dokumente", id, true); WI.schreiben("dateien", id, true); return neu(); }
     if (was === "werkzeug") { p.werkzeug = wert; leisteWeg(); return umschalten(); }
     if (was === "farbe") { p.farbe = wert; return umschalten(); }
     if (was === "notizen") { p.notizenOffen = !p.notizenOffen; return neuOhneSeiten(); }
@@ -45421,7 +45431,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v2.0</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 10.10.2026 10:06")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 10.10.2026 10:44")}}catch(e){}
 })();
 
 </script>
