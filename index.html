@@ -1538,7 +1538,7 @@ html[data-theme] #view .btn.wr-weg.sicher, .btn.wr-weg.sicher { background: #d23
 .wr-svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .wr-svg [data-wr-kante] { pointer-events: stroke; }
 .wr-kante { stroke: var(--ink2); stroke-width: 2.5; fill: none; }
-.wr-kante-treffer { stroke: transparent; stroke-width: 18; cursor: pointer; }
+.wr-kante-treffer { stroke: transparent; stroke-width: 18; cursor: pointer; fill: none; }   /* M62: Pfade statt Linien — ohne fill: none füllte sich jede Kurve schwarz */
 .wr-strich { fill: none; stroke-linecap: round; stroke-linejoin: round; } .wr-strich.marker { opacity: .35; }
 .wr-karte { position: absolute; border-radius: 14px; box-shadow: 0 4px 14px -6px rgba(20, 20, 40, .35), 0 0 0 1px rgba(20, 20, 40, .08); display: flex; flex-direction: column; color: #1d1d2b; }
 .wr-karte.von { box-shadow: 0 0 0 3px var(--brand); }
@@ -1546,9 +1546,78 @@ html[data-theme] #view .btn.wr-weg.sicher, .btn.wr-weg.sicher { background: #d23
 .wr-kfarbe { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .15); padding: 0; cursor: pointer; }
 .wr-kweg { margin-left: auto; border: 0; background: none; font-size: 14px; color: rgba(29, 29, 43, .5); cursor: pointer; min-width: 28px; min-height: 28px; }
 html[data-theme] #view .wr-karte textarea.wr-text, .wr-text { flex: 1; border: 0 !important; background: transparent !important; resize: none; font: 15px/1.4 system-ui, sans-serif !important; color: #1d1d2b !important;
-  padding: 2px 10px 10px !important; min-height: 80px; box-shadow: none !important; border-radius: 0 0 14px 14px !important; }
+  padding: 2px 10px 10px !important; min-height: 0; overflow: auto; box-shadow: none !important; border-radius: 0 0 14px 14px !important; }
 html[data-theme] #view .wr-karte textarea.wr-text:focus { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--brand) 40%, transparent) !important; }
 .wr-quelle { font-size: 11.5px; color: rgba(29, 29, 43, .6); padding: 0 10px 8px; }
+
+/* M62 — Wissensraum ausgebaut: Titel, Größe, Magnet, Verbindungen in Varianten, Bereiche, Vollbild,
+   Board neben der App, Suche */
+.wr-karte { overflow: hidden; }
+.el-wz .wr-wz-l { font-size: 12.5px; line-height: 1.2; }
+.wr-kfarben { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
+.wr-kneu { margin-left: auto; border: 0; background: none; font-size: 17px; font-weight: 700; color: rgba(29, 29, 43, .55); cursor: pointer; min-width: 28px; min-height: 28px; }
+.wr-kneu + .wr-kweg { margin-left: 0; }
+html[data-theme] #view .wr-ktitel, .wr-ktitel { border: 0 !important; background: transparent !important; box-shadow: none !important; font: 700 15.5px/1.3 system-ui, sans-serif !important;
+  color: #1d1d2b !important; padding: 0 10px 2px !important; min-height: 0 !important; width: 100%; }
+.wr-ktitel::placeholder { color: rgba(29, 29, 43, .35); font-weight: 600; }
+html[data-theme] #view .wr-ktitel:focus { outline: none; box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--brand) 45%, transparent) !important; }
+.wr-ecke { position: absolute; right: 0; bottom: 0; width: 24px; height: 24px; cursor: nwse-resize; touch-action: none; border-radius: 0 0 14px 0;
+  background: linear-gradient(135deg, transparent 55%, rgba(29, 29, 43, .22) 55%, rgba(29, 29, 43, .22) 62%, transparent 62%, transparent 72%, rgba(29, 29, 43, .22) 72%, rgba(29, 29, 43, .22) 79%, transparent 79%); }
+.wr-karte.hervor, .wr-bereich.hervor { box-shadow: 0 0 0 4px var(--brand), 0 10px 30px -10px rgba(20, 20, 40, .5); transition: box-shadow .3s; }
+/* Bereiche: der Körper lässt Tippen und Zeichnen durch, nur Kopf und Ecke greifen */
+.wr-bereich { position: absolute; border-radius: 18px; border: 1.5px dashed rgba(29, 29, 43, .2); pointer-events: none; }
+.wr-bereich .wr-bkopf, .wr-bereich .wr-ecke { pointer-events: auto; }
+.wr-bkopf { display: flex; align-items: center; gap: 6px; padding: 6px 10px; cursor: move; touch-action: none; color: rgba(29, 29, 43, .45); font-size: 12px; }
+html[data-theme] #view .wr-btitel, .wr-btitel { flex: 1 1 60px; min-width: 40px; border: 0 !important; background: transparent !important; box-shadow: none !important;
+  font: 750 17px/1.3 system-ui, sans-serif !important; color: #1d1d2b !important; padding: 2px 4px !important; min-height: 0 !important; }
+.wr-bereich .wr-kweg { margin-left: 0; }
+/* Verbindungen */
+.wr-kante.gestrichelt { stroke-dasharray: 9 7; }
+.wr-kante.gewaehlt { stroke: var(--brand) !important; stroke-width: 4; }
+.wr-ktext { font: 600 13px system-ui, sans-serif; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 6px; stroke-linejoin: round; pointer-events: none; }
+.wr-hilfslinie { stroke: var(--brand); stroke-width: 1; stroke-dasharray: 5 5; vector-effect: non-scaling-stroke; opacity: .8; }
+.wr-leiste { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; padding: 6px 10px; border-radius: 14px;
+  background: color-mix(in srgb, var(--brand) 8%, var(--paper)); border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); font-size: 14px; }
+.wr-lgr { display: inline-flex; gap: 2px; border: 1px solid var(--line); border-radius: 12px; padding: 2px; background: var(--paper); align-items: center; }
+.wr-lk { min-width: 42px; min-height: 40px; border: 0; background: none; border-radius: 9px; font-size: 18px; cursor: pointer; color: var(--ink); }
+.wr-lk.an { background: var(--brand); color: #fff; }
+.wr-farbe.klein { width: 26px; height: 26px; margin: 0 3px; }
+.wr-kbeschr { flex: 1 1 180px; min-height: 42px; }
+/* Vollbild */
+.wr.wr-vollbild { position: fixed; inset: 0; z-index: 300; background: var(--paper); padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top));
+  padding-bottom: max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
+.wr.wr-vollbild .wr-flaeche { flex: 1; height: auto; min-height: 0; }
+.wr.wr-vollbild > .wr-kopf, .wr.wr-vollbild > .wr-hinweis { display: none; }   /* jede Zeile für das Board */
+/* Board neben der App (statt eines zweiten Fensters) */
+#wr-dock { position: fixed; top: 0; right: 0; bottom: 0; width: var(--wr-dock-b, 440px); z-index: 45; background: var(--paper); color: var(--ink);
+  border-left: 1px solid var(--line); box-shadow: -14px 0 40px -24px rgba(10, 8, 30, .45); padding: 10px 10px 10px 20px;
+  padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: max(10px, env(safe-area-inset-bottom)); box-sizing: border-box; }
+#wr-dock .wr { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+#wr-dock .wr.wr-vollbild { height: auto; }
+#wr-dock .wr-flaeche { flex: 1; height: auto; min-height: 0; }
+body.wr-gedockt header, body.wr-gedockt main, body.wr-gedockt footer { margin-right: var(--wr-dock-b, 440px) !important; }
+.wr-dock-zieher { position: absolute; left: 0; top: 0; bottom: 0; width: 16px; cursor: col-resize; touch-action: none; }
+.wr-dock-zieher::after { content: ""; position: absolute; left: 6px; top: 50%; width: 4px; height: 56px; margin-top: -28px; border-radius: 4px; background: var(--line); }
+.wr-dockkopf { flex-wrap: nowrap; gap: 6px; }
+.wr-dockwahl { flex: 1; min-width: 0; min-height: 44px; font-weight: 700; }
+.wr-dockkopf .btn { min-width: 44px; min-height: 44px; padding: 0 10px; }
+.wr-kompakt .wr-werkzeuge { gap: 4px; }
+.wr-kompakt .wr-werkzeuge .el-wz { min-width: 44px; min-height: 44px; padding: 4px; }
+.wr-kompakt .el-wz .wr-wz-l, .wr-kompakt .wr-hinweis { display: none; }
+@media (max-width: 700px) {
+  #wr-dock { top: auto; left: 0; width: auto; height: 55vh; border-left: 0; border-top: 1px solid var(--line); padding: 10px; }
+  body.wr-gedockt header, body.wr-gedockt main, body.wr-gedockt footer { margin-right: 0 !important; }
+  body.wr-gedockt main { padding-bottom: 55vh; }
+  .wr-dock-zieher { display: none; }
+}
+/* Suche in der Liste */
+.wr-suchzeile { margin: 6px 0 4px; }
+.wr-suche { width: 100%; min-height: 48px; font-size: 16px; }
+.wr-treffer { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 14px; }
+.wr-treffer-z { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; text-align: left; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  background: var(--paper); color: var(--ink); font: inherit; cursor: pointer; }
+.wr-treffer-z small { color: var(--ink2); }
+.wr-treffer-z span { width: 100%; color: var(--ink2); font-size: 13.5px; }
 
 /* M52 Teil 2 — PDFs im Wissensraum */
 .sr-only { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -44591,6 +44660,23 @@ function levenshtein(a, b) {
        „Alles zeigen“.
    Gespeichert in IndexedDB („egl-wissen“, nicht im localStorage — Striche
    und später PDFs sind groß). Kern: app/kern/wissensboard.js.
+
+   M62 — Ausbau (Notiz „Was muss noch in der App verbessert werden“,
+   2026-10-10: Titel je Karte, Größe ändern, Magnet/Haftfunktion, Vollbild,
+   Verbindungslinien in Varianten, zweites Fenster, Verbindung auflösen —
+   „Der Wissensraum sollte deutlich ausgebaut werden“):
+     * Karten mit Titel; Größe an der Ecke ziehen, sonst wächst die Karte
+       mit ihrem Text;
+     * 🧲 Magnet: Raster und Ausrichten an Nachbarn (mit Hilfslinien);
+       ▦ Ordnen: alles gerade, gleiche Abstände;
+     * Verbindungen antippen: Form (gerade, Kurve, eckig), Pfeil (eins,
+       beide, keiner), Linie (voll, gestrichelt), Farbe, Beschriftung,
+       ✂️ Lösen; „Verbinden“ auf ein verbundenes Paar löst es auch;
+     * ▭ Bereiche (Rahmen mit Titel), die ihre Karten mitnehmen;
+     * ⛶ Vollbild; ◫ Daneben: das Board rechts neben der App — links
+       weiter Aufgaben machen (statt eines zweiten Fensters, das im
+       Home-Bildschirm-Modus des iPads nicht geht);
+     * Vorlagen, Suche über alle Boards, Sicherung als Datei.
    ===================================================================== */
 (function () {
   "use strict";
@@ -44998,8 +45084,10 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
   if (typeof kstate === "undefined" || typeof render !== "function") return;
   function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
   function h(s) { return typeof esc === "function" ? esc(String(s == null ? "" : s)) : String(s == null ? "" : s); }
-  function neu() { try { render(); } catch (e) {} }
   function pid() { var p = profil(); return p ? p.id : "anon"; }
+  function picker() { return typeof showProfiles !== "undefined" && showProfiles; }
+  /* Neu zeichnen: Steht das Board daneben, nur das Board — die Seite links bleibt, wie sie ist. */
+  function neu() { try { if (W().dock && kstate.tab !== "wissen-board" && document.getElementById("wr-dock")) dockZeichnen(true); else render(); } catch (e) {} }
 
   /* ---------- Speicher (IndexedDB) ---------- */
   var DB = "egl-wissen", dbp = null;
@@ -45025,13 +45113,13 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
   function schreiben(store, wert, loeschen) {
     return db().then(function (d) { return new Promise(function (ja) { var tx = d.transaction(store, "readwrite"); if (loeschen) tx.objectStore(store).delete(wert); else tx.objectStore(store).put(wert); tx.oncomplete = function () { ja(true); }; tx.onerror = function () { ja(false); }; }); });
   }
-  var BOARDS = null, BOARDS_PROFIL = null, ladeFehler = "";
+  var BOARDS = null, BOARDS_PROFIL = null, ladeFehler = "", meldung = "";
   /* M55: Der Zwischenspeicher gilt für EIN Profil — beim Profilwechsel (ohne Neuladen) neu laden,
      sonst sähe Profil B die Boards von A und übernähme sie beim nächsten Speichern. */
   function boardsLaden() {
     if (BOARDS && BOARDS_PROFIL === pid()) return;
     BOARDS = {}; BOARDS_PROFIL = pid(); verlauf = [];
-    if (kstate.wr) kstate.wr.boardId = null;
+    if (kstate.wr) { kstate.wr.boardId = null; kstate.wr.dock = false; }
     alle("boards").then(function (l) {
       var n = 0; l.forEach(function (b) { if (b.profil === pid() && !BOARDS[b.id]) { BOARDS[b.id] = b; n++; } });
       if (n) neu();   /* nur neu zeichnen, wenn es etwas zu zeigen gibt — ein neu gezeichnetes Dateifeld verlöre eine gerade gewählte PDF */
@@ -45046,7 +45134,12 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
   }
 
   /* ---------- Zustand ---------- */
-  function W() { return kstate.wr || (kstate.wr = { werkzeug: "bewegen", farbe: "#1d1d2b", breite: 3, ansicht: { x: -40, y: -40, z: 1 } }); }
+  function W() {
+    var w = kstate.wr || (kstate.wr = { werkzeug: "bewegen", farbe: "#1d1d2b", breite: 3, ansicht: { x: -40, y: -40, z: 1 } });
+    if (w.magnet == null) w.magnet = true;
+    if (!w.stil) w.stil = { form: "gerade", pfeil: "ende", strich: "voll" };
+    return w;
+  }
   var verlauf = [];   /* Rückgängig: frühere Fassungen des offenen Boards */
   var tippFeld = null;   /* M55: Tippen in einer Karte ist ein eigener Schritt fürs Rückgängigmachen */
   function board() { boardsLaden(); var w = W(); return w.boardId && BOARDS && BOARDS[w.boardId] || null; }
@@ -45055,65 +45148,187 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
     if (!ohneVerlauf) { verlauf.push(alt); if (verlauf.length > 40) verlauf.shift(); }
     tippFeld = null;
     neuB.profil = alt.profil; speichern(neuB);
+    var w = W();
+    if (w.kanteSel && !neuB.kanten.some(function (e) { return e.id === w.kanteSel; })) w.kanteSel = null;
   }
+  function bereicheVon(b) { return b.bereiche || []; }
 
   /* ---------- Liste ---------- */
   function listeHtml() {
     boardsLaden();
     var l = Object.keys(BOARDS || {}).map(function (k) { return BOARDS[k]; }).sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
     var s = (ladeFehler ? '<p class="sr-meldung noch">' + h(ladeFehler) + "</p>" : "")
-      + '<h3 class="hb-zw">🗂 Boards</h3><p class="hb-sub">Notizzettel, Pfeile, Handschrift und Skizzen — so verbindest du, was zusammengehört.</p><div class="hb-raster" data-testid="wr-boards">'
+      + '<h3 class="hb-zw">🗂 Boards</h3><p class="hb-sub">Notizzettel, Pfeile, Bereiche, Handschrift und Skizzen — so verbindest du, was zusammengehört.</p>'
+      + (l.length ? '<div class="wr-suchzeile"><input type="search" class="wr-suche" data-wr-suche data-testid="wr-suche" placeholder="🔎 In allen Boards suchen …" aria-label="In allen Boards suchen" value="' + h(W().suche || "") + '"></div><div class="wr-treffer" data-wr-treffer data-testid="wr-treffer">' + trefferHtml(W().suche) + "</div>" : "")
+      + '<div class="hb-raster" data-testid="wr-boards">'
       + l.map(function (b) {
-        return '<div class="hb-karte wr-bkarte"><button class="wr-boeffnen" data-wr="oeffnen" data-wr-id="' + h(b.id) + '"><span class="hb-ic" aria-hidden="true">🗂</span><span class="hb-tx"><span class="hb-ti">' + h(b.titel) + '</span><span class="hb-me">' + b.karten.length + " Karten · " + b.kanten.length + " Verbindungen · " + b.striche.length + " Striche</span></span></button>"
+        var nb = bereicheVon(b).length;
+        return '<div class="hb-karte wr-bkarte"><button class="wr-boeffnen" data-wr="oeffnen" data-wr-id="' + h(b.id) + '"><span class="hb-ic" aria-hidden="true">🗂</span><span class="hb-tx"><span class="hb-ti">' + h(b.titel) + '</span><span class="hb-me">' + b.karten.length + " Karten · " + b.kanten.length + " Verbindungen · " + b.striche.length + " Striche" + (nb ? " · " + nb + " Bereiche" : "") + "</span></span></button>"
           + '<button class="btn wr-weg" data-wr="loeschen" data-wr-id="' + h(b.id) + '" aria-label="Board „' + h(b.titel) + '“ löschen">🗑</button></div>';
       }).join("")
-      + '<button class="hb-karte" data-wr="neu" data-testid="wr-neu"><span class="hb-ic" aria-hidden="true">＋</span><span class="hb-tx"><span class="hb-ti">Neues Board</span><span class="hb-me">Ein leeres Board für ein Thema.</span></span></button></div>';
+      + '<button class="hb-karte" data-wr="neu" data-testid="wr-neu"><span class="hb-ic" aria-hidden="true">＋</span><span class="hb-tx"><span class="hb-ti">Neues Board</span><span class="hb-me">Ein leeres Board für ein Thema.</span></span></button></div>'
+      + '<h3 class="hb-zw">✨ Mit Vorlage beginnen</h3><div class="hb-raster" data-testid="wr-vorlagen">' + VORLAGEN.map(function (v) {
+        return '<button class="hb-karte" data-wr="vorlage" data-wr-wert="' + v.id + '"><span class="hb-ic" aria-hidden="true">' + v.icon + '</span><span class="hb-tx"><span class="hb-ti">' + h(v.name) + '</span><span class="hb-me">' + h(v.text) + "</span></span></button>";
+      }).join("") + "</div>"
+      + '<h3 class="hb-zw">💾 Sicherung</h3><p class="hb-sub">Boards gehören nicht zur allgemeinen Sicherungsdatei — hier kannst du sie als eigene Datei sichern und auf einem anderen Gerät wieder einlesen.</p>'
+      + '<div class="lp-knoepfe"><button class="btn" data-wr="sichern" data-testid="wr-sichern"' + (l.length ? "" : " disabled") + '>⬇ Boards als Datei sichern</button><button class="btn" data-wr="einlesen" data-testid="wr-einlesen">⬆ Sicherung einlesen</button>'
+      + '<input type="file" id="wr-datei" accept=".json,application/json" hidden data-testid="wr-datei"></div>'
+      + (meldung ? '<p class="sr-meldung gut" role="status" data-testid="wr-meldung">' + h(meldung) + "</p>" : "");
     try { if (window.__WISSEN_PDF) s += window.__WISSEN_PDF.listeHtml(); } catch (e) {}
     return s;
   }
-
-  /* ---------- Board ---------- */
-  var WERKZEUGE = [["bewegen", "✋", "Bewegen"], ["karte", "🗒", "Karte"], ["verbinden", "🔗", "Verbinden"], ["stift", "✏️", "Stift"], ["marker", "🖍", "Marker"], ["radierer", "🧽", "Radierer"]];
-  var STIFTFARBEN = ["#1d1d2b", "#2b6fdb", "#d23c3c", "#1f9e57"];
-  function weltTransform(a) { return "translate(" + (-a.x * a.z) + "px," + (-a.y * a.z) + "px) scale(" + a.z + ")"; }
-  function kantenSvg(b) {
-    var nach = {}; b.karten.forEach(function (k) { nach[k.id] = k; });
-    return b.kanten.map(function (e) {
-      var a = nach[e.von], c = nach[e.nach]; if (!a || !c) return "";
-      var x1 = a.x + a.b / 2, y1 = a.y + a.h / 2, x2 = c.x + c.b / 2, y2 = c.y + c.h / 2;
-      /* Pfeilspitze am Rand der Zielkarte */
-      var dx = x2 - x1, dy = y2 - y1, t = Math.min(Math.abs((c.b / 2) / (dx || 1e-9)), Math.abs((c.h / 2) / (dy || 1e-9)), 1);
-      var ex = x2 - dx * t, ey = y2 - dy * t;
-      return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + ex.toFixed(1) + '" y2="' + ey.toFixed(1) + '" class="wr-kante" marker-end="url(#wr-pfeil)"/><line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" class="wr-kante-treffer" data-wr-kante="' + e.id + '"/>';
+  function trefferHtml(q) {
+    if (!q || !String(q).trim()) return "";
+    var r = suchen(Object.keys(BOARDS || {}).map(function (k) { return BOARDS[k]; }), q);
+    if (!r.length) return '<p class="hb-sub">Nichts gefunden.</p>';
+    return r.map(function (x) {
+      return '<button class="wr-treffer-z" data-wr="finden" data-wr-id="' + h(x.board) + '" data-wr-wert="' + h(x.karte || x.bereich || "") + '"><b>' + h(x.titel || (x.bereich ? "Bereich" : "Karte")) + "</b> <small>· " + h(x.boardTitel) + "</small>" + (x.auszug ? "<span>" + h(x.auszug) + "</span>" : "") + "</button>";
     }).join("");
   }
-  function boardHtml(b) {
+
+  /* ---------- Board ---------- */
+  var WERKZEUGE = [["bewegen", "✋", "Bewegen"], ["karte", "🗒", "Karte"], ["bereich", "▭", "Bereich"], ["verbinden", "🔗", "Verbinden"], ["stift", "✏️", "Stift"], ["marker", "🖍", "Marker"], ["radierer", "🧽", "Radierer"]];
+  var STIFTFARBEN = ["#1d1d2b", "#2b6fdb", "#d23c3c", "#1f9e57"];
+  var KANTENFARBEN = ["", "#2b6fdb", "#d23c3c", "#1f9e57"];   /* "" = Standard (Textfarbe) */
+  var FORMEN = [["gerade", "／", "gerade"], ["kurve", "⌒", "Kurve"], ["eckig", "⌐", "eckig"]];
+  var PFEILE = [["ende", "→", "ein Pfeil"], ["beide", "↔", "beide Richtungen"], ["ohne", "—", "ohne Pfeil"]];
+  var LINIEN = [["voll", "━", "durchgezogen"], ["gestrichelt", "┅", "gestrichelt"]];
+  function weltTransform(a) { return "translate(" + (-a.x * a.z) + "px," + (-a.y * a.z) + "px) scale(" + a.z + ")"; }
+  function kantenSvg(b) {
+    var nach = {}, sel = W().kanteSel; b.karten.forEach(function (k) { nach[k.id] = k; });
+    return b.kanten.map(function (e) {
+      var a = nach[e.von], c = nach[e.nach]; if (!a || !c) return "";
+      var g = kantenGeometrie(a, c, e.form), fi = Math.max(0, KANTENFARBEN.indexOf(e.farbe || "")), pf = e.pfeil || "ende";
+      return '<path d="' + g.d + '" class="wr-kante' + (e.strich === "gestrichelt" ? " gestrichelt" : "") + (sel === e.id ? " gewaehlt" : "") + '"' + (e.farbe ? ' style="stroke:' + h(e.farbe) + '"' : "")
+        + (pf !== "ohne" ? ' marker-end="url(#wr-pfeil-' + fi + ')"' : "") + (pf === "beide" ? ' marker-start="url(#wr-pfeil-' + fi + ')"' : "") + "/>"
+        + '<path d="' + g.d + '" class="wr-kante-treffer" data-wr-kante="' + e.id + '"/>'
+        + (e.text ? '<text x="' + g.mitte[0] + '" y="' + g.mitte[1] + '" class="wr-ktext" text-anchor="middle" dominant-baseline="central">' + h(e.text) + "</text>" : "");
+    }).join("");
+  }
+  function marker() {
+    return KANTENFARBEN.map(function (f, i) { return '<marker id="wr-pfeil-' + i + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="' + (f || "var(--ink2)") + '"/></marker>'; }).join("");
+  }
+  function knopf(was, wert, an, icon, label, mehr) {
+    return '<button class="el-wz' + (an ? " an" : "") + '" aria-pressed="' + !!an + '" data-wr="' + was + '"' + (wert != null ? ' data-wr-wert="' + wert + '"' : "") + ' title="' + h(label) + '" aria-label="' + h(label) + '"' + (mehr || "") + '><span aria-hidden="true">' + icon + '</span><span class="wr-wz-l">' + h(label) + "</span></button>";
+  }
+  /* Leiste für Verbindungen: die gewählte Verbindung — oder (Werkzeug „Verbinden“) die Vorgabe für neue */
+  function kantenLeiste(b, w) {
+    var e = w.kanteSel ? b.kanten.filter(function (x) { return x.id === w.kanteSel; })[0] : null;
+    if (!e && w.werkzeug !== "verbinden") return "";
+    var st = e || w.stil, form = st.form || "gerade", pfeil = st.pfeil || "ende", strich = st.strich || "voll", farbe = st.farbe || "";
+    var gr = function (titel, liste, was, aktiv) { return '<span class="wr-lgr" role="group" aria-label="' + titel + '">' + liste.map(function (x) { return '<button class="wr-lk' + (aktiv === x[0] ? " an" : "") + '" aria-pressed="' + (aktiv === x[0]) + '" data-wr="' + was + '" data-wr-wert="' + x[0] + '" title="' + h(x[2]) + '" aria-label="' + h(x[2]) + '">' + x[1] + "</button>"; }).join("") + "</span>"; };
+    return '<div class="wr-leiste" data-testid="wr-kantenleiste"><b>' + (e ? "Verbindung:" : "Neue Verbindungen:") + "</b>"
+      + gr("Form", FORMEN, "kform", form) + gr("Pfeil", PFEILE, "kpfeil", pfeil) + gr("Linie", LINIEN, "kstrich", strich)
+      + '<span class="wr-lgr" role="group" aria-label="Farbe">' + KANTENFARBEN.map(function (f) { return '<button class="wr-farbe klein' + (farbe === f ? " an" : "") + '" style="background:' + (f || "var(--ink2)") + '" data-wr="kfb" data-wr-wert="' + f + '" aria-label="Linienfarbe"></button>'; }).join("") + "</span>"
+      + (e ? '<input class="wr-kbeschr" data-wr-kantetext="' + e.id + '" value="' + h(e.text || "") + '" placeholder="Beschriftung, z. B. „führt zu“" aria-label="Beschriftung der Verbindung" maxlength="60">'
+        + '<button class="btn wr-loesen" data-wr="kloesen" data-testid="wr-loesen">✂️ Lösen</button><button class="btn" data-wr="kfertig">Fertig</button>' : "") + "</div>";
+  }
+  function boardHtml(b, imDock) {
     var w = W(), a = w.ansicht;
-    var s = '<div class="wr" data-testid="wr-board"><div class="wr-kopf"><button class="back" data-wr="liste">← Wissensraum</button><input class="wr-titel" data-wr-titel value="' + h(b.titel) + '" aria-label="Titel des Boards"></div>'
+    var kopf = imDock
+      ? '<div class="wr-kopf wr-dockkopf"><select class="wr-dockwahl" data-wr-dockwahl aria-label="Board wählen">' + Object.keys(BOARDS).map(function (k) { return BOARDS[k]; }).sort(function (x, y) { return (y.t || 0) - (x.t || 0); }).map(function (x) { return '<option value="' + h(x.id) + '"' + (x.id === b.id ? " selected" : "") + ">" + h(x.titel) + "</option>"; }).join("") + "</select>"
+        + '<button class="btn" data-wr="dock-gross" title="Groß öffnen" aria-label="Board groß öffnen">⤢</button><button class="btn" data-wr="dock-zu" data-testid="wr-dock-zu" title="Schließen" aria-label="Board neben der App schließen">✕</button></div>'
+      : '<div class="wr-kopf"><button class="back" data-wr="liste">← Wissensraum</button><input class="wr-titel" data-wr-titel value="' + h(b.titel) + '" aria-label="Titel des Boards"></div>';
+    var s = '<div class="wr' + (imDock ? " wr-kompakt" : "") + (w.vollbild ? " wr-vollbild" : "") + '" data-testid="wr-board">' + kopf
       + '<div class="wr-werkzeuge" role="toolbar" aria-label="Werkzeuge">' + WERKZEUGE.map(function (x) {
-        return '<button class="el-wz' + (w.werkzeug === x[0] ? " an" : "") + '" aria-pressed="' + (w.werkzeug === x[0]) + '" data-wr="werkzeug" data-wr-wert="' + x[0] + '"><span aria-hidden="true">' + x[1] + "</span>" + x[2] + "</button>";
+        return '<button class="el-wz' + (w.werkzeug === x[0] ? " an" : "") + '" aria-pressed="' + (w.werkzeug === x[0]) + '" data-wr="werkzeug" data-wr-wert="' + x[0] + '" title="' + x[2] + '"><span aria-hidden="true">' + x[1] + '</span><span class="wr-wz-l">' + x[2] + "</span></button>";
       }).join("")
       + '<span class="wr-trenn"></span>' + (w.werkzeug === "stift" || w.werkzeug === "marker" ? STIFTFARBEN.map(function (f) { return '<button class="wr-farbe' + (w.farbe === f ? " an" : "") + '" style="background:' + f + '" data-wr="farbe" data-wr-wert="' + f + '" aria-label="Farbe"></button>'; }).join("") : "")
-      + '<button class="el-wz" data-wr="rueckgaengig" data-testid="wr-rueck"' + (verlauf.length ? "" : " disabled") + '><span aria-hidden="true">↩︎</span>Zurück</button>'
-      + '<button class="el-wz" data-wr="zoom" data-wr-wert="0.8" aria-label="Verkleinern"><span aria-hidden="true">➖</span>Kleiner</button><button class="el-wz" data-wr="zoom" data-wr-wert="1.25" aria-label="Vergrößern"><span aria-hidden="true">➕</span>Größer</button>'
-      + '<button class="el-wz" data-wr="alles"><span aria-hidden="true">⤢</span>Alles</button></div>'
-      + '<p class="wr-hinweis" aria-live="polite">' + h(hinweis(w)) + "</p>"
+      + knopf("rueckgaengig", null, false, "↩︎", "Zurück", ' data-testid="wr-rueck"' + (verlauf.length ? "" : " disabled"))
+      + knopf("zoom", "0.8", false, "➖", "Kleiner") + knopf("zoom", "1.25", false, "➕", "Größer") + knopf("alles", null, false, "⤢", "Alles")
+      + '<span class="wr-trenn"></span>'
+      + knopf("magnet", null, w.magnet, "🧲", "Magnet", ' data-testid="wr-magnet"') + knopf("ordnen", null, false, "▦", "Ordnen", ' data-testid="wr-ordnen"')
+      + knopf("vollbild", null, w.vollbild, "⛶", w.vollbild ? "Vollbild aus" : "Vollbild", ' data-testid="wr-vollbild"')
+      + (imDock ? "" : knopf("dock", null, false, "◫", "Neben der App", ' data-testid="wr-dock"'))
+      + "</div>"
+      + (kantenLeiste(b, w) || '<p class="wr-hinweis" aria-live="polite">' + h(hinweis(w)) + "</p>")
       + '<div class="wr-flaeche werkzeug-' + w.werkzeug + '" data-wr-flaeche data-testid="wr-flaeche"><div class="wr-welt" style="transform:' + weltTransform(a) + '">'
-      + '<svg class="wr-svg" width="1" height="1"><defs><marker id="wr-pfeil" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--ink2)"/></marker></defs>'
-      + kantenSvg(b) + '<g data-wr-striche>' + b.striche.map(function (st) { return '<path d="' + pfad(st.punkte) + '" stroke="' + st.farbe + '" stroke-width="' + st.breite + '" class="wr-strich' + (st.marker ? " marker" : "") + '" data-wr-strich="' + st.id + '"/>'; }).join("") + "</g></svg>"
+      + bereicheVon(b).map(function (f) {
+        return '<div class="wr-bereich" style="left:' + f.x + "px;top:" + f.y + "px;width:" + f.b + "px;height:" + f.h + "px;background:" + h(f.farbe) + '" data-wr-bereich="' + f.id + '">'
+          + '<div class="wr-bkopf" data-wr-bgriff="' + f.id + '"><span aria-hidden="true">⋮⋮</span><input class="wr-btitel" data-wr-btitel="' + f.id + '" value="' + h(f.titel) + '" placeholder="Bereich" aria-label="Titel des Bereichs">'
+          + BEREICH_FARBEN.map(function (c) { return '<button class="wr-kfarbe" style="background:' + c + '" data-wr="bfarbe" data-wr-id="' + f.id + '" data-wr-wert="' + c + '" aria-label="Farbe des Bereichs"></button>'; }).join("")
+          + '<button class="wr-kweg" data-wr="bweg" data-wr-id="' + f.id + '" aria-label="Bereich löschen (die Karten bleiben)">✕</button></div>'
+          + '<div class="wr-ecke" data-wr-becke="' + f.id + '" aria-hidden="true"></div></div>';
+      }).join("")
+      + '<svg class="wr-svg" width="1" height="1"><defs>' + marker() + "</defs>"
+      + '<g data-wr-kanten>' + kantenSvg(b) + '</g><g data-wr-striche>' + b.striche.map(function (st) { return '<path d="' + pfad(st.punkte) + '" stroke="' + st.farbe + '" stroke-width="' + st.breite + '" class="wr-strich' + (st.marker ? " marker" : "") + '" data-wr-strich="' + st.id + '"/>'; }).join("") + '</g><g data-wr-hilfe></g></svg>'
       + b.karten.map(function (k) {
-        return '<div class="wr-karte' + (w.verbinderVon === k.id ? " von" : "") + '" style="left:' + k.x + "px;top:" + k.y + "px;width:" + k.b + "px;min-height:" + k.h + "px;background:" + k.farbe + '" data-wr-karte="' + k.id + '">'
-          + '<div class="wr-griff" data-wr-griff="' + k.id + '"><span aria-hidden="true">⋮⋮</span>' + FARBEN.map(function (f) { return '<button class="wr-kfarbe" style="background:' + f + '" data-wr="kfarbe" data-wr-id="' + k.id + '" data-wr-wert="' + f + '" aria-label="Kartenfarbe"></button>'; }).join("")
+        return '<div class="wr-karte' + (w.verbinderVon === k.id ? " von" : "") + '" style="left:' + k.x + "px;top:" + k.y + "px;width:" + k.b + "px;height:" + k.h + "px;background:" + k.farbe + '" data-wr-karte="' + k.id + '">'
+          + '<div class="wr-griff" data-wr-griff="' + k.id + '"><span aria-hidden="true">⋮⋮</span><span class="wr-kfarben">' + FARBEN.map(function (f) { return '<button class="wr-kfarbe" style="background:' + f + '" data-wr="kfarbe" data-wr-id="' + k.id + '" data-wr-wert="' + f + '" aria-label="Kartenfarbe"></button>'; }).join("") + "</span>"
+          + '<button class="wr-kneu" data-wr="kneu" data-wr-id="' + k.id + '" aria-label="Verbundene Karte daneben" title="Verbundene Karte daneben">＋</button>'
           + '<button class="wr-kweg" data-wr="kweg" data-wr-id="' + k.id + '" aria-label="Karte löschen">✕</button></div>'
+          + '<input class="wr-ktitel" data-wr-ktitel="' + k.id + '" value="' + h(k.titel || "") + '" placeholder="Titel" aria-label="Titel der Karte" maxlength="120">'
           + '<textarea class="wr-text" data-wr-text="' + k.id + '" placeholder="Schreib etwas …" aria-label="Text der Karte">' + h(k.text) + "</textarea>"
-          + (k.quelle ? '<div class="wr-quelle">📄 ' + h(k.quelle.titel || "Quelle") + (k.quelle.seite ? ", S. " + k.quelle.seite : "") + "</div>" : "") + "</div>";
-      }).join("") + "</div></div></div>";
+          + (k.quelle ? '<div class="wr-quelle">📄 ' + h(k.quelle.titel || "Quelle") + (k.quelle.seite ? ", S. " + k.quelle.seite : "") + "</div>" : "")
+          + '<div class="wr-ecke" data-wr-ecke="' + k.id + '" aria-hidden="true"></div></div>';
+      }).join("") + "</div></div>"
+      + (imDock ? '<div class="wr-dock-zieher" data-wr-dockzieher aria-hidden="true"></div>' : "") + "</div>";
     return s;
   }
   function hinweis(w) {
-    return { bewegen: "Ziehen verschiebt das Board, Karten ziehst du am Griff oben. Zwei Finger zoomen.", karte: "Tippe auf eine freie Stelle — dort entsteht eine neue Karte.",
-      verbinden: w.verbinderVon ? "Jetzt die zweite Karte antippen." : "Tippe zwei Karten nacheinander an, um sie zu verbinden.", stift: "Schreib oder zeichne — mit dem Apple Pencil auch mit Druck. Finger verschieben, sobald ein Stift zeichnet.",
+    return { bewegen: "Ziehen verschiebt das Board, Karten ziehst du am Griff oben, die Größe an der Ecke unten rechts. Eine Verbindung antippen, um sie zu ändern oder zu lösen.",
+      karte: "Tippe auf eine freie Stelle — dort entsteht eine neue Karte. ＋ an einer Karte legt eine verbundene daneben.",
+      bereich: "Tippe auf eine freie Stelle — dort entsteht ein Bereich. Karten darin wandern mit, wenn du ihn verschiebst.",
+      verbinden: w.verbinderVon ? "Jetzt die zweite Karte antippen." : "Tippe zwei Karten nacheinander an, um sie zu verbinden. Sind sie schon verbunden, wird die Verbindung gelöst.",
+      stift: "Schreib oder zeichne — mit dem Apple Pencil auch mit Druck. Finger verschieben, sobald ein Stift zeichnet.",
       marker: "Breiter, halbdurchsichtiger Marker zum Hervorheben.", radierer: "Über Striche wischen radiert sie, ein Pfeil verschwindet beim Antippen." }[w.werkzeug] || "";
+  }
+
+  /* Nach dem Zeichnen: Karten wachsen mit ihrem Text (solange niemand die Größe von Hand gesetzt hat),
+     Ansicht einpassen oder auf einen Suchtreffer stellen. */
+  function nachDemZeichnen() {
+    var w = W(), b = board(), fl = document.querySelector("[data-wr-flaeche]");
+    if (!b || !fl) return;
+    var neuB = b;
+    [].forEach.call(document.querySelectorAll("[data-wr-text]"), function (ta) {
+      var id = ta.getAttribute("data-wr-text"), k = neuB.karten.filter(function (x) { return x.id === id; })[0];
+      if (!k || k.hFest) return;
+      var mehr = ta.scrollHeight - ta.clientHeight;
+      if (mehr > 2 && k.h < GROESSE.maxH) { var hh = Math.min(GROESSE.maxH, k.h + mehr); neuB = karteAendern(neuB, id, { h: hh }); var el = ta.closest("[data-wr-karte]"); if (el) el.style.height = hh + "px"; }
+    });
+    if (neuB !== b) { neuB.profil = b.profil; speichern(neuB); kantenZeichnen(neuB); }
+    var r = flaechenGroesse(fl);
+    if (w.einpassen) { w.einpassen = false; w.ansicht = (neuB.karten.length || neuB.striche.length || bereicheVon(neuB).length) ? allesZeigen(neuB, r.width, r.height) : { x: -40, y: -40, z: 1 }; weltSetzen(); }
+    if (w.zentrieren) {
+      var zid = w.zentrieren; w.zentrieren = null;
+      var o = neuB.karten.concat(bereicheVon(neuB)).filter(function (x) { return x.id === zid; })[0];
+      if (o) {
+        w.ansicht = { x: o.x + o.b / 2 - r.width / 2, y: o.y + o.h / 2 - r.height / 2, z: 1 }; weltSetzen();
+        var el2 = document.querySelector('[data-wr-karte="' + zid + '"], [data-wr-bereich="' + zid + '"]');
+        if (el2) { el2.classList.add("hervor"); setTimeout(function () { el2.classList.remove("hervor"); }, 2400); }
+      }
+    }
+  }
+  function kantenZeichnen(b) { var g = document.querySelector("[data-wr-kanten]"); if (g) g.innerHTML = kantenSvg(b); }
+  function hilfslinien(linien) {
+    var g = document.querySelector("[data-wr-hilfe]"); if (!g) return;
+    g.innerHTML = (linien || []).map(function (l) { return l.achse === "x" ? '<line class="wr-hilfslinie" x1="' + l.wert + '" y1="-100000" x2="' + l.wert + '" y2="100000"/>' : '<line class="wr-hilfslinie" x1="-100000" y1="' + l.wert + '" x2="100000" y2="' + l.wert + '"/>'; }).join("");
+  }
+  /* Rechtecke, an denen der Magnet ausrichtet (ohne das bewegte und ohne mitwandernde Karten) */
+  function andere(b, ohne) { return b.karten.concat(bereicheVon(b)).filter(function (x) { return ohne.indexOf(x.id) < 0; }); }
+
+  /* ---------- Board neben der App (M62: „zweites Fenster“) ---------- */
+  function dockErlaubt() { var p = profil(); return !!(p && p.type !== "baby" && !picker()); }
+  function dockSignatur(b) {
+    var w = W();
+    return [b.id, b.t, w.werkzeug, w.farbe, w.magnet, w.kanteSel, w.verbinderVon, verlauf.length, JSON.stringify(w.stil), w.vollbild, Object.keys(BOARDS).length].join("|");
+  }
+  function dockZeichnen(erzwingen) {
+    if (typeof document.getElementById !== "function") return;
+    var w = W(), d = document.getElementById("wr-dock"), b = w.dock && dockErlaubt() ? board() : null;
+    if (!b || kstate.tab === "wissen-board") {
+      if (d) d.parentNode.removeChild(d);
+      document.body.classList.remove("wr-gedockt");
+      return;
+    }
+    if (!d) { d = document.createElement("aside"); d.id = "wr-dock"; d.setAttribute("aria-label", "Board neben der App"); d.setAttribute("data-testid", "wr-dock-feld"); document.body.appendChild(d); }
+    document.body.classList.add("wr-gedockt");
+    document.body.style.setProperty("--wr-dock-b", (w.dockB || 440) + "px");
+    var sig = dockSignatur(b);
+    if (!erzwingen && d.__sig === sig) return;
+    d.__sig = sig;
+    d.innerHTML = boardHtml(b, true);
+    nachDemZeichnen();
   }
 
   /* ---------- Zeiger: zeichnen, verschieben, zoomen ---------- */
@@ -45126,51 +45341,79 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
   function lokal(e, fl) { var r = fl.getBoundingClientRect(), f = zoomFaktor(fl, r) || 1; return [(e.clientX - r.left) / f, (e.clientY - r.top) / f]; }
   function flaechenGroesse(fl) { return fl ? { width: fl.clientWidth || 800, height: fl.clientHeight || 500 } : { width: 800, height: 500 }; }
   function weltSetzen() { var el = document.querySelector(".wr-welt"); if (el) el.style.transform = weltTransform(W().ansicht); }
+  function idVon(b, liste, id) { return (liste || b.karten).filter(function (x) { return x.id === id; })[0]; }
   document.addEventListener("pointerdown", function (e) {
-    var fl = flaecheVon(e.target); if (!fl || kstate.tab !== "wissen-board") return;
+    /* Breite des Boards neben der App: am linken Rand ziehen */
+    if (e.target && e.target.closest && e.target.closest("[data-wr-dockzieher]")) {
+      e.preventDefault(); zeiger[e.pointerId] = [e.clientX, e.clientY];
+      try { e.target.setPointerCapture(e.pointerId); } catch (x) {}
+      aktion = { art: "dock" }; return;
+    }
+    var fl = flaecheVon(e.target); if (!fl) return;
     var w = W(), b = board(); if (!b) return;
     /* Verbinden: die ganze Karte zählt, auch ihr Textfeld */
     var karte0 = e.target.closest("[data-wr-karte]");
     if (w.werkzeug === "verbinden" && karte0 && !e.target.closest("button")) {
       e.preventDefault();
       var id0 = karte0.getAttribute("data-wr-karte");
-      if (!w.verbinderVon) w.verbinderVon = id0; else { aendern(verbinden(b, w.verbinderVon, id0)); w.verbinderVon = null; }
+      if (!w.verbinderVon) w.verbinderVon = id0; else { aendern(verbindenOderLoesen(b, w.verbinderVon, id0, w.stil)); w.verbinderVon = null; }
       return neu();
     }
-    if (e.target.closest("textarea, button")) return;
+    if (e.target.closest("textarea, button, input, select")) return;
     /* M55: Während ein Strich entsteht, gehört er einem Zeiger — ein zweiter Finger oder der Handballen
        startet kein Zoomen und verwirft den Strich nicht */
     if (aktion && aktion.art === "strich" && e.pointerId !== aktion.id) return;
-    /* M55: Radierer auf einem Pfeil: gleich hier löschen (der Klick ginge bei Zeigerbindung an die Fläche) */
     var kanteEl = e.target.closest("[data-wr-kante]");
-    if (w.werkzeug === "radierer" && kanteEl) {
+    if (kanteEl) {
       e.preventDefault();
       var kid0 = kanteEl.getAttribute("data-wr-kante");
-      aendern(Object.assign({}, b, { kanten: b.kanten.filter(function (x) { return x.id !== kid0; }), t: Date.now() }));
+      /* M55: Radierer auf einem Pfeil: gleich hier löschen (der Klick ginge bei Zeigerbindung an die Fläche) */
+      if (w.werkzeug === "radierer") aendern(kanteEntfernen(b, kid0));
+      else { w.kanteSel = kid0; w.verbinderVon = null; }   /* M62: antippen = auswählen */
       return neu();
     }
+    var abwaehlen = !!w.kanteSel && !Object.keys(zeiger).length;
+    if (abwaehlen) w.kanteSel = null;
     if (e.pointerType === "pen") stiftGesehen = true;
     zeiger[e.pointerId] = lokal(e, fl);
     var ids = Object.keys(zeiger);
     if (ids.length === 2) { /* Pinch */ var p1 = zeiger[ids[0]], p2 = zeiger[ids[1]]; aktion = { art: "pinch", d: Math.hypot(p1[0] - p2[0], p1[1] - p2[1]), m: [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2], a: w.ansicht }; return; }
     var lp = zeiger[e.pointerId], pw = zuWelt(w.ansicht, lp[0], lp[1]);
     var griff = e.target.closest("[data-wr-griff]"), karteEl = e.target.closest("[data-wr-karte]");
+    var ecke = e.target.closest("[data-wr-ecke]"), becke = e.target.closest("[data-wr-becke]"), bgriff = e.target.closest("[data-wr-bgriff]");
     var zeichnet = (w.werkzeug === "stift" || w.werkzeug === "marker") && !(stiftGesehen && e.pointerType === "touch");
     e.preventDefault();
     try { fl.setPointerCapture(e.pointerId); } catch (x) {}
-    if (griff) { var k = b.karten.filter(function (x) { return x.id === griff.getAttribute("data-wr-griff"); })[0]; aktion = { art: "karte", id: k.id, start: lp, x: k.x, y: k.y, el: karteEl }; return; }
-    if (karteEl) return;
-    if (w.werkzeug === "karte") { aendern(karteHinzu(b, { x: pw[0] - 100, y: pw[1] - 30 })); neu(); var neuste = board().karten.slice(-1)[0], ta = document.querySelector('[data-wr-text="' + neuste.id + '"]'); if (ta) ta.focus(); return; }
+    if (ecke) { var k1 = idVon(b, null, ecke.getAttribute("data-wr-ecke")); if (k1) aktion = { art: "groesse", id: k1.id, start: lp, k: k1, el: karteEl, neuZeichnen: abwaehlen }; return; }
+    if (becke) { var f1 = idVon(b, bereicheVon(b), becke.getAttribute("data-wr-becke")); if (f1) aktion = { art: "bgroesse", id: f1.id, start: lp, k: f1, el: becke.closest("[data-wr-bereich]"), neuZeichnen: abwaehlen }; return; }
+    if (griff) { var k = idVon(b, null, griff.getAttribute("data-wr-griff")); aktion = { art: "karte", id: k.id, start: lp, x: k.x, y: k.y, el: karteEl, neuZeichnen: abwaehlen }; return; }
+    if (bgriff) {
+      var f = idVon(b, bereicheVon(b), bgriff.getAttribute("data-wr-bgriff"));
+      if (f) {
+        var mit = b.karten.filter(function (x) { return imBereich(x, f); }).map(function (x) { return x.id; });
+        aktion = { art: "bereich", id: f.id, start: lp, f: f, mit: mit, el: bgriff.closest("[data-wr-bereich]"),
+          els: mit.map(function (id) { var k2 = idVon(b, null, id); return { el: document.querySelector('[data-wr-karte="' + id + '"]'), x: k2.x, y: k2.y }; }), neuZeichnen: abwaehlen };
+      }
+      return;
+    }
+    if (karteEl) { if (abwaehlen) neu(); return; }
+    if (w.werkzeug === "karte") { aendern(karteHinzu(b, { x: w.magnet ? einrasten(pw[0] - 100) : pw[0] - 100, y: w.magnet ? einrasten(pw[1] - 30) : pw[1] - 30 })); neu(); var neuste = board().karten.slice(-1)[0], ta = document.querySelector('[data-wr-ktitel="' + neuste.id + '"]'); if (ta) ta.focus(); return; }
+    if (w.werkzeug === "bereich") {
+      var x0 = pw[0] - 240, y0 = pw[1] - 30;
+      if (w.magnet) { x0 = einrasten(x0); y0 = einrasten(y0); }
+      aendern(bereichHinzu(b, { x: x0, y: y0, farbe: BEREICH_FARBEN[bereicheVon(b).length % BEREICH_FARBEN.length] })); neu();
+      var nf = bereicheVon(board()).slice(-1)[0], ti = nf && document.querySelector('[data-wr-btitel="' + nf.id + '"]'); if (ti) ti.focus(); return;
+    }
     if (zeichnet) {
-      var marker = w.werkzeug === "marker", g = document.querySelector("[data-wr-striche]"), path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("class", "wr-strich" + (marker ? " marker" : "")); path.setAttribute("stroke", w.farbe);
-      var br = marker ? 16 : w.breite * (e.pointerType === "pen" && e.pressure ? 0.5 + e.pressure : 1);
+      var mk = w.werkzeug === "marker", g = document.querySelector("[data-wr-striche]"), path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", "wr-strich" + (mk ? " marker" : "")); path.setAttribute("stroke", w.farbe);
+      var br = mk ? 16 : w.breite * (e.pointerType === "pen" && e.pressure ? 0.5 + e.pressure : 1);
       path.setAttribute("stroke-width", br.toFixed(1)); if (g) g.appendChild(path);
-      aktion = { art: "strich", id: e.pointerId, punkte: [pw], el: path, breite: Math.round(br * 10) / 10, marker: marker };
+      aktion = { art: "strich", id: e.pointerId, punkte: [pw], el: path, breite: Math.round(br * 10) / 10, marker: mk };
       return;
     }
     if (w.werkzeug === "radierer") { aktion = { art: "radieren", alt: b, letzter: pw }; radierenBei(pw); return; }
-    aktion = { art: "schieben", start: lp, a: w.ansicht };
+    aktion = { art: "schieben", start: lp, a: w.ansicht, neuZeichnen: abwaehlen };
   });
   function radierenBei(pw) {
     var b = board(), n = radieren(b, pw, 12 / W().ansicht.z);
@@ -45178,18 +45421,49 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
   }
   document.addEventListener("pointermove", function (e) {
     if (!aktion || zeiger[e.pointerId] == null) return;
+    if (aktion.art === "dock") {
+      var bb = Math.round(Math.max(300, Math.min(window.innerWidth * 0.75, window.innerWidth - e.clientX)));
+      W().dockB = bb; document.body.style.setProperty("--wr-dock-b", bb + "px"); return;
+    }
     if (aktion.art === "strich" && e.pointerId !== aktion.id) return;
     var fl = document.querySelector("[data-wr-flaeche]"); if (!fl) { aktion = null; return; }
     zeiger[e.pointerId] = lokal(e, fl);
-    var w = W(), lp = zeiger[e.pointerId];
+    var w = W(), lp = zeiger[e.pointerId], z = w.ansicht.z, b = board();
     if (aktion.art === "pinch") {
       var ids = Object.keys(zeiger); if (ids.length < 2) return;
       var p1 = zeiger[ids[0]], p2 = zeiger[ids[1]], d = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]), m = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
       var v = zoomen(aktion.a, d / (aktion.d || 1), aktion.m[0], aktion.m[1]);
       w.ansicht = { x: v.x - (m[0] - aktion.m[0]) / v.z, y: v.y - (m[1] - aktion.m[1]) / v.z, z: v.z }; weltSetzen(); return;
     }
-    if (aktion.art === "schieben") { w.ansicht = { x: aktion.a.x - (lp[0] - aktion.start[0]) / aktion.a.z, y: aktion.a.y - (lp[1] - aktion.start[1]) / aktion.a.z, z: aktion.a.z }; weltSetzen(); return; }
-    if (aktion.art === "karte") { var nx = aktion.x + (lp[0] - aktion.start[0]) / w.ansicht.z, ny = aktion.y + (lp[1] - aktion.start[1]) / w.ansicht.z; aktion.nx = nx; aktion.ny = ny; aktion.el.style.left = nx + "px"; aktion.el.style.top = ny + "px"; return; }
+    if (aktion.art === "schieben") { aktion.bewegt = true; w.ansicht = { x: aktion.a.x - (lp[0] - aktion.start[0]) / aktion.a.z, y: aktion.a.y - (lp[1] - aktion.start[1]) / aktion.a.z, z: aktion.a.z }; weltSetzen(); return; }
+    var dx = aktion.start ? (lp[0] - aktion.start[0]) / z : 0, dy = aktion.start ? (lp[1] - aktion.start[1]) / z : 0;   /* Striche und Radierer haben keinen Startpunkt */
+    if (aktion.art === "karte") {
+      var k = idVon(b, null, aktion.id), nx = aktion.x + dx, ny = aktion.y + dy, lin = [];
+      if (k && w.magnet) { var r = ausrichten({ x: nx, y: ny, b: k.b, h: k.h }, andere(b, [k.id]), { schwelle: 8 / z }); nx = r.x; ny = r.y; lin = r.linien; }
+      aktion.nx = nx; aktion.ny = ny; aktion.el.style.left = nx + "px"; aktion.el.style.top = ny + "px";
+      hilfslinien(lin); if (k) kantenZeichnen(karteAendern(b, k.id, { x: nx, y: ny })); return;
+    }
+    if (aktion.art === "groesse" || aktion.art === "bgroesse") {
+      var o = aktion.k, gr = { b: o.b + dx, h: o.h + dy, linien: [] };
+      if (aktion.art === "bgroesse") gr = { b: Math.max(200, gr.b), h: Math.max(140, gr.h), linien: [] };
+      if (w.magnet) {
+        var g2 = groesseEinrasten({ x: o.x, y: o.y, b: gr.b, h: gr.h }, andere(b, [o.id]), { schwelle: 8 / z });
+        gr = aktion.art === "bgroesse" ? { b: Math.max(200, g2.b), h: Math.max(140, g2.h), linien: g2.linien } : g2;
+      } else if (aktion.art === "groesse") { var g3 = groesseBegrenzen(gr.b, gr.h); gr = { b: g3.b, h: g3.h, linien: [] }; }
+      aktion.nb = Math.round(gr.b); aktion.nh = Math.round(gr.h);
+      aktion.el.style.width = aktion.nb + "px"; aktion.el.style.height = aktion.nh + "px";
+      hilfslinien(gr.linien);
+      if (aktion.art === "groesse") kantenZeichnen(karteAendern(b, o.id, { b: aktion.nb, h: aktion.nh }));
+      return;
+    }
+    if (aktion.art === "bereich") {
+      var f = aktion.f, fx = f.x + dx, fy = f.y + dy, lin2 = [];
+      if (w.magnet) { var r2 = ausrichten({ x: fx, y: fy, b: f.b, h: f.h }, andere(b, [f.id].concat(aktion.mit)), { schwelle: 8 / z }); fx = r2.x; fy = r2.y; lin2 = r2.linien; }
+      aktion.dx = fx - f.x; aktion.dy = fy - f.y;
+      aktion.el.style.left = fx + "px"; aktion.el.style.top = fy + "px";
+      aktion.els.forEach(function (x) { if (x.el) { x.el.style.left = (x.x + aktion.dx) + "px"; x.el.style.top = (x.y + aktion.dy) + "px"; } });
+      hilfslinien(lin2); kantenZeichnen(bereichVerschieben(b, f.id, aktion.dx, aktion.dy, aktion.mit)); return;
+    }
     if (aktion.art === "strich") {
       var pts = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : [e];
       pts.forEach(function (ev) { var q = lokal(ev, fl); aktion.punkte.push(zuWelt(w.ansicht, q[0], q[1])); });
@@ -45211,21 +45485,86 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
     var a = aktion, b = board();
     if (a.art === "pinch" && Object.keys(zeiger).length) return;
     aktion = null;
+    if (a.art === "dock") return;
+    hilfslinien([]);
     if (!b) return;
     if (a.art === "karte" && a.nx != null) { aendern(karteAendern(b, a.id, { x: Math.round(a.nx), y: Math.round(a.ny) })); return neu(); }
+    if (a.art === "groesse" && a.nb != null) { aendern(karteAendern(b, a.id, { b: a.nb, h: a.nh, hFest: true })); return neu(); }
+    if (a.art === "bgroesse" && a.nb != null) { aendern(bereichAendern(b, a.id, { b: a.nb, h: a.nh })); return neu(); }
+    if (a.art === "bereich" && a.dx != null) { aendern(bereichVerschieben(b, a.id, a.dx, a.dy, a.mit)); return neu(); }
     if (a.art === "strich") { var n = strichHinzu(b, a.punkte, W().farbe, a.breite); if (a.marker && n.striche.length) n.striche[n.striche.length - 1].marker = true; aendern(n); return neu(); }
     if (a.art === "radieren" && a.alt !== board()) { verlauf.push(a.alt); return neu(); }
+    if (a.neuZeichnen) neu();
   }
   document.addEventListener("pointerup", ende);
   document.addEventListener("pointercancel", ende);
   document.addEventListener("wheel", function (e) {
-    var fl = flaecheVon(e.target); if (!fl || kstate.tab !== "wissen-board") return;
+    var fl = flaecheVon(e.target); if (!fl) return;
     e.preventDefault();
     var w = W(), lp = lokal(e, fl);
     if (e.ctrlKey || e.metaKey) w.ansicht = zoomen(w.ansicht, e.deltaY < 0 ? 1.1 : 0.9, lp[0], lp[1]);
     else w.ansicht = { x: w.ansicht.x + e.deltaX / w.ansicht.z, y: w.ansicht.y + e.deltaY / w.ansicht.z, z: w.ansicht.z };
     weltSetzen();
   }, { passive: false });
+  /* Tastatur: Escape beendet Vollbild bzw. die Auswahl, Entf löst die gewählte Verbindung */
+  document.addEventListener("keydown", function (e) {
+    var w = kstate.wr; if (!w || !document.querySelector("[data-wr-flaeche]")) return;
+    var tippt = e.target && e.target.closest && e.target.closest("input, textarea, select");
+    if (e.key === "Escape" && (w.kanteSel || w.vollbild)) { if (w.kanteSel) w.kanteSel = null; else vollbild(false); e.preventDefault(); return neu(); }
+    if ((e.key === "Delete" || e.key === "Backspace") && w.kanteSel && !tippt) { var b = board(); if (b) aendern(kanteEntfernen(b, w.kanteSel)); w.kanteSel = null; e.preventDefault(); neu(); }
+  });
+
+  /* ---------- Vollbild ---------- */
+  function vollbild(an) {
+    var w = W(); w.vollbild = an;
+    var de = document.documentElement;
+    try {
+      if (an && !(document.fullscreenElement || document.webkitFullscreenElement)) {
+        var f = de.requestFullscreen || de.webkitRequestFullscreen;
+        if (f) { var r = f.call(de); w.vollbildEcht = true; if (r && r.catch) r.catch(function () { w.vollbildEcht = false; }); }
+      } else if (!an && w.vollbildEcht && (document.fullscreenElement || document.webkitFullscreenElement)) {
+        w.vollbildEcht = false; (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      }
+    } catch (e) { w.vollbildEcht = false; }
+  }
+  ["fullscreenchange", "webkitfullscreenchange"].forEach(function (n) {
+    document.addEventListener(n, function () {
+      var w = kstate.wr; if (!w || !w.vollbildEcht) return;
+      if (!(document.fullscreenElement || document.webkitFullscreenElement)) { w.vollbildEcht = false; w.vollbild = false; neu(); }
+    });
+  });
+
+  /* ---------- Sicherung ---------- */
+  function sichern() {
+    var l = Object.keys(BOARDS || {}).map(function (k) { return BOARDS[k]; });
+    var text = JSON.stringify(sicherungErstellen(l, Date.now()));
+    var d = new Date(), name = "wissensraum-" + d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2) + ".json";
+    var url = URL.createObjectURL(new Blob([text], { type: "application/json" })), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 1000);
+    meldung = l.length + (l.length === 1 ? " Board" : " Boards") + " als „" + name + "“ gesichert.";
+  }
+  function einlesen(datei) {
+    var r = new FileReader();
+    r.onload = function () {
+      alle("boards").then(function (vorhanden) {
+        boardsLaden();
+        var meine = {}, fremd = {};
+        vorhanden.forEach(function (b) { if (b.profil === pid()) meine[b.id] = b.t || 0; else fremd[b.id] = true; });
+        Object.keys(BOARDS).forEach(function (k) { meine[k] = BOARDS[k].t || 0; });
+        var e = sicherungLesen(String(r.result || ""), meine);
+        if (e.fehler) { meldung = e.fehler; return neu(); }
+        e.boards.forEach(function (b) {
+          if (fremd[b.id]) b.id = kennung("b");   /* gehört auf diesem Gerät einem anderen Profil */
+          b.profil = pid(); BOARDS[b.id] = b; schreiben("boards", b);
+        });
+        var z = e.zahl;
+        meldung = "Sicherung eingelesen: " + z.neu + " neu, " + z.ersetzt + " aktualisiert" + (z.gleich ? ", " + z.gleich + " waren schon da" : "") + ".";
+        neu();
+      });
+    };
+    r.readAsText(datei);
+  }
 
   /* ---------- Klicks und Eingaben ---------- */
   var ziel = typeof window.addEventListener === "function" ? window : document;
@@ -45233,54 +45572,111 @@ function allesZeigen(board, breite, hoehe, rand = 40) {
     var t = e.target && e.target.closest ? e.target.closest("[data-wr],[data-wr-kante]") : null;
     if (!t) return;
     var w = W(), b = board();
-    if (t.hasAttribute("data-wr-kante")) { if (w.werkzeug === "radierer" && b) { var kid = t.getAttribute("data-wr-kante"); aendern(Object.assign({}, b, { kanten: b.kanten.filter(function (x) { return x.id !== kid; }), t: Date.now() })); neu(); } return; }
+    if (t.hasAttribute("data-wr-kante")) { if (w.werkzeug === "radierer" && b) { var kid = t.getAttribute("data-wr-kante"); aendern(kanteEntfernen(b, kid)); neu(); } return; }
     e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
     var was = t.getAttribute("data-wr"), wert = t.getAttribute("data-wr-wert"), id = t.getAttribute("data-wr-id");
-    if (was === "neu") { boardsLaden(); var nb = neuesBoard("Board " + (Object.keys(BOARDS).length + 1)); speichern(nb); w.boardId = nb.id; w.ansicht = { x: -40, y: -40, z: 1 }; verlauf = []; kstate.tab = "wissen-board"; return neu(); }
-    if (was === "oeffnen") { w.boardId = id; verlauf = []; kstate.tab = "wissen-board"; var bb = BOARDS[id], fl0 = { b: 900, h: 560 }; w.ansicht = allesZeigen(bb, fl0.b, fl0.h); if (!bb.karten.length && !bb.striche.length) w.ansicht = { x: -40, y: -40, z: 1 }; return neu(); }
+    var oeffnen = function (bid) { w.boardId = bid; w.dock = false; w.kanteSel = null; w.verbinderVon = null; verlauf = []; kstate.tab = "wissen-board"; w.einpassen = true; meldung = ""; };
+    if (was === "neu") { boardsLaden(); var nb = neuesBoard("Board " + (Object.keys(BOARDS).length + 1)); speichern(nb); oeffnen(nb.id); return render(); }
+    if (was === "vorlage") { boardsLaden(); var vb = vorlage(wert); if (!vb) return; speichern(vb); oeffnen(vb.id); return render(); }
+    if (was === "oeffnen") { if (!BOARDS[id]) return; oeffnen(id); return render(); }
+    if (was === "finden") { if (!BOARDS[id]) return; oeffnen(id); w.einpassen = !wert; w.zentrieren = wert || null; return render(); }
     if (was === "loeschen") {
       if (t.getAttribute("data-wr-sicher") !== "1") { t.setAttribute("data-wr-sicher", "1"); t.textContent = "Löschen?"; t.classList.add("sicher"); return; }
-      delete BOARDS[id]; schreiben("boards", id, true); return neu();
+      delete BOARDS[id]; schreiben("boards", id, true); if (w.boardId === id) { w.boardId = null; w.dock = false; } return render();
     }
-    if (was === "liste") { kstate.tab = "hub-wissen"; w.verbinderVon = null; return neu(); }
+    if (was === "sichern") { sichern(); return render(); }
+    if (was === "einlesen") { var inp = document.getElementById("wr-datei"); if (inp) inp.click(); return; }
+    if (was === "liste") { kstate.tab = "hub-wissen"; w.verbinderVon = null; w.kanteSel = null; if (w.vollbild) vollbild(false); return render(); }
     if (!b) return;
-    if (was === "werkzeug") { w.werkzeug = wert; w.verbinderVon = null; }
+    if (was === "dock") { w.dock = true; w.vollbild = false; w.kanteSel = null; w.einpassen = true; kstate.tab = w.hatLetzten ? w.letzterTab : "heute"; return render(); }
+    if (was === "dock-zu") { w.dock = false; dockZeichnen(); return render(); }
+    if (was === "dock-gross") { w.dock = false; kstate.tab = "wissen-board"; w.einpassen = true; return render(); }
+    if (was === "werkzeug") { w.werkzeug = wert; w.verbinderVon = null; if (wert !== "bewegen") w.kanteSel = null; }
     else if (was === "farbe") w.farbe = wert;
     else if (was === "rueckgaengig") { tippFeld = null; var alt = verlauf.pop(); if (alt) speichern(alt); }
     else if (was === "zoom") { var fl = document.querySelector("[data-wr-flaeche]"), r = flaechenGroesse(fl); w.ansicht = zoomen(w.ansicht, +wert, r.width / 2, r.height / 2); }
     else if (was === "alles") { var fl2 = document.querySelector("[data-wr-flaeche]"), r2 = flaechenGroesse(fl2); w.ansicht = allesZeigen(b, r2.width, r2.height); }
+    else if (was === "magnet") w.magnet = !w.magnet;
+    else if (was === "ordnen") aendern(aufraeumen(b));
+    else if (was === "vollbild") { vollbild(!w.vollbild); w.einpassen = false; }
     else if (was === "kweg") aendern(karteEntfernen(b, id));
     else if (was === "kfarbe") aendern(karteAendern(b, id, { farbe: wert }));
+    else if (was === "kneu") {
+      var rr = karteDaneben(b, id, w.stil);
+      if (rr.id) { aendern(rr.board); neu(); var ti = document.querySelector('[data-wr-ktitel="' + rr.id + '"]'); if (ti) try { ti.focus({ preventScroll: true }); } catch (x) {} return; }
+    }
+    else if (was === "bfarbe") aendern(bereichAendern(b, id, { farbe: wert }));
+    else if (was === "bweg") aendern(bereichEntfernen(b, id));
+    else if (was === "kform" || was === "kpfeil" || was === "kstrich" || was === "kfb") {
+      var feld = { kform: "form", kpfeil: "pfeil", kstrich: "strich", kfb: "farbe" }[was], felder = {}; felder[feld] = wert || "";
+      w.stil[feld] = wert || "";   /* die letzte Wahl gilt auch für neue Verbindungen */
+      if (w.kanteSel) aendern(kanteAendern(b, w.kanteSel, felder));
+    }
+    else if (was === "kloesen") { if (w.kanteSel) aendern(kanteEntfernen(b, w.kanteSel)); w.kanteSel = null; }
+    else if (was === "kfertig") w.kanteSel = null;
     neu();
   }, true);
+  ziel.addEventListener("change", function (e) {
+    var t = e.target; if (!t || !t.getAttribute) return;
+    if (t.id === "wr-datei" && t.files && t.files[0]) { einlesen(t.files[0]); t.value = ""; return; }
+    if (t.hasAttribute("data-wr-dockwahl") && BOARDS[t.value]) { var w = W(); w.boardId = t.value; w.kanteSel = null; verlauf = []; w.einpassen = true; dockZeichnen(true); }
+  }, true);
+  /* Tippen in einem Feld: beim ersten Zeichen den Stand davor merken — sonst nähme „Zurück“ den Text mit */
+  function tippSchritt(b, feldId) {
+    if (tippFeld === feldId) return;
+    verlauf.push(b); if (verlauf.length > 40) verlauf.shift(); tippFeld = feldId;
+    var rk = document.querySelector('[data-wr="rueckgaengig"]'); if (rk) rk.disabled = false;
+  }
   ziel.addEventListener("input", function (e) {
     var t = e.target; if (!t || !t.getAttribute) return;
-    if (!t.hasAttribute("data-wr-text") && !t.hasAttribute("data-wr-titel")) return;   /* nur eigene Felder — sonst lüde jede Eingabe der App die Boards */
+    if (t.hasAttribute("data-wr-suche")) { W().suche = t.value; var tr = document.querySelector("[data-wr-treffer]"); if (tr) tr.innerHTML = trefferHtml(t.value); return; }
+    var art = ["data-wr-text", "data-wr-ktitel", "data-wr-btitel", "data-wr-kantetext", "data-wr-titel"].filter(function (a) { return t.hasAttribute(a); })[0];
+    if (!art) return;   /* nur eigene Felder — sonst lüde jede Eingabe der App die Boards */
     var b = board(); if (!b) return;
-    if (t.hasAttribute("data-wr-text")) {
-      var id = t.getAttribute("data-wr-text");
-      /* Beim ersten Zeichen in diesem Feld den Stand davor merken — sonst nähme „Zurück“ den Text mit */
-      if (tippFeld !== id) { verlauf.push(b); if (verlauf.length > 40) verlauf.shift(); tippFeld = id; var rk = document.querySelector('[data-wr="rueckgaengig"]'); if (rk) rk.disabled = false; }
-      speichern(karteAendern(b, id, { text: t.value }));
+    var id = t.getAttribute(art);
+    if (art === "data-wr-titel") { speichern(Object.assign({}, b, { titel: t.value.slice(0, 80) || "Board", t: Date.now() })); return; }
+    tippSchritt(b, art + ":" + id);
+    if (art === "data-wr-text") {
+      var nb = karteAendern(b, id, { text: t.value }), k = idVon(nb, null, id);
+      /* die Karte wächst mit ihrem Text (bis jemand die Größe von Hand setzt) */
+      var mehr = t.scrollHeight - t.clientHeight;
+      if (k && !k.hFest && mehr > 2 && k.h < GROESSE.maxH) { var hh = Math.min(GROESSE.maxH, k.h + mehr); nb = karteAendern(nb, id, { h: hh }); var el = t.closest("[data-wr-karte]"); if (el) el.style.height = hh + "px"; kantenZeichnen(nb); }
+      speichern(nb);
     }
-    else if (t.hasAttribute("data-wr-titel")) speichern(Object.assign({}, b, { titel: t.value.slice(0, 80) || "Board", t: Date.now() }));
+    else if (art === "data-wr-ktitel") speichern(karteAendern(b, id, { titel: t.value }));
+    else if (art === "data-wr-btitel") speichern(bereichAendern(b, id, { titel: t.value }));
+    else if (art === "data-wr-kantetext") { var n2 = kanteAendern(b, id, { text: t.value }); speichern(n2); kantenZeichnen(n2); }
   }, true);
 
   /* ---------- Einhängen ---------- */
-  var renderVorher = render;
+  var renderVorher = render, zuletztGezeigt = null;
   var renderNeu = function () {
-    var p = profil();
-    if (p && p.type !== "baby" && !(typeof showProfiles !== "undefined" && showProfiles) && kstate.tab === "wissen-board" && typeof document.getElementById === "function") {
+    var p = profil(), w = W();
+    if (p && !picker() && !/^(hub-wissen|wissen-)/.test(String(kstate.tab || ""))) { w.letzterTab = kstate.tab; w.hatLetzten = true; }
+    if (p && p.type !== "baby" && !picker() && kstate.tab === "wissen-board" && typeof document.getElementById === "function") {
       boardsLaden();
       var b = board();
       if (!b) { if (BOARDS && Object.keys(BOARDS).length) kstate.tab = "hub-wissen"; }
       else {
         try { renderTabs(); } catch (e) {}
         var view = document.getElementById("view");
-        if (view) { view.innerHTML = boardHtml(b); try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {} return; }
+        if (view) {
+          w.dock = false; dockZeichnen();
+          /* Einblenden nur beim Öffnen: p87 setzt vw-neu beim Seitenwechsel und kommt hier nicht mehr vorbei —
+             sonst blendete jedes Neuzeichnen (Werkzeug, Linienart …) das ganze Board neu ein */
+          if (zuletztGezeigt === b.id) view.classList.remove("vw-neu");
+          zuletztGezeigt = b.id;
+          view.innerHTML = boardHtml(b);
+          try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
+          nachDemZeichnen();
+          return;
+        }
       }
     }
-    return renderVorher.apply(this, arguments);
+    zuletztGezeigt = null;
+    var r = renderVorher.apply(this, arguments);
+    try { dockZeichnen(false); } catch (e) {}
+    return r;
   };
   render = renderNeu;
   try { window.render = renderNeu; } catch (e) {}
@@ -46618,7 +47014,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v2.0</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 10.10.2026 17:56")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 10.10.2026 18:35")}}catch(e){}
 })();
 
 </script>
