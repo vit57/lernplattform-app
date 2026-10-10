@@ -1418,6 +1418,7 @@ html[data-theme] #view .k2 .btn.k2-opt.falsch, .k2-opt.falsch { border: 2px soli
 .sr-z, .sr-ein { width: var(--sr-k); height: var(--sr-k); display: flex; align-items: center; justify-content: center; font-size: calc(var(--sr-k) * .6); font-weight: 650; color: var(--ink); box-sizing: border-box; }
 .sr-z.zeichen { color: var(--ink2); }
 .sr-z.loesung { color: var(--brand); }
+.sr-z.fokus { background: color-mix(in srgb, var(--brand) 14%, transparent); border-radius: 8px; box-shadow: inset 0 -3px 0 var(--brand); }   /* gerade gerechnete Zahl */
 .sr-z.loesung.neu { animation: sr-auf 380ms var(--ease-out, ease-out); }
 .sr-z.uebertrag, .sr-z.entbuendelt, .sr-z.herunter { font-size: calc(var(--sr-k) * .38); color: #c0392b; align-items: flex-end; }
 .sr-z.entbuendelt { align-items: flex-end; text-decoration: none; }
@@ -42529,7 +42530,10 @@ function tippText(schritt) {
 }
 
 /* ---------- Division ---------- */
-function division(a, b) {
+/* Reihenfolge je Runde: 'ergebnis' — erst die Ziffer im Ergebnis, dann darunter (wie meist im Heft);
+   'unten' — erst unter der Teilzahl rechnen (Malaufgabe, Abziehen), dann die Ziffer ins Ergebnis.
+   fokus = die Kästchen der Zahl, mit der gerade gerechnet wird (die App markiert sie). */
+function division(a, b, reihenfolge = 'ergebnis') {
   if (!(b > 0)) throw new Error('Division durch 0');
   const da = ziffern(a), quotient = Math.floor(a / b), rest = a % b;
   const dq = ziffern(quotient);
@@ -42549,20 +42553,28 @@ function division(a, b) {
   /* M59: Wie im Heft steht unter jeder abgezogenen Zahl ein Strich — so breit wie die Zahl, von der
      abgezogen wird, mit dem Minuszeichen. Er erscheint, sobald die Zahl eingetragen ist (ab Schritt `ab`). */
   const striche = [];
+  let fokus = ziele(0, ende, teil).map((x) => ({ z: x.z, s: x.s }));
   for (;;) {
     const q = Math.floor(teil / b), p = q * b, d = teil - p;
-    schritte.push({ ziel: [{ z: 0, s: qStart + qi, wert: String(q) }], text: 'Wie oft passt ' + b + ' in ' + teil + '? ' + q + '-mal' + (q ? ' (' + q + ' · ' + b + ' = ' + p + ').' : '.'), marken: [] });
-    schritte.push({ ziel: ziele(zeile, ende, p), text: q + ' · ' + b + ' = ' + p + '. Schreibe ' + p + ' unter ' + teil + '.', marken: [{ z: zeile, s: ende - ziffern(p).length, text: '−', art: 'zeichen' }] });
-    striche.push({ z: zeile, von: Math.min(ende - ziffern(p).length, ende - ziffern(teil).length), bis: ende, ab: schritte.length });
     const naechste = ende - L + 1 < da.length;
-    schritte.push({ ziel: ziele(zeile + 1, ende, d), text: teil + ' − ' + p + ' = ' + d + '.' + (naechste ? '' : rest ? ' Es bleibt der Rest ' + d + '.' : ' Es geht auf.'), marken: [] });
+    const sQ = { ziel: [{ z: 0, s: qStart + qi, wert: String(q) }], text: 'Wie oft passt ' + b + ' in ' + teil + '? ' + q + '-mal' + (q ? ' (' + q + ' · ' + b + ' = ' + p + ').' : '.'), marken: [], fokus };
+    const sP = { ziel: ziele(zeile, ende, p), text: q + ' · ' + b + ' = ' + p + '. Schreibe ' + p + ' unter ' + teil + '.', marken: [{ z: zeile, s: ende - ziffern(p).length, text: '−', art: 'zeichen' }], fokus };
+    const sD = { ziel: ziele(zeile + 1, ende, d), text: teil + ' − ' + p + ' = ' + d + '.' + (naechste ? '' : rest ? ' Es bleibt der Rest ' + d + '.' : ' Es geht auf.'), marken: [], fokus };
+    const strich = { z: zeile, von: Math.min(ende - ziffern(p).length, ende - ziffern(teil).length), bis: ende, ab: 0 };
+    if (reihenfolge === 'unten') {
+      sP.text = 'Wie oft passt ' + b + ' in ' + teil + '? ' + q + '-mal. ' + sP.text;
+      sQ.text = 'Schreibe die ' + q + ' ins Ergebnis.';
+      schritte.push(sP); strich.ab = schritte.length; schritte.push(sD, sQ);
+    } else { schritte.push(sQ, sP); strich.ab = schritte.length; schritte.push(sD); }
+    striche.push(strich);
     qi++;
     if (!naechste) break;
     ende++;
     teil = d * 10 + +da[ende - L];
     /* Rückmeldung 2026-10-10: Wie im Heft holt das Kind die nächste Ziffer selbst herunter — erst unten
        weiterrechnen, dann die nächste Ziffer im Ergebnis (vorher erschien sie von allein). */
-    schritte.push({ ziel: [{ z: zeile + 1, s: ende, wert: da[ende - L] }], text: 'Hole die nächste Ziffer von oben herunter. Jetzt rechnest du mit ' + teil + '.', marken: [] });
+    schritte.push({ ziel: [{ z: zeile + 1, s: ende, wert: da[ende - L] }], text: 'Hole die nächste Ziffer von oben herunter. Jetzt rechnest du mit ' + teil + '.', marken: [], fokus: [{ z: 0, s: ende }] });
+    fokus = ziele(zeile + 1, ende, teil).map((x) => ({ z: x.z, s: x.s }));
     zeile += 2;
   }
   if (rest) {
@@ -42574,13 +42586,13 @@ function division(a, b) {
 
 /**
  * @param {'+'|'-'|'−'|'*'|'·'|':'} op @param {number} a @param {number} b
- * @param {{ verfahren?: 'entbuendeln'|'ergaenzen' }} [opt]
+ * @param {{ verfahren?: 'entbuendeln'|'ergaenzen', reihenfolge?: 'ergebnis'|'unten' }} [opt]
  */
 function aufgabe(op, a, b, opt = {}) {
   if (op === '+') return addition(a, b);
   if (op === '-' || op === '−') return subtraktion(a, b, opt.verfahren || 'entbuendeln');
   if (op === '*' || op === '·') return multiplikation(a, b);
-  if (op === ':') return division(a, b);
+  if (op === ':') return division(a, b, opt.reihenfolge === 'unten' ? 'unten' : 'ergebnis');
   throw new Error('unbekannte Rechenart ' + op);
 }
 
@@ -42735,11 +42747,16 @@ function rechenbilder(q) {
   var OPNAME = { "+": "Plus", "−": "Minus", "·": "Mal", ":": "Geteilt" };
   function srNeu(L, eigen) {
     try {
-      if (eigen) L.aufg = aufgabe(L.op, eigen.a, eigen.b, { verfahren: L.verfahren });
-      else { var x = erzeuge(L.op, L.stufe, zufall(Date.now() & 0x7fffffff)); L.aufg = aufgabe(x.op, x.a, x.b, { verfahren: L.verfahren }); }
+      var opt = { verfahren: L.verfahren, reihenfolge: reihenfolge() };
+      if (eigen) L.aufg = aufgabe(L.op, eigen.a, eigen.b, opt);
+      else { var x = erzeuge(L.op, L.stufe, zufall(Date.now() & 0x7fffffff)); L.aufg = aufgabe(x.op, x.a, x.b, opt); }
     } catch (e) { L.meldung = { art: "noch", text: e.message === "Subtraktion: der Minuend muss größer sein" ? "Die erste Zahl muss größer sein als die zweite." : "Diese Aufgabe geht so nicht." }; return; }
     L.i = 0; L.fehler = 0; L.fehlerSchritt = 0; L.meldung = null; L.fertig = false; L.start = Date.now(); L.tipp = false;
   }
+  /* Teilen: „Ergebnis zuerst“ oder „Erst unten rechnen“ (Rückmeldung 2026-10-10: „Warum fängt es aber
+     weiterhin rechts an und nicht unter der 16?“ — gewünscht: beides wählbar). Gemerkt je Profil. */
+  function reiheKey() { var p = typeof curProf === "function" ? curProf() : null; return "egl-labor-teilen-" + (p ? p.id : "anon"); }
+  function reihenfolge() { try { return localStorage.getItem(reiheKey()) === "unten" ? "unten" : "ergebnis"; } catch (e) { return "ergebnis"; } }
   function srZellen(L) {
     var a = L.aufg, map = {}, i;
     a.zellen.forEach(function (z) { map[z.z + ":" + z.s] = { text: z.text, art: z.art }; });
@@ -42754,6 +42771,9 @@ function rechenbilder(q) {
         st.marken.forEach(function (m) { if (m.art === "zeichen") map[m.z + ":" + m.s] = { text: m.text, art: m.art }; });
       }
     }
+    /* die Zahl, mit der gerade gerechnet wird (Teilen: zuerst die 16 in 162 : 3) */
+    var jetztSt = !L.fertig && a.schritte[L.i];
+    if (jetztSt && jetztSt.fokus) jetztSt.fokus.forEach(function (c) { var m = map[c.z + ":" + c.s]; if (m && m.eingabe == null) m.art = (m.art || "") + " fokus"; });
     return map;
   }
   function srHtml(L) {
@@ -42766,6 +42786,9 @@ function rechenbilder(q) {
       return '<button class="btn' + (L.stufe === x[0] ? " btn-primary" : "") + '" aria-pressed="' + (L.stufe === x[0]) + '" data-lb="stufe" data-lb-wert="' + x[0] + '">' + x[1] + "</button>";
     }).join("") + (L.op === "−" ? '<span class="lb-trenn"></span>' + [["entbuendeln", "Entbündeln"], ["ergaenzen", "Ergänzen"]].map(function (x) {
       return '<button class="btn' + (L.verfahren === x[0] ? " btn-primary" : "") + '" aria-pressed="' + (L.verfahren === x[0]) + '" data-lb="verfahren" data-lb-wert="' + x[0] + '">' + x[1] + "</button>";
+    }).join("") : "") + (L.op === ":" ? '<span class="lb-trenn"></span>' + [["ergebnis", "Ergebnis zuerst"], ["unten", "Erst unten rechnen"]].map(function (x) {
+      var an = reihenfolge() === x[0];
+      return '<button class="btn' + (an ? " btn-primary" : "") + '" aria-pressed="' + an + '" data-lb="reihenfolge" data-lb-wert="' + x[0] + '">' + x[1] + "</button>";
     }).join("") : "") + "</div>";
     var map = srZellen(L), z, sp, zellen = "", eingaben = "";
     for (z = 0; z < a.zeilen; z++) for (sp = 0; sp < a.spalten; sp++) {
@@ -43005,6 +43028,7 @@ function rechenbilder(q) {
       if (was === "op") { L.op = wert; srNeu(L); }
       else if (was === "stufe") { L.stufe = +wert; srNeu(L); }
       else if (was === "verfahren") { L.verfahren = wert; srNeu(L); }
+      else if (was === "reihenfolge") { try { localStorage.setItem(reiheKey(), wert === "unten" ? "unten" : "ergebnis"); } catch (x) {} if (L.aufg && L.aufg.op === ":") srNeu(L, { a: L.aufg.a, b: L.aufg.b }); }   /* dieselbe Aufgabe in der neuen Reihenfolge */
       else if (was === "neu") srNeu(L);
       else if (was === "tipp") L.tipp = true;
       else if (was === "eigen") {
@@ -47014,7 +47038,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v2.0</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 10.10.2026 18:35")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 10.10.2026 19:02")}}catch(e){}
 })();
 
 </script>
