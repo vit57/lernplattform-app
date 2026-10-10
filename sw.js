@@ -11,13 +11,16 @@
 
    Symbole und Manifest ändern sich selten und kommen aus dem Speicher.
    Der Cache-Name wird beim Bauen gesetzt; ein neuer räumt den alten weg. */
-const CACHE = "lernplattform-v1.53-20261004-2131";
+const CACHE = "lernplattform-v2.0-20261010-1006";
 const DATEIEN = [
   "index.html",
   "manifest.webmanifest",
   "icon-192.png",
   "icon-512.png",
-  "icon-512-maskable.png"
+  "icon-512-maskable.png",
+  /* M55: pdf.js gleich mit — sonst fehlt der PDF-Leser offline, sobald ein neuer Stand den alten Speicher räumt */
+  "pdfjs/pdf.min.js",
+  "pdfjs/pdf.worker.min.js"
 ];
 
 self.addEventListener("install", e => {
