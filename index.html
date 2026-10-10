@@ -31110,6 +31110,14 @@ function aufgabenweltFuer(station, skill, tasks, sprache, { anzahl, ohne = [], r
         return { stufe: DD[lv].label || lv, klasse: 0, themen: DD[lv].topics.filter(function (t) { return Array.isArray(t.exercises); }) };
       }), "aufgabe");
     } catch (e) {}
+    /* M57: Deutsch für Erwachsene, Stufen A2 bis C1 (app/inhalt/deutsch-erwachsene.json) — Themen mit
+       Regeln, Beispielen und Aufgaben samt Erklärung; sie hängen am selben Pfad „Deutsch (Erwachsene)“. */
+    try {
+      var DE2 = INHALT.DEUTSCH_ERW;
+      if (DE2) pfadAnlegen("de", "erwachsen", "Deutsch", Object.keys(DE2).filter(function (lv) { return DE2[lv] && Array.isArray(DE2[lv].topics) && DE2[lv].topics.length; }).map(function (lv) {
+        return { stufe: DE2[lv].heading || lv, klasse: 0, themen: DE2[lv].topics };
+      }));
+    } catch (e) {}
     if (Array.isArray(INHALT.UNI)) pfadAnlegen("studium", "erwachsen", "Studium", INHALT.UNI.map(function (f) {
       return { stufe: f.name || f.id, klasse: 0, themen: f.topics || [] };
     }));
@@ -32882,12 +32890,16 @@ function tagVon(d) {
       rest = rest.filter(function (e) { return drin.indexOf(e) < 0; });
     });
     if (rest.length) s += '<h3 class="hb-zw">Weitere</h3><div class="hb-raster">' + rest.map(function (e) { return karte(e); }).join("") + "</div>";
+    /* Zusatzabschnitte passend zum gewählten Fach (Rückmeldung 2026-10-10: „Rechtschreibtrainer im
+       Bereich Mathematik macht keinen Sinn“): Schreiben nur bei Deutsch, Rechnen zum Anfassen nur bei
+       Mathematik; der Klassenarbeitstrainer gilt für jedes Fach. */
+    var fach = aktivesFach();
     /* M51: Rechtschreibtrainer */
-    if (istKind()) s += '<h3 class="hb-zw">✍️ Richtig schreiben</h3><div class="hb-raster"><button class="hb-karte" data-rs="oeffnen"><span class="hb-ic" aria-hidden="true">✍️</span><span class="hb-tx"><span class="hb-ti">Rechtschreibtrainer</span><span class="hb-me">das/dass, s/ss/ß, groß/klein … mit Merksatz, Training nach deinen Fehlern und Wort-Diktat.</span></span></button></div>';
+    if (istKind() && (!fach || fach === "de")) s += '<h3 class="hb-zw">✍️ Richtig schreiben</h3><div class="hb-raster"><button class="hb-karte" data-rs="oeffnen"><span class="hb-ic" aria-hidden="true">✍️</span><span class="hb-tx"><span class="hb-ti">Rechtschreibtrainer</span><span class="hb-me">das/dass, s/ss/ß, groß/klein … mit Merksatz, Training nach deinen Fehlern und Wort-Diktat.</span></span></button></div>';
     /* M50: Klassenarbeitstrainer */
     if (istKind()) s += '<h3 class="hb-zw">🎯 Vorbereiten</h3><div class="hb-raster"><button class="hb-karte" data-trainer="oeffnen"><span class="hb-ic" aria-hidden="true">🎯</span><span class="hb-tx"><span class="hb-ti">Klassenarbeitstrainer</span><span class="hb-me">Plan bis zur Arbeit, Probeklassenarbeit mit Zeit und Note.</span></span></button></div>';
     /* M47: Rechnen zum Anfassen — aus dem Labor */
-    if (istKind() && window.__LABOR) s += '<h3 class="hb-zw">🧪 Rechnen zum Anfassen</h3><div class="hb-raster">'
+    if (istKind() && window.__LABOR && (!fach || fach === "math")) s += '<h3 class="hb-zw">🧪 Rechnen zum Anfassen</h3><div class="hb-raster">'
       + '<button class="hb-karte" data-labor="schriftlich"><span class="hb-ic" aria-hidden="true">✍️</span><span class="hb-tx"><span class="hb-ti">Schriftlich rechnen</span><span class="hb-me">Wie im Heft, Schritt für Schritt.</span></span></button>'
       + '<button class="hb-karte" data-labor="rechenbild"><span class="hb-ic" aria-hidden="true">📊</span><span class="hb-tx"><span class="hb-ti">Rechenbilder</span><span class="hb-me">Aufgaben als Bild verstehen.</span></span></button></div>';
     return s;
@@ -32950,7 +32962,8 @@ function tagVon(d) {
       + '<div><b>' + (serie ? "🔥 " + serie : "🔥 0") + "</b><span>" + (serie === 1 ? "Tag gelernt" : "Tage hintereinander gelernt") + "</span></div>"
       + (az ? '<div><b>🏅 ' + az + "</b><span>Abzeichen</span></div>" : "") + "</div>";
   }
-  function deutschLernend() { var p = profil(); try { return typeof profLangs === "function" && p && profLangs(p).indexOf("de") >= 0; } catch (e) { return false; } }
+  function deutschLernend() { var p = profil(); try { return typeof profLangs === "function" && p && profLangs(p).indexOf("de") >= 0 && (typeof curLang === "undefined" || !curLang || curLang === "de"); } catch (e) { return false; } }   /* nur, wenn gerade Deutsch gewählt ist */
+  function aktivesFach() { var an = (MODELL && MODELL.faecher || []).filter(function (f) { return f.an; })[0]; return an ? an.su : ""; }
   function elternKopf() {
     var s = '<div class="hb-raster">';
     if (window.__ELTERN && istKind()) s += '<button class="hb-karte gross" data-eltern="dashboard"><span class="hb-ic" aria-hidden="true">📈</span><span class="hb-tx"><span class="hb-ti">Eltern-Überblick</span><span class="hb-me">Tag, Woche, Monat, Tendenzen und Wochenbericht.</span></span></button>';
@@ -36601,6 +36614,42 @@ function pruefeKarte(k) {
   }
 }
 
+  // @ts-check
+/* =====================================================================
+   M58: Fertige Kartenstapel (app/inhalt/karten-stapel.json, KARTEN_STAPEL).
+   Ein fertiger Stapel wird als EIGENER Stapel übernommen (egl-fcstapel-…),
+   damit Wiederholung, Fortschritt und alle Kartentypen ohne Sonderweg
+   laufen. Jede Karte bekommt eine feste Kennung <Stapel>-<Nr.>, unter der
+   die Wiederholung ihren Stand führt — so kann eine spätere Fassung des
+   Stapels neue Karten ergänzen, ohne den Stand der alten zu verlieren.
+   Reine Funktionen.
+   ===================================================================== */
+
+/** Kennung der n-ten Karte (ab 1) eines fertigen Stapels. */
+function kartenId(stapelId, n) { return stapelId + '-' + String(n).padStart(3, '0'); }
+
+/** Stapel für eine Profilart ('kid' | 'adult'); Kinderstapel bis zur eigenen Klasse + 1 (ohne Klasse: alle). */
+function stapelFuer(alle, typ, klasse) {
+  return (alle || []).filter((d) => {
+    if (typ === 'kid') return d.fuer === 'kind' && (klasse == null || !d.klasse || d.klasse <= klasse + 1);
+    return d.fuer === 'erwachsen';
+  });
+}
+
+/** Der fertige Stapel als eigener Stapel (neue Objekte, die Vorlage bleibt unberührt). */
+function uebernehmen(d, jetzt) {
+  return {
+    id: d.id, name: d.name, sprache: d.sprache || 'de', quelle: 'fertig', t: jetzt,
+    karten: (d.karten || []).map((k, i) => ({ ...k, id: kartenId(d.id, i + 1) })),
+  };
+}
+
+/** Karten einer neueren Fassung, die im eigenen Stapel noch fehlen (nach Kennung). */
+function neueKarten(d, eigen) {
+  const da = new Set(((eigen && eigen.karten) || []).map((k) => k.id));
+  return (d.karten || []).map((k, i) => ({ ...k, id: kartenId(d.id, i + 1) })).filter((k) => !da.has(k.id));
+}
+
 
   // @ts-check
 /**
@@ -36923,6 +36972,36 @@ function levenshtein(a, b) {
   function enginePool(sc) { try { var f = window.fcPool || (typeof fcPool === "function" ? fcPool : null); return f ? (f(sc) || []) : []; } catch (e) { return []; } }
   function vorrat(sc) { return /^eigen-/.test(sc) ? eigenVorrat(sc) : /^kid-/.test(sc) ? nachKlasse(kinderVorrat(sc), klasse(), umfang()) : enginePool(sc); }
 
+  /* ---------- M58: fertige Stapel (KARTEN_STAPEL) ---------- */
+  var TYP_ICON = {}; TYPEN.forEach(function (x) { TYP_ICON[x[0]] = x[1]; });
+  function fertigeStapel() {
+    var D = (window.__INHALT_DATEN || {}).KARTEN_STAPEL, p = profil();
+    return p && D && D.stapel ? stapelFuer(D.stapel, p.type === "kid" ? "kid" : "adult", p.type === "kid" ? klasse() : null) : [];
+  }
+  function htmlFertig() {
+    var l = fertigeStapel();
+    return '<div class="hb k2" data-testid="k2-fertigseite"><button class="back" data-k2="fertig-zu">← Karteikarten</button><h2 class="hb-titel">📚 Fertige Stapel</h2>'
+      + '<p class="hb-sub">Geprüfte Kartenstapel zum Übernehmen. Ein Stapel wird dein eigener: Du kannst Karten bearbeiten, verstecken und wie gewohnt wiederholen.</p>'
+      + '<div class="hb-raster">' + l.map(function (d) {
+        var eigen = stapel(d.id), mehr = eigen ? neueKarten(d, eigen).length : 0, typen = {};
+        (d.karten || []).forEach(function (k) { typen[k.typ] = 1; });
+        var knopf = !eigen ? '<button class="btn btn-primary" data-k2="fertig-add" data-k2-id="' + h(d.id) + '">＋ Übernehmen</button>'
+          : mehr ? '<button class="btn btn-primary" data-k2="fertig-add" data-k2-id="' + h(d.id) + '">＋ ' + mehr + " neue Karten übernehmen</button>"
+          : '<button class="btn" data-k2="fertig-add" data-k2-id="' + h(d.id) + '">✓ Übernommen — öffnen</button>';
+        return '<div class="hb-karte k2-fertig" data-testid="k2-fertig-' + h(d.id) + '"><span class="hb-tx"><span class="hb-ti">' + h(d.name) + '</span><span class="hb-me">'
+          + (d.karten || []).length + " Karten · " + Object.keys(typen).map(function (t0) { return TYP_ICON[t0] || ""; }).join(" ") + "</span>"
+          + (d.beschreibung ? '<span class="hb-me">' + h(d.beschreibung) + "</span>" : "") + "</span>" + knopf + "</div>";
+      }).join("") + "</div></div>";
+  }
+  function fertigUebernehmen(id) {
+    var d = fertigeStapel().filter(function (x) { return x.id === id; })[0]; if (!d) return;
+    var v = stapelAlle(), eigen = v.stapel[id];
+    if (!eigen) v.stapel[id] = uebernehmen(d, Date.now());
+    else eigen.karten = (eigen.karten || []).concat(neueKarten(d, eigen));
+    schreib(stapelKey(), v);
+    kstate.k2fertig = null; kstate.fcStapel = id; kstate.k2 = null; kstate.k2verwalten = false;
+  }
+
   /* ---------- Kinder: eigener Vorrat ---------- */
   function klasse() {
     var p = profil();
@@ -37017,7 +37096,7 @@ function levenshtein(a, b) {
       + liste.map(function (st) {
         var an = eigen && sc === "eigen-" + st.id;
         return '<button class="btn' + (an ? " btn-primary" : "") + '" aria-pressed="' + an + '" data-k2="stapel" data-k2-stapel="' + h(st.id) + '">📥 ' + h(st.name) + " <small>(" + (st.karten || []).length + ")</small></button>";
-      }).join("") + '<button class="btn" data-k2="neu" data-testid="k2-neu-knopf">＋ Neue Karte</button><button class="btn" data-k2="import" data-testid="k2-import">📥 Importieren</button></div>';
+      }).join("") + (fertigeStapel().length ? '<button class="btn" data-k2="fertig" data-testid="k2-fertig">📚 Fertige Stapel</button>' : "") + '<button class="btn" data-k2="neu" data-testid="k2-neu-knopf">＋ Neue Karte</button><button class="btn" data-k2="import" data-testid="k2-import">📥 Importieren</button></div>';
     if (istKind() && !eigen) {
       var kl = klasse(), u = umfang();
       if (kl) s += '<div class="k2-fach k2-umfang" role="group" aria-label="Welche Wörter?">' + (kl > 1 ? [["bis", "Klasse 1–" + kl + " ⭐"], ["klasse", "nur Klasse " + kl]] : [["bis", "Klasse 1 ⭐"]]).concat([["alle", "alle Klassen"]]).map(function (x) {
@@ -37451,7 +37530,7 @@ function levenshtein(a, b) {
       if (view) {
         if (kstate.k2 && kstate.k2.sc !== bereich()) kstate.k2 = null;
         if (kstate.k2edit && kstate.k2edit.sc !== bereich()) kstate.k2edit = null;
-        view.innerHTML = kstate.k2import ? htmlImport() : kstate.k2neu ? htmlNeu() : kstate.k2edit ? htmlBearbeiten() : kstate.k2 ? htmlRunde() : htmlStart();
+        view.innerHTML = kstate.k2fertig ? htmlFertig() : kstate.k2import ? htmlImport() : kstate.k2neu ? htmlNeu() : kstate.k2edit ? htmlBearbeiten() : kstate.k2 ? htmlRunde() : htmlStart();
         try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
         return;
       }
@@ -37471,6 +37550,9 @@ function levenshtein(a, b) {
     if (was === "fach") { if (t.getAttribute("data-k2-fach")) kstate.fcFach = t.getAttribute("data-k2-fach"); kstate.fcStapel = null; kstate.k2 = null; }
     else if (was === "stapel") { kstate.fcStapel = t.getAttribute("data-k2-stapel"); kstate.k2 = null; kstate.k2verwalten = false; }
     else if (was === "import") { kstate.k2import = { text: "", dateiname: "" }; }
+    else if (was === "fertig") kstate.k2fertig = true;
+    else if (was === "fertig-zu") kstate.k2fertig = null;
+    else if (was === "fertig-add") fertigUebernehmen(t.getAttribute("data-k2-id"));
     else if (was === "import-zu") kstate.k2import = null;
     else if (was === "import-lesen") importLesen();
     else if (was === "import-tauschen") { namenMerken(); var o0 = kstate.k2import.opt || {}; importLesen({ vorne: kstate.k2import.r.hinten, hinten: kstate.k2import.r.vorne, beispiel: o0.beispiel !== undefined ? o0.beispiel : kstate.k2import.r.beispiel }); }
@@ -45431,7 +45513,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v2.0</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 10.10.2026 10:44")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 10.10.2026 10:59")}}catch(e){}
 })();
 
 </script>
