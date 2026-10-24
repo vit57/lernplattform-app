@@ -1798,6 +1798,117 @@ html[data-theme] #view .k2-held .hb-zahlen > div, .k2-held .hb-zahlen > div { ba
 /* Aufgabenwelt (Erwachsene): Sprache sichtbar und umschaltbar */
 .aw-sprache { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0 12px; }
 .aw-sprache-k { font-weight: 750; color: var(--ink2); font-size: 14px; }
+
+/* =====================================================================
+   M66 — Wörterbuch: dieselben Wörter wie die Karteikarten
+   ===================================================================== */
+.wb-werkzeuge { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 6px; }
+.wb-werkzeuge .wb-suche { flex: 1 1 260px; }
+.wb-werkzeuge .wb-gruppe { flex: 0 1 280px; }
+.wb-zahl { color: var(--ink2); font-size: 13.5px; margin: 4px 0 8px; }
+.wb-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.wb-e { padding: 12px 14px; border-radius: var(--radius-m, 16px); border: 1px solid var(--glas-linie, var(--line)); background: var(--glas, var(--paper));
+  box-shadow: var(--glas-licht, none); }
+.wb-kopf { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.wb-kopf .vl-knopf { align-self: center; }
+.wb-wort { font-size: 17px; font-weight: 800; }
+.wb-tr { color: var(--ink); font-size: 15.5px; }
+.wb-ne { color: var(--ink2); }
+.wb-bsp { margin: 6px 0 0; padding-left: 10px; border-left: 3px solid color-mix(in srgb, var(--brand) 40%, transparent); font-size: 14.5px; }
+.wb-bsp > span { display: block; }
+.wb-bsp-ue { color: var(--ink2); font-size: 13.5px; }
+.wb-fuss { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.wb-st { color: var(--ink2); font-size: 12.5px; margin-right: auto; }
+.wb-fuss .btn { min-height: 34px; padding: 4px 10px; font-size: 13.5px; }
+.wb-mehr { margin-top: 10px; }
+
+/* =====================================================================
+   M67 — Statistik: Überblick, Verlauf, Fehler
+   ===================================================================== */
+.st-steuer { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 8px 0 10px; }
+.st-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); border: 1px solid var(--glas-linie, var(--line)); }
+.st-seg button { border: 0; background: transparent; color: var(--ink2); font: inherit; font-size: 14px; font-weight: 700; padding: 7px 12px; min-height: 36px; border-radius: 9px; cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease, transform 120ms ease-out; }
+.st-seg button[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent); }
+.st-seg button:active { transform: scale(0.97); }
+.st-filter { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; }
+.st-filter label { display: grid; gap: 3px; flex: 1 1 200px; font-size: 12.5px; color: var(--ink2); font-weight: 700; }
+.st-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 4px 0 12px; }
+.st-kpi { padding: 10px 8px; border-radius: 14px; text-align: center; background: var(--glas, var(--paper)); border: 1px solid var(--glas-linie, var(--line)); }
+.st-kpi b { display: block; font-size: 24px; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.st-kpi span { font-size: 12.5px; color: var(--ink2); }
+.st-kpi.ok b { color: var(--good); }
+.st-kpi.no b { color: var(--bad); }
+.st-gruppen { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 6px; }
+.st-gruppe { width: 100%; display: grid; grid-template-columns: minmax(130px, 11em) 1fr auto; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px;
+  border: 1px solid var(--glas-linie, var(--line)); background: var(--glas, var(--paper)); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: transform 120ms ease-out; }
+.st-gruppe:active:not([disabled]) { transform: scale(0.98); }
+.st-gruppe[disabled] { opacity: .55; cursor: default; }
+.st-gname { font-weight: 700; font-size: 14.5px; }
+.st-leiste { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.st-leiste .st-ok { background: var(--good); }
+.st-leiste .st-no { background: var(--bad); }
+.st-gzahl { font-size: 13px; color: var(--ink2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.st-zw { margin: 6px 0 6px; font-size: 14px; }
+.st-kal { display: grid; grid-template-rows: repeat(7, 13px); grid-auto-flow: column; grid-auto-columns: 13px; gap: 3px; overflow-x: auto; padding-bottom: 2px; }
+.st-k { display: inline-block; width: 13px; height: 13px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 8%, transparent); vertical-align: -2px; }
+.st-k.leer { background: transparent; }
+.st-k.s1 { background: color-mix(in srgb, var(--good) 35%, transparent); }
+.st-k.s2 { background: color-mix(in srgb, var(--good) 55%, transparent); }
+.st-k.s3 { background: color-mix(in srgb, var(--good) 78%, transparent); }
+.st-k.s4 { background: var(--good); }
+.st-legende { font-size: 12px; color: var(--ink2); margin: 6px 0 0; }
+.st-legende .st-k { margin: 0 2px 0 8px; }
+.st-verlauf { display: grid; gap: 8px; }
+.st-tag { border-radius: 14px; border: 1px solid var(--glas-linie, var(--line)); background: var(--glas, var(--paper)); overflow: hidden; }
+.st-tag summary { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; cursor: pointer; font-weight: 800; }
+.st-tzahl { font-weight: 600; font-size: 13.5px; color: var(--ink2); }
+.st-tzahl em { font-style: normal; color: var(--bad); }
+.st-liste { list-style: none; margin: 0; padding: 0 0 6px; }
+.st-e { display: grid; grid-template-columns: 3.2em 1.4em 1fr; gap: 6px; padding: 7px 14px; border-top: 1px solid var(--glas-linie, var(--line)); font-size: 14px; }
+.st-zeit { color: var(--ink2); font-variant-numeric: tabular-nums; }
+.st-mark { font-weight: 900; }
+.st-e.ok .st-mark { color: var(--good); }
+.st-e.no .st-mark { color: var(--bad); }
+.st-inhalt { display: grid; gap: 2px; min-width: 0; }
+.st-q { overflow-wrap: anywhere; }
+.st-meta { font-size: 12.5px; color: var(--ink2); }
+.st-ant { font-size: 13px; }
+.st-ant s { color: var(--bad); text-decoration-thickness: 1.5px; }
+.st-ant b { color: var(--good); }
+.st-hinweis { margin: 2px 0 8px; font-size: 14px; }
+.st-ueben { margin: 0 0 10px; }
+.st-fliste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.st-f { display: grid; gap: 3px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--glas-linie, var(--line)); background: var(--glas, var(--paper)); }
+.st-f.offen { border-left: 4px solid var(--bad); }
+.st-fkopf { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.st-fkopf .st-q { font-weight: 700; }
+.st-status { font-size: 12px; font-weight: 800; white-space: nowrap; padding: 2px 8px; border-radius: 999px; background: var(--good-soft); color: var(--good); }
+.st-f.offen .st-status { background: var(--bad-soft); color: var(--bad); }
+.st-leer { color: var(--ink2); }
+.st-mehr { margin-top: 10px; }
+@media (max-width: 560px) {
+  .st-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .st-gruppe { grid-template-columns: 1fr auto; }
+  .st-gruppe .st-leiste { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* =====================================================================
+   M68 — Wiederholung steuern (Elternbereich)
+   ===================================================================== */
+.ws-suche { width: 100%; margin: 4px 0 6px; }
+.ws-zahl { display: inline-block; min-width: 1.6em; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, transparent); font-size: 12.5px; text-align: center; color: var(--ink2); vertical-align: 2px; }
+.ws-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ws-e { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--glas-linie, var(--line)); background: var(--glas, var(--paper)); }
+.ws-tx { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.ws-q { font-weight: 700; overflow-wrap: anywhere; }
+.ws-meta { font-size: 12.5px; color: var(--ink2); }
+.ws-r { font-size: 13px; }
+.ws-r b { color: var(--good); }
+.ws-knopf { flex: none; min-height: 38px; }
+.ws-leer { color: var(--ink2); }
+.ws-mehr { margin-top: 10px; }
+@media (max-width: 560px) { .ws-e { flex-direction: column; align-items: stretch; } }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -31255,7 +31366,8 @@ function aufgabenweltFuer(station, skill, tasks, sprache, { anzahl, ohne = [], r
      zu leicht → kommt nicht mehr dran (bis man sie zurückholt)
      zu schwer → macht 30 Tage Pause und kommt dann wieder — wer wächst,
                  schafft sie später vielleicht
-   Stand je Profil: { <Kennung>: { art: 'leicht'|'schwer', t: Zeitpunkt } }.
+     eltern    → M68: im Elternbereich ausgeschlossen, dauerhaft
+   Stand je Profil: { <Kennung>: { art: 'leicht'|'schwer'|'eltern', t: Zeitpunkt } }.
    Reine Funktionen.
    ===================================================================== */
 
@@ -31264,14 +31376,14 @@ const AUSSORTIERT_TAG_MS = 864e5;
 
 /** Neue Fassung des Stands mit dieser Aufgabe aussortiert (unbekannte Art: unverändert). */
 function aussortieren(stand, id, art, jetzt) {
-  if (!id || (art !== 'leicht' && art !== 'schwer')) return stand;
+  if (!id || (art !== 'leicht' && art !== 'schwer' && art !== 'eltern')) return stand;
   return { ...stand, [id]: { art, t: jetzt } };
 }
 /** Ist die Aufgabe gerade istAussortiert? */
 function istAussortiert(stand, id, jetzt) {
   const e = stand && id ? stand[id] : null;
   if (!e) return false;
-  return e.art === 'leicht' || jetzt - e.t < AUSSORTIERT_PAUSE_TAGE * AUSSORTIERT_TAG_MS;
+  return e.art === 'leicht' || e.art === 'eltern' || jetzt - e.t < AUSSORTIERT_PAUSE_TAGE * AUSSORTIERT_TAG_MS;
 }
 /** Aufgabenliste ohne die ausgeblendeten (Aufgaben ohne Kennung bleiben drin). */
 function ohneAussortierte(aufgaben, stand, jetzt) {
@@ -32284,7 +32396,9 @@ function aussortierteListe(stand, jetzt) {
   /* Fächer mit Lernpfad für die Karte unter „Lernen“ */
   function hatPfad(su) { return !!pfadFuer(su); }
   window.__LERNPFAD = { aussortiert: { stand: aussortiertStand, filtern: function (l) { return ohneAussortierte(l, aussortiertStand(), Date.now()); },
-      liste: function () { return aussortierteListe(aussortiertStand(), Date.now()); }, zurueck: function (id) { aussortiertSpeichern(zurueckholen(aussortiertStand(), id)); } },
+      liste: function () { return aussortierteListe(aussortiertStand(), Date.now()); }, zurueck: function (id) { aussortiertSpeichern(zurueckholen(aussortiertStand(), id)); },
+      /* M68: Elternbereich — art „eltern“ */
+      setzen: function (id, art) { aussortiertSpeichern(aussortieren(aussortiertStand(), id, art, Date.now())); }, ist: function (id) { return istAussortiert(aussortiertStand(), id, Date.now()); } },
     mathKlasse: function () { try { return defGrade(); } catch (e) { return null; } }, pfad: pfad, aufgabenVon: aufgabenVon, bewerte: bewerte, lade: lade, stand: stand, starte: starte, klausuren: klausurenLaden, spielbar: spielbar,
     FACH: FACH, klasse: klasse, SKILLS: SKILLS, klasseAendern: klasseAendern, themenVon: themenVon,
     pfadFuer: pfadFuer, faecherHeute: faecherHeute, faecherThemen: faecherThemen, hatPfad: hatPfad, PFADE: PFADE, fachJetzt: fachJetzt,
@@ -32998,15 +33112,23 @@ function tagVon(d) {
     return !t && st && (st.tab === "Karten" || st.tab === "Vokabeln") ? st.tab : null;
   }
   function woerterLeiste(w) {
-    var kind = istKind();
-    var wahl = kind ? [["cards", 'data-m132nav="cards"', "🃏", "Karteikarten"], ["m127kid", 'data-m132nav="m127kid"', "📚", "Wortschatz & Lexikon"]]
-      : [["Karten", 'data-tab="Karten"', "🃏", "Karteikarten"], ["Vokabeln", 'data-tab="Vokabeln"', "📚", "Wortschatz"]];
+    /* M66: Karteikarten und Wörterbuch zeigen dieselben Wörter (p84); die alten Engine-Seiten bleiben als dritter Reiter */
+    var kind = istKind(), an = (w === "cards" || w === "Karten") ? (kstate.k2buch ? "buch" : "karten") : "alt";
+    var wahl = kind ? [["karten", 'data-m132nav="cards" data-ww="karten"', "🃏", "Karteikarten"], ["buch", 'data-m132nav="cards" data-ww="buch"', "📖", "Wörterbuch"], ["alt", 'data-m132nav="m127kid" data-ww="alt"', "🎲", "Bilder & Spiele"]]
+      : [["karten", 'data-tab="Karten" data-ww="karten"', "🃏", "Karteikarten"], ["buch", 'data-tab="Karten" data-ww="buch"', "📖", "Wörterbuch"], ["alt", 'data-tab="Vokabeln" data-ww="alt"', "📝", "Vokabeltest"]];
     return '<div class="ww-leiste" role="tablist" aria-label="Wörter" data-testid="ww-leiste">' + wahl.map(function (x) {
-      return '<button role="tab" class="ww-tab' + (x[0] === w ? " an" : "") + '" ' + x[1] + ' aria-selected="' + (x[0] === w) + '"><span aria-hidden="true">' + x[2] + "</span> " + x[3] + "</button>";
+      return '<button role="tab" class="ww-tab' + (x[0] === an ? " an" : "") + '" ' + x[1] + ' aria-selected="' + (x[0] === an) + '"><span aria-hidden="true">' + x[2] + "</span> " + x[3] + "</button>";
     }).join("") + "</div>"
-      + '<p class="ww-hinweis">' + (w === "cards" || w === "Karten"
-        ? "Wiederholen mit Karteikarten. Neue Wörter entdecken, nachschlagen und anhören kannst du im " + (kind ? "Wortschatz & Lexikon" : "Wortschatz") + "."
-        : "Wörter entdecken, nachschlagen und anhören. Zum Festigen wiederholst du sie mit den Karteikarten.") + "</p>";
+      + (function () {   /* M66: Erwachsene wechseln die Sprache hier, ohne Umweg über „Lernen“ */
+        var spr = kind ? [] : (MODELL.faecher || []).filter(function (f) { return f.su === "en" || f.su === "de"; });
+        if (spr.length < 2) return "";
+        return '<div class="aw-sprache ww-sprache" data-testid="ww-sprache"><span class="aw-sprache-k">Sprache</span><div class="ww-leiste" role="group" aria-label="Sprache">' + spr.map(function (f) {
+          return '<button class="ww-tab aw-sp' + (f.an ? " an" : "") + '" data-m132subj="' + h(f.su) + '" aria-pressed="' + f.an + '"><span aria-hidden="true">' + h(f.icon) + "</span> " + h(f.name) + "</button>";
+        }).join("") + "</div></div>";
+      })()
+      + '<p class="ww-hinweis">' + (an === "karten" ? "Lernen mit Karteikarten — im Wörterbuch siehst du dieselben Wörter mit Beispielsätzen und kannst sie bearbeiten."
+        : an === "buch" ? "Alle Wörter deiner Karteikarten zum Nachschlagen, Anhören und Korrigieren."
+        : kind ? "Wörter mit Bildern und kleinen Spielen (ältere Wortliste)." : "Vokabeltest mit Note über die Kategorien.") + "</p>";
   }
 
   function leisteHtml() {
@@ -33159,6 +33281,8 @@ function tagVon(d) {
       var teil = function (cls, html) { return html ? '<section class="fs-block ' + cls + '">' + html + "</section>" : ""; };
       /* M45: zuerst „Mein Lernstand“ — der nächste Schritt und vier Listen */
       if (window.__FORTSCHRITT && window.__FORTSCHRITT.lernstand) { try { s += teil("fs-lernstand", window.__FORTSCHRITT.lernstand()); } catch (e) {} }
+      /* M67: Statistik — was wann geübt wurde, wo Fehler passierten */
+      if (window.__FORTSCHRITT && window.__FORTSCHRITT.statistik) { try { s += teil("fs-statistik", window.__FORTSCHRITT.statistik()); } catch (e) {} }
       if (window.__WOCHE) { try { s += teil("fs-woche", window.__WOCHE.html()); } catch (e) {} }
       if (window.__FORTSCHRITT) { try { s += teil("fs-stand", window.__FORTSCHRITT.html()); } catch (e) {} }
       if (window.__ABZEICHEN) { try { s += teil("fs-abzeichen", window.__ABZEICHEN.html()); window.__ABZEICHEN.alleGesehen(); } catch (e) {} }
@@ -33286,12 +33410,20 @@ function tagVon(d) {
     s += '<button class="hb-karte" data-eltern="fokus"><span class="hb-ic" aria-hidden="true">📌</span><span class="hb-tx"><span class="hb-ti">Wochenthema & Klassenarbeit</span><span class="hb-me">Was in der Schule dran ist — je Fach. „Heute“ übt es zuerst.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="csv"><span class="hb-ic" aria-hidden="true">📥</span><span class="hb-tx"><span class="hb-ti">Eigene Wörter (CSV)</span><span class="hb-me">Wortlisten in „Meine Wörter“ übernehmen.</span></span></button>';
     s += '<button class="hb-karte" data-eltern="quellen"><span class="hb-ic" aria-hidden="true">ℹ️</span><span class="hb-tx"><span class="hb-ti">Quellen & Lizenzen</span><span class="hb-me">Woher die Inhalte stammen.</span></span></button>';
+    s += '<button class="hb-karte" data-eltern="wiederholung"><span class="hb-ic" aria-hidden="true">🚫</span><span class="hb-tx"><span class="hb-ti">Wiederholung steuern</span><span class="hb-me">Aufgaben und Karten aus der Wiederholung ausschließen — oder zurückholen.</span></span></button>';   /* M68 */
     s += '<button class="hb-karte" data-eltern="pakete"><span class="hb-ic" aria-hidden="true">📦</span><span class="hb-tx"><span class="hb-ti">Inhaltspakete</span><span class="hb-me">Zusätzliche Aufgaben, nur auf diesem Gerät.</span></span></button>';
     if (istKind()) {
       s += '<button class="hb-karte" data-eltern="klasse"><span class="hb-ic" aria-hidden="true">🎒</span><span class="hb-tx"><span class="hb-ti">Klasse und Freigabe</span><span class="hb-me">Welche Stufen sichtbar sind.</span></span></button>';
       s += '<button class="hb-karte" data-eltern="ziel"><span class="hb-ic" aria-hidden="true">⏱️</span><span class="hb-tx"><span class="hb-ti">Tagesziel</span><span class="hb-me">Wie viele Minuten am Tag.</span></span></button>';
     }
     return s + "</div>";
+  }
+
+  /* M66: Rücksprung nach dem Fachwechsel — vor JEDEM Zeichnen (p94 ruft es als äußerste Hülle zuerst),
+     sonst sehen spätere Teile (p84) noch die Startseite der Engine und zeichnen nicht */
+  function vorZeichnen() {
+    if (nachFachwechsel && Date.now() > nachFachwechsel.bis) nachFachwechsel = null;
+    if (nachFachwechsel && kstate.tab === "m132home") { kstate.tab = nachFachwechsel.tab; nachFachwechsel = null; }
   }
 
   /* ---------- Routing ---------- */
@@ -33305,8 +33437,7 @@ function tagVon(d) {
        der Bereichsseite, dann mit ihrer Startseite. Die Merkung gilt deshalb
        für die Dauer des Wechsels (ein Zeitfenster), nicht nur für das erste
        Zeichnen. */
-    if (nachFachwechsel && Date.now() > nachFachwechsel.bis) nachFachwechsel = null;
-    if (nachFachwechsel && kstate.tab === "m132home") { kstate.tab = nachFachwechsel.tab; nachFachwechsel = null; }
+    vorZeichnen();
     var p = profil(), t = String(kstate.tab || "");
     if (p && !picker() && p.type !== "baby" && t === "hub-ueben" && p.type !== "kid") { zurAufgabenwelt(); t = ""; }
     if (p && !picker() && p.type !== "baby" && t.indexOf("hub-") === 0) {
@@ -33351,6 +33482,9 @@ function tagVon(d) {
       try { document.body.classList.remove("navopen"); } catch (x) {}
       return neu();
     }
+    var ww = t.closest("[data-ww]");
+    if (ww) kstate.k2buch = ww.getAttribute("data-ww") === "buch";   /* M66: Wörterbuch-Reiter (p84 zeigt es) */
+    if (t.closest('[data-nv="woerter"]')) kstate.k2buch = false;   /* die Leiste führt immer zu den Karteikarten */
     var nv = t.closest("[data-nv]");
     if (nv) {
       aktiverBereich = nv.getAttribute("data-nv"); try { document.body.classList.remove("navopen"); } catch (x) {}
@@ -33393,7 +33527,7 @@ function tagVon(d) {
     }
   }, true);
 
-  window.__OBERFLAECHE = { modell: function () { return MODELL; }, bereichVon: bereichVon, nachZeichnen: nachZeichnen,
+  window.__OBERFLAECHE = { modell: function () { return MODELL; }, bereichVon: bereichVon, nachZeichnen: nachZeichnen, vorZeichnen: vorZeichnen,
     /* Kürzel des gewählten Fachs (de, en, math, biologie …) */
     fachKuerzel: function () { var an = (MODELL && MODELL.faecher || []).filter(function (f) { return f.an; })[0]; return an ? an.su : null; },
     fach: function () { var f = MODELL.faecher.filter(function (x) { return x.an; })[0]; return f ? f.name : ""; } };
@@ -34574,6 +34708,178 @@ function aktiv(u, t) {
 })();
 
 /* =====================================================================
+   M68 — Aus der Wiederholung ausschließen (Elternbereich)
+
+   Rückmeldung 2026-10-24: „Man sollte Sachen aus der Wiederholung
+   ausschließen können im Elternmodus!“ Eine Seite unter „Eltern“ (mit
+   Eltern-PIN): oben, was gerade wiederholt wird oder Fehler hatte — je
+   Eintrag „Ausschließen“; darunter alles Ausgeschlossene mit
+   „Zurückholen“.
+
+   Aufgaben laufen über das Aussortieren aus M61 (Art „eltern“, dauerhaft,
+   egl-aussortiert-<Profil>) — es gilt schon für Wiederholungen, Runden und
+   den Lernpfad. Karten laufen über „Ausblenden“ ihres Stapels
+   (egl-fchide-…) — es gilt schon für jede Karteikarten-Abfrage. Kein neuer
+   Speicherschlüssel, nichts zu migrieren.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  // @ts-check
+/* =====================================================================
+   M68: Aus der Wiederholung ausschließen (Rückmeldung 2026-10-24: „Man
+   sollte Sachen aus der Wiederholung ausschließen können im
+   Elternmodus!“). Reine Funktionen. Aufgaben gehen über das Aussortieren
+   (app/kern/aussortiert.js, Art „eltern“), Karten über „Ausblenden“ ihres
+   Stapels — so wirkt der Ausschluss überall, wo beides schon gilt.
+   ===================================================================== */
+
+/** Karte aus einer Kennung fc:<Stapel>:<Wort> (das Wort darf „:“ enthalten), sonst null. */
+function karteVon(a) {
+  const m = /^fc:([^:]+):([\s\S]+)$/.exec(String(a || ''));
+  return m ? { sc: m[1], w: m[2] } : null;
+}
+
+/**
+ * Was man ausschließen kann: zuerst fällige Wiederholungen ([{ id, q }]),
+ * dann alles mit Fehlern (Einträge aus statistik.fehlerListe). Jede
+ * Aufgabe/Karte einmal; schon ausgeschlossene (istAus) und Antworten ohne
+ * Kennung fallen weg.
+ */
+function kandidaten(faellig, fehler, istAus) {
+  const out = [], nachKey = {};
+  const dazu = (x) => { if (nachKey[x.key] || istAus(x)) return; nachKey[x.key] = x; out.push(x); };
+  for (const a of faellig || []) if (a && a.id) dazu({ key: String(a.id), art: 'aufgabe', id: String(a.id), q: a.q || '', r: '', f: '', fehler: 0, faellig: true });
+  for (const f of fehler || []) {
+    if (!f || !f.a) continue;
+    const da = nachKey[f.a];
+    if (da) { da.fehler = f.fehler; da.offen = f.offen; da.r = da.r || f.r || ''; da.f = da.f || f.f || ''; continue; }
+    const k = karteVon(f.a);
+    if (k) dazu({ key: f.a, art: 'karte', sc: k.sc, w: k.w, q: f.q || k.w, r: f.r || '', f: f.f || '', fehler: f.fehler, offen: f.offen, faellig: false });
+    else dazu({ key: f.a, art: 'aufgabe', id: f.a, q: f.q || '', r: f.r || '', f: f.f || '', fehler: f.fehler, offen: f.offen, faellig: false });
+  }
+  return out;
+}
+
+
+  if (typeof kstate === "undefined" || typeof render !== "function") return;
+  var TAB = "eltern-wiederholung", MAX = 60;
+  var zustand = { suche: "", n: MAX };
+  function profil() { try { return typeof curProf === "function" ? curProf() : null; } catch (e) { return null; } }
+  function h(s) { return typeof esc === "function" ? esc(s) : String(s == null ? "" : s); }
+  function ereignisse() { try { return window.__ELTERN ? window.__ELTERN.ereignisse() : []; } catch (e) { return []; } }
+  function A() { var L = window.__LERNPFAD; return L && L.aussortiert ? L.aussortiert : null; }
+  function K() { return window.__KARTEN || null; }
+  function F() { return window.__FORTSCHRITT || null; }
+
+  function kandidatenJetzt() {
+    var faellig = [], fehler = [], a = A(), k = K();
+    try { faellig = window.__LERNMODELL && window.__LERNMODELL.faellig ? window.__LERNMODELL.faellig() : []; } catch (e) {}
+    try { var S = F() && F().kern; if (S) fehler = S.fehlerListe(S.imZeitraum(ereignisse(), Date.now(), 90)); } catch (e) {}
+    return kandidaten(faellig, fehler, function (x) {
+      if (x.art === "karte") return !!(k && k.istAusgeblendet && k.istAusgeblendet(x.sc, x.w));
+      return !!(a && a.ist && a.ist(x.id));
+    });
+  }
+  /* Text einer ausgeschlossenen Aufgabe: aus dem Log (die jüngste Antwort dazu) */
+  function texteAusLog() {
+    var m = {};
+    ereignisse().forEach(function (e) { if (e.a && e.q) m[e.a] = { q: e.q, r: e.r || m[e.a] && m[e.a].r || "", f: e.f || "" }; });
+    return m;
+  }
+  function passt(x) {
+    var q = zustand.suche.trim().toLowerCase();
+    return !q || [x.q, x.r, x.w, x.f].join(" ").toLowerCase().indexOf(q) >= 0;
+  }
+  function stapelName(sc) { return /^kid-en|^ad-en/.test(sc) ? "Englisch" : /^kid-de|^ad-de/.test(sc) ? "Deutsch" : "Eigener Stapel"; }
+  function zeile(x, knopf) {
+    var text = x.art === "karte" ? x.w + (x.r ? " → " + x.r : "") : x.q || x.id;
+    var meta = (x.art === "karte" ? "🃏 Karte · " + stapelName(x.sc) : "🧭 Aufgabe" + (x.f ? " · " + String(x.f).replace(/^Pfad:/, "") : ""))
+      + (x.faellig ? " · gerade fällig" : "") + (x.fehler ? " · " + x.fehler + "× falsch" : "") + (x.wann ? " · seit " + new Date(x.wann).toLocaleDateString("de-DE") : "");
+    return '<li class="ws-e" data-testid="ws-eintrag"><div class="ws-tx"><span class="ws-q">' + h(text) + '</span><span class="ws-meta">' + h(meta) + "</span>"
+      + (x.art !== "karte" && x.r ? '<span class="ws-r">Richtig: <b>' + h(x.r) + "</b></span>" : "") + "</div>" + knopf + "</li>";
+  }
+  function html() {
+    var p = profil(), name = p ? p.name : "", liste = kandidatenJetzt().filter(passt), log = texteAusLog(), aus = [];
+    var a = A(), k = K();
+    try { (a ? a.liste() : []).forEach(function (x) { var t = log[x.id] || {}; aus.push({ key: x.id, art: "aufgabe", id: x.id, q: t.q || x.id, r: t.r || "", f: t.f || "", grund: x.art, wann: x.t }); }); } catch (e) {}
+    try { (k && k.ausgeblendet ? k.ausgeblendet() : []).forEach(function (x) { var t = log["fc:" + x.sc + ":" + x.w] || {}; aus.push({ key: "fc:" + x.sc + ":" + x.w, art: "karte", sc: x.sc, w: x.w, r: t.r || "", f: x.fach }); }); } catch (e) {}
+    aus = aus.filter(passt);
+    var s = '<div class="ws" data-testid="ws-seite"><button class="back" data-ws="zurueck">← Eltern</button>'
+      + '<h2 class="hb-titel">🚫 Wiederholung steuern' + (name ? " · " + h(name) : "") + "</h2>"
+      + '<p class="hb-sub">Was du hier ausschließt, kommt nicht mehr in Wiederholungen, Lernpfad-Runden und Karteikarten-Abfragen dran. Zurückholen geht jederzeit.</p>'
+      + '<input type="search" class="ws-suche" data-ws-suche placeholder="Suchen: Wort, Aufgabe, Fach …" aria-label="Einträge durchsuchen" value="' + h(zustand.suche) + '">';
+    s += '<h3 class="hb-zw">Gerade in der Wiederholung oder mit Fehlern <span class="ws-zahl">' + liste.length + "</span></h3>";
+    s += liste.length ? '<ul class="ws-liste" data-testid="ws-kandidaten">' + liste.slice(0, zustand.n).map(function (x) {
+      return zeile(x, '<button class="btn ws-knopf" data-ws="aus" data-ws-key="' + h(x.key) + '">🚫 Ausschließen</button>');
+    }).join("") + "</ul>" + (liste.length > zustand.n ? '<button class="btn ws-mehr" data-ws="mehr">Weitere anzeigen</button>' : "")
+      : '<p class="ws-leer" data-testid="ws-kandidaten">' + (zustand.suche ? "Nichts gefunden." : "Gerade ist nichts fällig und es gab keine Fehler in den letzten 90 Tagen.") + "</p>";
+    s += '<h3 class="hb-zw">Ausgeschlossen <span class="ws-zahl">' + aus.length + "</span></h3>";
+    s += aus.length ? '<ul class="ws-liste" data-testid="ws-ausgeschlossen">' + aus.map(function (x) {
+      var grund = x.grund === "leicht" ? " · „zu leicht“" : x.grund === "schwer" ? " · „zu schwer“ (Pause)" : "";
+      return zeile(x, '<button class="btn ws-knopf" data-ws="zurueck-holen" data-ws-key="' + h(x.key) + '">↩︎ Zurückholen</button>').replace('</span></div>', h(grund) + "</span></div>");
+    }).join("") + "</ul>" : '<p class="ws-leer" data-testid="ws-ausgeschlossen">Nichts ausgeschlossen.</p>';
+    return s + "</div>";
+  }
+
+  function oeffnen() {
+    var schutz = window.__PROFILSCHUTZ;
+    (schutz && schutz.elternOk ? schutz.elternOk("Das Ausschließen aus der Wiederholung ist mit der Eltern-PIN geschützt.") : Promise.resolve(true)).then(function (ok) {
+      if (!ok) return;
+      zustand = { suche: "", n: MAX };
+      kstate.tab = TAB;
+      try { render(); } catch (e) {}
+      try { window.scrollTo(0, 0); } catch (e) {}
+    });
+  }
+  function ausschliessen(key, an) {
+    var kk = karteVon(key), k = K(), a = A();
+    if (kk) { if (k && k.ausblenden) k.ausblenden(kk.sc, kk.w, an); }
+    else if (a) { if (an) a.setzen(key, "eltern"); else a.zurueck(key); }
+  }
+
+  var ziel = typeof window.addEventListener === "function" ? window : document;
+  ziel.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-eltern="wiederholung"],[data-ws]') : null;
+    if (!t) return;
+    if (t.hasAttribute("data-eltern")) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); return oeffnen(); }
+    if (kstate.tab !== TAB) return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var was = t.getAttribute("data-ws");
+    if (was === "zurueck") kstate.tab = "hub-eltern";
+    else if (was === "mehr") zustand.n += MAX;
+    else if (was === "aus" || was === "zurueck-holen") ausschliessen(t.getAttribute("data-ws-key"), was === "aus");
+    try { render(); } catch (x) {}
+  }, true);
+  ziel.addEventListener("input", function (e) {
+    var t = e.target;
+    if (kstate.tab !== TAB || !t || !t.hasAttribute || !t.hasAttribute("data-ws-suche")) return;
+    zustand.suche = t.value; zustand.n = MAX;
+    var pos = t.selectionStart;
+    try { render(); } catch (x) {}
+    var neu = document.querySelector("[data-ws-suche]");
+    if (neu) { neu.focus(); try { neu.setSelectionRange(pos, pos); } catch (x) {} }
+  }, true);
+
+  /* ---------- Routing ---------- */
+  var renderVorher = render;
+  var renderNeu = function () {
+    var p = profil();
+    if (p && p.type !== "baby" && kstate.tab === TAB && !(typeof showProfiles !== "undefined" && showProfiles)) {
+      try { renderTabs(); } catch (e) {}
+      var view = document.getElementById("view");
+      if (view) view.innerHTML = html();
+      return;
+    }
+    return renderVorher.apply(this, arguments);
+  };
+  render = renderNeu;
+  try { window.render = renderNeu; } catch (e) {}
+
+  window.__WIEDERHOLUNG_STEUERN = { oeffnen: oeffnen, kandidaten: kandidatenJetzt, ausschliessen: ausschliessen };
+})();
+
+/* =====================================================================
    Alte Seiten im neuen Stil (Wunsch des Auftraggebers, 2026-09-27: „Es
    sind nur die alten Sachen, die vor dir da waren, die mich stören.“)
 
@@ -35165,7 +35471,7 @@ function hinweisStufen(q, regeln = []) {
     if (weg.length) {
       s += '<h3 class="hb-zw">Aussortiert</h3><p class="hb-sub">„Zu leicht“ kommt nicht mehr dran, „zu schwer“ macht 30 Tage Pause.</p><ul class="lm-liste" data-testid="lm-aussortiert">' + weg.map(function (x) {
         var q = NACH_ID[x.id];
-        return '<li><span class="lm-q">' + h(kurz(q ? q.q : x.id, 120)) + '</span><span class="lm-me">' + (x.art === "leicht" ? "😎 zu leicht" : "😓 zu schwer — Pause bis " + new Date(x.t + 30 * 864e5).toLocaleDateString("de-DE"))
+        return '<li><span class="lm-q">' + h(kurz(q ? q.q : x.id, 120)) + '</span><span class="lm-me">' + (x.art === "eltern" ? "🚫 im Elternbereich ausgeschlossen" : x.art === "leicht" ? "😎 zu leicht" : "😓 zu schwer — Pause bis " + new Date(x.t + 30 * 864e5).toLocaleDateString("de-DE"))
           + ' · <button class="btn lm-zurueck" data-lm="zurueck" data-lm-id="' + h(x.id) + '">Zurückholen</button></span></li>';
       }).join("") + "</ul>";
     }
@@ -36160,6 +36466,107 @@ function csv(ev) {
 
   // @ts-check
 /* =====================================================================
+   M67: Statistik (Rückmeldung 2026-10-24: „Man sollte wissen wie viel,
+   welche Aufgaben/Flashcards man wann gemacht hat und wo man Fehler
+   gemacht hat!“). Reine Funktionen über das Ereignis-Log (p76): jede
+   Antwort ist { i, t, f, w, a?, ok, q?, g?, r? } — w sagt, woher sie kommt
+   (lp, app, klausur, uebung, karten, lesen, diktat, …).
+   ===================================================================== */
+
+const GRUPPEN = {
+  aufgaben: { icon: '🧭', name: 'Aufgaben' },
+  uebung: { icon: '🧩', name: 'Übungen' },
+  karten: { icon: '🃏', name: 'Karteikarten' },
+  texte: { icon: '📚', name: 'Texte & Schreiben' },
+};
+const TEXTE = { lesen: 1, diktat: 1, hoeren: 1, schreiben: 1, leicht: 1 };
+
+/** Bereich einer Antwort. @param {{ w?: string }} e */
+function gruppeVon(e) {
+  const w = e && e.w;
+  if (w === 'karten') return 'karten';
+  if (w === 'uebung') return 'uebung';
+  if (w && TEXTE[w]) return 'texte';
+  return 'aufgaben';
+}
+
+/** Antworten der letzten `tage` Kalendertage (heute zählt mit); null = alle. */
+function imZeitraum(ev, jetzt, tage) {
+  if (!tage) return ev.slice();
+  const ab = new Date(jetzt); ab.setHours(0, 0, 0, 0); ab.setDate(ab.getDate() - (tage - 1));
+  return ev.filter((e) => e.t >= ab.getTime() && e.t <= jetzt + 60000);
+}
+
+/** Zahlen gesamt und je Bereich (feste Reihenfolge). */
+function uebersicht(ev) {
+  const jeGruppe = Object.keys(GRUPPEN).map((g) => ({ g, n: 0, ok: 0, falsch: 0 }));
+  const tage = new Set();
+  let ok = 0;
+  for (const e of ev) {
+    const z = jeGruppe.find((x) => x.g === gruppeVon(e));
+    z.n++; if (e.ok) { z.ok++; ok++; } else z.falsch++;
+    tage.add(datum(e.t));
+  }
+  return { n: ev.length, ok, falsch: ev.length - ok, tage: tage.size, jeGruppe };
+}
+
+/** Passt die Antwort zum Filter { gruppe, fach, nurFehler }? */
+function passt(e, f) {
+  return (!f.gruppe || gruppeVon(e) === f.gruppe) && (!f.fach || e.f === f.fach) && (!f.nurFehler || !e.ok);
+}
+
+/** Tage (neueste zuerst) mit ihren Antworten (neueste zuerst). */
+function tagebuch(ev, filter = {}) {
+  const tage = {};
+  for (const e of ev) {
+    if (!passt(e, filter)) continue;
+    const tg = datum(e.t);
+    (tage[tg] = tage[tg] || { tag: tg, n: 0, ok: 0, liste: [] }).liste.push(e);
+  }
+  return Object.values(tage).map((x) => {
+    x.liste.sort((a, b) => b.t - a.t);
+    x.n = x.liste.length; x.ok = x.liste.filter((e) => e.ok).length;
+    return x;
+  }).sort((a, b) => (a.tag < b.tag ? 1 : -1));
+}
+
+/** Schlüssel einer Aufgabe/Karte: ihre Kennung, sonst Fach und Frage. */
+function schluesselVon(e) { return e.a ? String(e.a) : (e.f || '') + '|' + (e.q || ''); }
+
+/**
+ * Wo Fehler passiert sind — je Aufgabe/Karte. „offen“: der letzte Versuch
+ * war falsch. Offene zuerst, dann nach Fehlerzahl, dann nach dem jüngsten.
+ */
+function fehlerListe(ev, filter = {}) {
+  const m = {};
+  for (const e of ev.slice().sort((a, b) => a.t - b.t)) {
+    if (!passt(e, { ...filter, nurFehler: false })) continue;
+    const k = schluesselVon(e);
+    const x = (m[k] = m[k] || { key: k, a: e.a || null, q: e.q || '', f: e.f || '', w: e.w || '', gruppe: gruppeVon(e), fehler: 0, versuche: 0, zuletzt: 0, offen: false, g: '', r: '' });
+    x.versuche++; x.zuletzt = e.t; x.offen = !e.ok;
+    if (!e.ok) { x.fehler++; x.fehlerAm = e.t; if (e.g) x.g = e.g; if (e.r) x.r = e.r; }
+    else if (e.r && !x.r) x.r = e.r;
+  }
+  return Object.values(m).filter((x) => x.fehler > 0)
+    .sort((a, b) => Number(b.offen) - Number(a.offen) || b.fehler - a.fehler || b.zuletzt - a.zuletzt);
+}
+
+/** Antworten je Tag der letzten `wochen` Wochen (ältester zuerst, endet heute). */
+function aktivitaet(ev, jetzt, wochen = 12) {
+  const n = wochen * 7, tage = [], jeTag = {};
+  for (let i = n - 1; i >= 0; i--) { const d = new Date(jetzt); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); tage.push(datum(d)); }
+  for (const e of ev) { const tg = datum(e.t); jeTag[tg] = (jeTag[tg] || 0) + 1; }
+  return tage.map((tag) => ({ tag, n: jeTag[tag] || 0 }));
+}
+
+/** Fächer, die im Log vorkommen (alphabetisch). */
+function faecherIn(ev) {
+  return [...new Set(ev.map((e) => e.f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+}
+
+
+  // @ts-check
+/* =====================================================================
    M18.1: Eine Fortschritt-Seite statt drei Engine-Seiten („Lernzeit“,
    „Statistik über alle Fächer“, Erwachsenen-„Statistik“). Reine
    Funktionen über das Ereignis-Log — dieselbe Zählweise wie im
@@ -36406,6 +36813,127 @@ function lernstand({ stationen, ereignisse, jetzt, fehlerFaellig = 0 }) {
     if (sk && LP && LP.starte) LP.starte({ typ: "lektion", skill: sk, stufe: STUFE_JE_ART[art] || 3, ruecksprung: "hub-fortschritt" });
   }, true);
 
+  /* ---------- M67: Statistik ----------
+     Rückmeldung 2026-10-24: „Man sollte wissen wie viel, welche
+     Aufgaben/Flashcards man wann gemacht hat und wo man Fehler gemacht
+     hat!“ Drei Ansichten über das Ereignis-Log (app/kern/statistik.js):
+     Überblick (Zahlen je Bereich, Kalender), Verlauf (Tag für Tag jede
+     Antwort) und Fehler (je Aufgabe/Karte, offene zuerst). Nur Anzahlen,
+     keine Prozentzahlen — so passt es auch für Kinder (AUFTRAG §9.6). */
+  var ST = { a: "ueberblick", z: 7, g: "", f: "", tage: 7, fehlerN: 30 };
+  var ANSICHTEN = [["ueberblick", "Überblick"], ["verlauf", "Verlauf"], ["fehler", "Fehler"]];
+  var ZEITRAEUME = [[1, "Heute"], [7, "7 Tage"], [30, "30 Tage"], [0, "Alles"]];
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function tagName(tg) {
+    var d = new Date(tg + "T12:00:00"), s = WOCHENTAG[d.getDay()] + ", " + d.getDate() + "." + (d.getMonth() + 1) + ".";
+    return tg === datum(Date.now()) ? "Heute · " + s : tg === datum(Date.now() - 864e5) ? "Gestern · " + s : s;
+  }
+  function uhr(t) { var d = new Date(t); return zwei(d.getHours()) + ":" + zwei(d.getMinutes()); }
+  function fachText(f) { return String(f || "").replace(/^Pfad:/, ""); }
+  function frageText(x) {
+    var q = String(x.q || "").replace(/\s+/g, " ").trim();
+    return (gruppeVon(x) === "karten" && x.r ? q + " → " + x.r : q) || "(ohne Text)";
+  }
+  function antwortZeile(x) {
+    if (gruppeVon(x) === "karten" || !(x.g || x.r)) return "";
+    return '<span class="st-ant">' + (x.g ? "Deine Antwort: <s>" + h(x.g) + "</s>" : "") + (x.g && x.r ? " · " : "") + (x.r ? "Richtig: <b>" + h(x.r) + "</b>" : "") + "</span>";
+  }
+  function meta(x) { var G = GRUPPEN[gruppeVon(x)]; return G.icon + " " + h(G.name) + (x.f ? " · " + h(fachText(x.f)) : ""); }
+  function segment(liste, attr, wert, testid, label) {
+    return '<div class="st-seg" role="group" aria-label="' + label + '" data-testid="' + testid + '">' + liste.map(function (o) {
+      return '<button type="button" ' + attr + '="' + o[0] + '" aria-pressed="' + (o[0] === wert) + '">' + o[1] + "</button>";
+    }).join("") + "</div>";
+  }
+  function filterLeiste(alle) {
+    var s = '<div class="st-filter"><label><span>Bereich</span><select data-st-g data-testid="st-bereich"><option value="">Alle Bereiche</option>';
+    Object.keys(GRUPPEN).forEach(function (g) { s += '<option value="' + g + '"' + (ST.g === g ? " selected" : "") + ">" + GRUPPEN[g].icon + " " + h(GRUPPEN[g].name) + "</option>"; });
+    s += '</select></label><label><span>Fach</span><select data-st-f data-testid="st-fach"><option value="">Alle Fächer</option>';
+    faecherIn(alle).forEach(function (f) { s += '<option value="' + h(f) + '"' + (ST.f === f ? " selected" : "") + ">" + h(fachText(f)) + "</option>"; });
+    return s + "</select></label></div>";
+  }
+  function kalender(alle, jetzt) {
+    var a = aktivitaet(alle, jetzt, 12), max = Math.max.apply(null, a.map(function (x) { return x.n; }).concat([1]));
+    var erster = new Date(a[0].tag + "T12:00:00"), s = '<div class="st-kal" role="img" aria-label="Lerntage der letzten 12 Wochen" data-testid="st-kalender">';
+    for (var i = 0; i < (erster.getDay() + 6) % 7; i++) s += '<span class="st-k leer"></span>';
+    a.forEach(function (x) {
+      var st = x.n ? Math.min(4, 1 + Math.floor(3 * x.n / max)) : 0, d = new Date(x.tag + "T12:00:00");
+      s += '<span class="st-k s' + st + '" title="' + WOCHENTAG[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1) + ".: " + x.n + (x.n === 1 ? " Antwort" : " Antworten") + '"></span>';
+    });
+    return '<h4 class="st-zw">Lerntage · letzte 12 Wochen</h4>' + s + '</div><p class="st-legende"><span class="st-k s0"></span> nichts <span class="st-k s2"></span> etwas <span class="st-k s4"></span> viel</p>';
+  }
+  function stUeberblick(ev, alle, jetzt) {
+    var u = uebersicht(ev), max = Math.max.apply(null, u.jeGruppe.map(function (g) { return g.n; }).concat([1]));
+    var kpi = function (z, t, cls) { return '<div class="st-kpi' + (cls ? " " + cls : "") + '"><b>' + z + "</b><span>" + t + "</span></div>"; };
+    var s = '<div class="st-kpis" data-testid="st-kpis">' + kpi(u.n, u.n === 1 ? "Antwort" : "Antworten") + kpi(u.ok, "richtig", "ok") + kpi(u.falsch, u.falsch === 1 ? "Fehler" : "Fehler", "no") + kpi(u.tage, u.tage === 1 ? "Lerntag" : "Lerntage") + "</div>";
+    s += '<ul class="st-gruppen" data-testid="st-gruppen">' + u.jeGruppe.map(function (g) {
+      var G = GRUPPEN[g.g];
+      return '<li><button type="button" class="st-gruppe" data-st-gruppe="' + g.g + '"' + (g.n ? "" : " disabled") + '><span class="st-gname">' + G.icon + " " + h(G.name) + "</span>"
+        + '<span class="st-leiste" aria-hidden="true"><span class="st-ok" style="width:' + (100 * g.ok / max).toFixed(1) + '%"></span><span class="st-no" style="width:' + (100 * g.falsch / max).toFixed(1) + '%"></span></span>'
+        + '<span class="st-gzahl">' + g.n + (g.falsch ? " · " + g.falsch + " Fehler" : "") + "</span></button></li>";
+    }).join("") + "</ul>";
+    return s + kalender(alle, jetzt);
+  }
+  function stVerlauf(ev) {
+    var tb = tagebuch(ev, { gruppe: ST.g, fach: ST.f });
+    if (!tb.length) return '<p class="st-leer" data-testid="st-verlauf">In diesem Zeitraum wurde hier noch nichts geübt.</p>';
+    var s = '<div class="st-verlauf" data-testid="st-verlauf">' + tb.slice(0, ST.tage).map(function (t, i) {
+      var falsch = t.n - t.ok;
+      return '<details class="st-tag"' + (i < 2 ? " open" : "") + '><summary><span class="st-tname">' + tagName(t.tag) + '</span><span class="st-tzahl">' + t.n + (t.n === 1 ? " Antwort" : " Antworten") + (falsch ? ' · <em>' + falsch + " Fehler</em>" : " · alles richtig") + "</span></summary>"
+        + '<ul class="st-liste">' + t.liste.slice(0, 300).map(function (x) {
+          return '<li class="st-e ' + (x.ok ? "ok" : "no") + '"><span class="st-zeit">' + uhr(x.t) + '</span><span class="st-mark" role="img" aria-label="' + (x.ok ? "richtig" : "falsch") + '">' + (x.ok ? "✓" : "✗") + "</span>"
+            + '<span class="st-inhalt"><span class="st-q">' + h(frageText(x)) + '</span><span class="st-meta">' + meta(x) + "</span>" + (x.ok ? "" : antwortZeile(x)) + "</span></li>";
+        }).join("") + "</ul></details>";
+    }).join("") + "</div>";
+    if (tb.length > ST.tage) s += '<button type="button" class="btn st-mehr" data-st="mehr-tage">Ältere Tage anzeigen</button>';
+    return s;
+  }
+  function stFehler(ev) {
+    var fl = fehlerListe(ev, { gruppe: ST.g, fach: ST.f }), offen = fl.filter(function (x) { return x.offen; }).length, n = fehlerFaellig();
+    if (!fl.length) return '<p class="st-leer" data-testid="st-fehler">Keine Fehler in diesem Zeitraum — stark!</p>';
+    var s = '<p class="st-hinweis" data-testid="st-fehler-zahl"><b>' + fl.length + "</b> " + (fl.length === 1 ? "Aufgabe oder Karte" : "Aufgaben und Karten") + " mit Fehlern · <b>" + offen + "</b> davon noch nicht wieder richtig</p>";
+    if (n) s += '<button type="button" class="btn st-ueben" data-st="ueben" data-testid="st-ueben">🔁 ' + n + (n === 1 ? " fällige Wiederholung" : " fällige Wiederholungen") + " jetzt üben</button>";
+    s += '<ul class="st-fliste" data-testid="st-fehler">' + fl.slice(0, ST.fehlerN).map(function (x) {
+      var d = new Date(x.fehlerAm);
+      return '<li class="st-f' + (x.offen ? " offen" : "") + '"><div class="st-fkopf"><span class="st-q">' + h(frageText(x)) + '</span><span class="st-status">' + (x.offen ? "noch offen" : "inzwischen richtig ✓") + "</span></div>"
+        + '<span class="st-meta">' + meta(x) + " · " + x.fehler + "× falsch bei " + x.versuche + (x.versuche === 1 ? " Versuch" : " Versuchen") + " · zuletzt falsch am " + WOCHENTAG[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1) + ". um " + uhr(x.fehlerAm) + "</span>"
+        + antwortZeile(x) + "</li>";
+    }).join("") + "</ul>";
+    if (fl.length > ST.fehlerN) s += '<button type="button" class="btn st-mehr" data-st="mehr-fehler">Weitere ' + Math.min(30, fl.length - ST.fehlerN) + " anzeigen</button>";
+    return s;
+  }
+  function htmlStatistik() {
+    var alle = ereignisse(), jetzt = Date.now(), ev = imZeitraum(alle, jetzt, ST.z || null);
+    var s = '<div class="st" data-testid="statistik"><h3 class="hb-zw">📈 Statistik</h3><p class="fs-text">Was wann geübt wurde — und wo Fehler passiert sind.</p>'
+      + '<div class="st-steuer">' + segment(ANSICHTEN, "data-st-ansicht", ST.a, "st-ansicht", "Ansicht") + segment(ZEITRAEUME, "data-st-zeit", ST.z, "st-zeit", "Zeitraum") + "</div>";
+    if (ST.a !== "ueberblick") s += filterLeiste(alle);
+    s += ST.a === "verlauf" ? stVerlauf(ev) : ST.a === "fehler" ? stFehler(ev) : stUeberblick(ev, alle, jetzt);
+    return s + "</div>";
+  }
+  function stNeu() { try { render(); } catch (x) {} }
+  zielLs.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest("[data-st-ansicht],[data-st-zeit],[data-st-gruppe],[data-st]") : null;
+    if (!t || kstate.tab !== "hub-fortschritt") return;
+    e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    if (t.hasAttribute("data-st-ansicht")) { ST.a = t.getAttribute("data-st-ansicht"); ST.tage = 7; ST.fehlerN = 30; }
+    else if (t.hasAttribute("data-st-zeit")) { ST.z = Number(t.getAttribute("data-st-zeit")); ST.tage = 7; ST.fehlerN = 30; }
+    else if (t.hasAttribute("data-st-gruppe")) { ST.g = t.getAttribute("data-st-gruppe"); ST.a = "verlauf"; ST.tage = 7; }
+    else {
+      var was = t.getAttribute("data-st");
+      if (was === "mehr-tage") ST.tage += 7;
+      else if (was === "mehr-fehler") ST.fehlerN += 30;
+      else if (was === "ueben") { var LM = window.__LERNMODELL; if (LM && LM.starteWiederholung && LM.starteWiederholung(8, "hub-fortschritt")) return; }
+    }
+    stNeu();
+  }, true);
+  zielLs.addEventListener("change", function (e) {
+    var t = e.target;
+    if (!t || !t.hasAttribute || kstate.tab !== "hub-fortschritt") return;
+    if (t.hasAttribute("data-st-g")) ST.g = t.value;
+    else if (t.hasAttribute("data-st-f")) ST.f = t.value;
+    else return;
+    ST.tage = 7; ST.fehlerN = 30; stNeu();
+  }, true);
+
   function html() {
     var ev = ereignisse(), jetzt = Date.now();
     return '<div class="fs" data-testid="fortschritt">' + htmlLernzeit(ev, jetzt) + htmlFaecher() + (istKind() ? "" : htmlErgebnisse(ev, jetzt)) + "</div>";
@@ -36425,7 +36953,7 @@ function lernstand({ stationen, ereignisse, jetzt, fehlerFaellig = 0 }) {
   render = renderNeu;
   try { window.render = renderNeu; } catch (e) {}
 
-  window.__FORTSCHRITT = { html: html, lernstand: htmlLernstand, stand: standJetzt, ALT: ["m127timer", "m127stats", "v17parents", "Statistik"] };
+  window.__FORTSCHRITT = { html: html, lernstand: htmlLernstand, statistik: htmlStatistik, kern: { fehlerListe: fehlerListe, imZeitraum: imZeitraum }, stand: standJetzt, ALT: ["m127timer", "m127stats", "v17parents", "Statistik"] };
 })();
 
 /* =====================================================================
@@ -36621,6 +37149,7 @@ function vorratBauen(o) {
     const c = korr[k.w];
     if (c) {
       for (const f of ['haupt', 'neben', 'ex', 'exUe']) if (typeof c[f] === 'string') k[f] = c[f];
+      if (typeof c.wort === 'string' && c.wort) k.anzeige = c.wort;   /* M66: das Wort selbst; der Schlüssel w bleibt (Lernstand) */
       k.korrigiert = true;
     }
     if (!k.haupt) { k.haupt = k.neben; k.neben = ''; }
@@ -36653,7 +37182,7 @@ function ruNachDeutsch(deVorrat) {
 /** Eine Korrektur prüfen und kürzen; leere Felder heißen „wie im Original“. */
 function korrekturSaeubern(c) {
   const r = {};
-  for (const f of ['haupt', 'neben', 'ex', 'exUe']) {
+  for (const f of ['wort', 'haupt', 'neben', 'ex', 'exUe']) {
     const v = String((c && c[f]) || '').replace(/\s+/g, ' ').trim().slice(0, 240);
     if (v) r[f] = v;
   }
@@ -37369,6 +37898,7 @@ function levenshtein(a, b) {
     return (st.karten || []).filter(function (c) { return c && !c.typ && !c.id && !weg[c.w]; }).map(function (c) {
       var k = korr[c.w], r = { w: c.w, tr: c.tr, haupt: c.tr, neben: "", ex: c.ex || "", exUe: "", korrigiert: !!k, quelle: "eigen" };
       if (k) ["haupt", "neben", "ex", "exUe"].forEach(function (f) { if (typeof k[f] === "string") r[f] = k[f]; });
+      if (k && k.wort) r.anzeige = k.wort;   /* M66 */
       r.tr = r.haupt; return r;
     }).concat(typisiert);
   }
@@ -37386,6 +37916,7 @@ function levenshtein(a, b) {
       var k = korr[c.w]; if (!k) return c;
       var o = Object.assign({}, c, { korrigiert: true });
       if (k.haupt) o.tr = k.haupt;
+      if (k.wort) o.anzeige = k.wort;   /* M66 */
       if (k.ex) { o.ex = k.ex; o.exUe = k.exUe || ""; }
       return o;
     });
@@ -37527,8 +38058,13 @@ function levenshtein(a, b) {
     var eigen = /^eigen-/.test(sc), liste = stapelListe();
     var s = '<div class="hb k2 k2-ueber" data-testid="k2-start"><div class="k2-kopf"><h2 class="hb-titel">🃏 Karteikarten</h2>'
       + '<details class="k2-info"><summary>ⓘ So geht’s</summary><p>Erst überlegen, dann aufdecken. Jede Karte durchläuft 7 Phasen: neu, dann nach 1, 2, 4, 7, 15 und 30 Tagen. Was noch nicht sitzt, kommt gleich nochmal. Was du schon lange kannst, stempelst du mit „Kenne ich schon“ ab.</p></details></div>';
-    /* Stapel */
-    var chips = (istKind() ? ["en", "de"].map(function (f) {
+    var chips = stapelChips(sc, eigen, liste);
+    if (chips) s += '<div class="k2-stapelwahl" role="group" aria-label="Stapel">' + chips + "</div>";
+    return htmlStartRest(s, sc, l, eigen, liste);
+  }
+  /* M66: Stapel-Reihe auch im Wörterbuch */
+  function stapelChips(sc, eigen, liste) {
+    return (istKind() ? ["en", "de"].map(function (f) {
       var an = !eigen && (kstate.fcFach || "en") === f;
       return '<button class="k2-chip' + (an ? " an" : "") + '" aria-pressed="' + an + '" data-k2="fach" data-k2-fach="' + f + '">' + (f === "en" ? "🇬🇧 Englisch" : "🇩🇪 Deutsch") + "</button>";
     }).join("") : (liste.length ? '<button class="k2-chip' + (!eigen ? " an" : "") + '" aria-pressed="' + !eigen + '" data-k2="fach" data-k2-fach="">📚 Vokabeln</button>' : ""))
@@ -37536,7 +38072,8 @@ function levenshtein(a, b) {
         var an = eigen && sc === "eigen-" + st.id;
         return '<button class="k2-chip' + (an ? " an" : "") + '" aria-pressed="' + an + '" data-k2="stapel" data-k2-stapel="' + h(st.id) + '">' + h(st.name) + " <small>" + (st.karten || []).length + "</small></button>";
       }).join("");
-    if (chips) s += '<div class="k2-stapelwahl" role="group" aria-label="Stapel">' + chips + "</div>";
+  }
+  function htmlStartRest(s, sc, l, eigen, liste) {
     /* Heute: Zahlen, Start, Phasen */
     var n = Math.min(l.neu.length, NEU_JE_RUNDE), d0 = lies(standKey(sc), {}), jePhase = [0, 0, 0, 0, 0, 0, 0];
     vorrat(sc).forEach(function (c) { var b = d0[c.w] ? Math.min(6, d0[c.w].b || 0) : 0; jePhase[b]++; });
@@ -37665,6 +38202,65 @@ function levenshtein(a, b) {
           + '<button class="btn" data-k2="verstecken" data-k2-w="' + h(c.w) + '">verstecken</button></li>';
       }).join("") + '</ul><div class="ps-knoepfe" style="justify-content:flex-start"><button class="btn" data-k2="verwalten-zu">Fertig</button>'
       + (/^eigen-/.test(sc) ? '<button class="btn" data-k2="stapel-loeschen">🗑 Stapel löschen</button>' : "") + "</div></div>";
+  }
+
+  /* ---------- M66: Wörterbuch — dieselben Karten wie im Karteikasten ----------
+     Rückmeldung 2026-10-24: „führe die beiden Tabs Karteikarten und Wortschatz
+     & Lexika so zusammen, dass die die gleichen Wörter anzeigen“. Das
+     Wörterbuch liest denselben Vorrat (vorratGrund) mit denselben
+     Korrekturen, Beispielsätzen und Lernständen; Bearbeiten und Ausblenden
+     wirken an beiden Stellen. */
+  var BUCH_SEITE = 60, katCache = {};
+  function kategorieVon(sc, c) {
+    if (/^kid-/.test(sc)) return c.thema || (c.kl ? "Klasse " + c.kl : "Weitere Wörter");
+    if (/^eigen-/.test(sc)) return "";
+    var l = lang(sc);
+    if (!katCache[l]) {
+      var m = {}, pk = null;
+      try { pk = l === "de" ? (typeof FOREIGN_PACKS !== "undefined" && FOREIGN_PACKS.de) : (typeof EN_PACK !== "undefined" && EN_PACK); } catch (e) {}
+      ((pk && pk.VOCAB_CATS) || []).forEach(function (k) { (k.words || []).forEach(function (x) { if (x && x[0] && !m[x[0]]) m[x[0]] = (k.icon ? k.icon + " " : "") + k.name; }); });
+      katCache[l] = m;
+    }
+    return katCache[l][c.w] || "🌟 Eigene Wörter";
+  }
+  function buchTreffer(sc) {
+    var q = String(kstate.k2buchQ || "").trim().toLowerCase(), g = kstate.k2buchG || "";
+    return vorratGrund(sc).filter(function (c) {
+      if (g && kategorieVon(sc, c) !== g) return false;
+      if (!q) return true;
+      return [c.anzeige || c.w, c.w, c.haupt || c.tr || "", c.neben || ""].join(" \u0001 ").toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  function buchListe(sc) {
+    var l = buchTreffer(sc), n = kstate.k2buchN || BUCH_SEITE, dl = lies(standKey(sc), {}), sp = lang(sc), ue = sp === "de" ? "ru" : "de";
+    if (!l.length) return '<p class="fs-text" data-testid="wb-leer">Kein Wort gefunden.</p>';
+    return '<ul class="wb-liste">' + l.slice(0, n).map(function (c) {
+      var b = beispielVon(sc, c), st = dl[c.w], wort = c.anzeige || c.w;
+      return '<li class="wb-e" data-testid="wb-eintrag" data-wb-w="' + h(c.w) + '"><div class="wb-kopf">'
+        + '<button class="vl-knopf" type="button" aria-label="' + h(wort) + ' vorlesen" data-k2="sprechen-w" data-k2-text="' + h(wort) + '" data-k2-sprache="' + h(sp) + '"></button>'
+        + '<b class="wb-wort" lang="' + h(sp) + '">' + h(wort) + "</b>"
+        + '<span class="wb-tr">' + h(c.haupt || c.tr || "") + (c.neben ? ' <span class="wb-ne">· ' + h(c.neben) + "</span>" : "") + "</span></div>"
+        + (b ? '<div class="wb-bsp" data-testid="wb-beispiel"><span lang="' + h(sp) + '">' + h(b.ex) + "</span>" + (b.ue ? '<span class="wb-bsp-ue" lang="' + ue + '">' + h(b.ue) + "</span>" : "") + "</div>" : "")
+        + '<div class="wb-fuss"><span class="wb-st">' + h(st && st.bek ? "✓ kenne ich" : phaseVon(st).text) + (c.korrigiert ? " · ✎ von dir korrigiert" : "") + "</span>"
+        + '<button class="btn" data-k2="bearbeiten" data-k2-w="' + h(c.w) + '" data-testid="wb-bearbeiten">✏️ Bearbeiten</button>'
+        + '<button class="btn" data-k2="verstecken" data-k2-w="' + h(c.w) + '">Ausblenden</button></div></li>';
+    }).join("") + "</ul>" + (l.length > n ? '<button class="btn wb-mehr" data-k2="buch-mehr">Weitere ' + Math.min(BUCH_SEITE, l.length - n) + " von " + (l.length - n) + " anzeigen</button>" : "");
+  }
+  function htmlBuch(sc) {
+    var alle = vorratGrund(sc), gruppen = {}, mitBsp = 0;
+    alle.forEach(function (c) { var g = kategorieVon(sc, c); if (g) gruppen[g] = (gruppen[g] || 0) + 1; if (beispielVon(sc, c)) mitBsp++; });
+    var weg = Object.keys(lies(versteckKey(sc), {})).length, n = buchTreffer(sc).length;
+    var gNamen = Object.keys(gruppen).sort(function (a, b) { return a.localeCompare(b, "de"); });
+    var chips = stapelChips(sc, /^eigen-/.test(sc), stapelListe());
+    return '<div class="hb k2 wb" data-testid="wb-seite"><h2 class="hb-titel">📖 Wörterbuch · ' + h(/^eigen-/.test(sc) ? ((stapel(sc.slice(6)) || {}).name || fachName(sc)) : fachName(sc)) + "</h2>"
+      + (chips ? '<div class="k2-stapelwahl" role="group" aria-label="Stapel">' + chips + "</div>" : "")
+      + '<p class="hb-sub">Dieselben Wörter wie in deinen Karteikarten — ' + alle.length + " Wörter, " + mitBsp + " davon mit Beispielsatz"
+      + (weg ? " · " + weg + " ausgeblendet" : "") + ". Was du hier korrigierst, gilt auch beim Lernen.</p>"
+      + '<div class="wb-werkzeuge"><input type="search" class="wb-suche" data-k2-buchsuche="1" placeholder="Wort oder Übersetzung suchen …" aria-label="Wörterbuch durchsuchen" value="' + h(kstate.k2buchQ || "") + '">'
+      + (gNamen.length > 1 ? '<select class="wb-gruppe" data-k2-buchgruppe="1" aria-label="Thema"><option value="">Alle Themen (' + alle.length + ")</option>"
+        + gNamen.map(function (g) { return '<option value="' + h(g) + '"' + (kstate.k2buchG === g ? " selected" : "") + ">" + h(g) + " (" + gruppen[g] + ")</option>"; }).join("") + "</select>" : "") + "</div>"
+      + '<p class="wb-zahl" data-testid="wb-zahl">' + n + (n === 1 ? " Wort" : " Wörter") + "</p>"
+      + '<div id="wb-liste">' + buchListe(sc) + "</div></div>";
   }
 
   /* ---------- Runde ---------- */
@@ -37982,8 +38578,9 @@ function levenshtein(a, b) {
     if (erw) { var bsp0 = beispielVon(e.sc, c); c = Object.assign({}, c, { haupt: c.tr, ex: bsp0 ? bsp0.ex : "", exUe: bsp0 ? bsp0.ue : "" }); }
     var feld = function (id, label, wert, hilfe) { return '<label class="k2e-f" for="' + id + '">' + h(label) + (hilfe ? ' <small>' + h(hilfe) + "</small>" : "") + '<input id="' + id + '" type="text" autocomplete="off" value="' + h(wert || "") + '"></label>'; };
     return '<div class="hb k2" data-testid="k2-edit"><button class="back" data-k2="e-abbrechen">← zurück</button><h2 class="hb-titel">✏️ Karte bearbeiten</h2>'
-      + '<p class="k2-wort" lang="' + lang(e.sc) + '">' + h(c.w) + "</p>"
+      + '<p class="k2-wort" lang="' + lang(e.sc) + '">' + h(c.anzeige || c.w) + "</p>"
       + '<p class="fs-text">Deine Änderung gilt nur für dein Profil. Leere Felder bleiben wie im Original.</p>'
+      + (c.typ && c.typ !== "einfach" ? "" : feld("k2e-wort", eig ? "Vorderseite" : de ? "Wort (Deutsch)" : "Wort (Englisch)", c.anzeige || c.w, "auch die Antwort in Rückrichtung"))   /* M66 */
       + feld("k2e-haupt", eig ? "Rückseite" : de ? "Übersetzung (Russisch)" : "Übersetzung (Deutsch)", c.haupt)
       + (erw ? "" : feld("k2e-neben", eig ? "Zusatz" : de ? "Englisch" : "Russisch", c.neben, "optional"))
       + feld("k2e-ex", eig ? "Beispiel" : "Beispielsatz", c.ex, "optional")
@@ -37995,7 +38592,8 @@ function levenshtein(a, b) {
     var e = kstate.k2edit; if (!e) return;
     var v = korrLaden(), m = v.korr[e.sc] || (v.korr[e.sc] = {});
     var wert = function (id) { var el = document.getElementById(id); return el ? el.value : ""; };
-    var k = original ? null : korrekturSaeubern({ haupt: wert("k2e-haupt"), neben: wert("k2e-neben"), ex: wert("k2e-ex"), exUe: wert("k2e-exue") });
+    var wortNeu = wert("k2e-wort").replace(/\s+/g, " ").trim();
+    var k = original ? null : korrekturSaeubern({ wort: wortNeu && wortNeu !== e.w ? wortNeu : "", haupt: wert("k2e-haupt"), neben: wert("k2e-neben"), ex: wert("k2e-ex"), exUe: wert("k2e-exue") });
     if (k) { k.t = Date.now(); m[e.w] = k; } else delete m[e.w];
     schreib(korrKey(), v);
     kstate.k2edit = null;
@@ -38014,6 +38612,9 @@ function levenshtein(a, b) {
     try { if (istKind() && typeof K !== "undefined" && K) { if (e.nochmal) K.bad++; else { K.stars++; K.ok++; } if (typeof syncProfile === "function") syncProfile(); } } catch (x) {}
     r.i++; r.offen = false; r.seit = Date.now(); r.meldung = null; r.getippt = ""; r.gewaehlt = null;
   }
+  function sprechenText(text, sp) {
+    try { var u = new SpeechSynthesisUtterance(text); u.lang = STIMME[sp] || "de-DE"; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+  }
   function sprechen(bsp) {
     var r = kstate.k2; if (!r) return;
     var c = r.karten[r.i], text = vornText(c), sp = vornSprache(r.sc, c);
@@ -38030,7 +38631,7 @@ function levenshtein(a, b) {
       if (view) {
         if (kstate.k2 && kstate.k2.sc !== bereich()) kstate.k2 = null;
         if (kstate.k2edit && kstate.k2edit.sc !== bereich()) kstate.k2edit = null;
-        view.innerHTML = kstate.k2fertig ? htmlFertig() : kstate.k2import ? htmlImport() : kstate.k2neu ? htmlNeu() : kstate.k2edit ? htmlBearbeiten() : kstate.k2 ? htmlRunde() : htmlStart();
+        view.innerHTML = kstate.k2fertig ? htmlFertig() : kstate.k2import ? htmlImport() : kstate.k2neu ? htmlNeu() : kstate.k2edit ? htmlBearbeiten() : kstate.k2buch ? htmlBuch(bereich()) : kstate.k2 ? htmlRunde() : htmlStart();
         try { if (typeof syncProfile === "function") syncProfile(); } catch (e) {}
         return;
       }
@@ -38047,6 +38648,7 @@ function levenshtein(a, b) {
     if (!t || !aktiv()) return;
     e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
     var was = t.getAttribute("data-k2"), w = t.getAttribute("data-k2-w"), sc = bereich();
+    if (was === "fach" || was === "stapel") { kstate.k2buchG = ""; kstate.k2buchN = BUCH_SEITE; }   /* M66: Filter gehört zum Stapel */
     if (was === "fach") { if (t.getAttribute("data-k2-fach")) kstate.fcFach = t.getAttribute("data-k2-fach"); kstate.fcStapel = null; kstate.k2 = null; }
     else if (was === "stapel") { kstate.fcStapel = t.getAttribute("data-k2-stapel"); kstate.k2 = null; kstate.k2verwalten = false; }
     else if (was === "import") { kstate.k2import = { text: "", dateiname: "" }; }
@@ -38078,6 +38680,8 @@ function levenshtein(a, b) {
     else if (was === "nochmal") { kstate.k2 = null; starten(); }
     else if (was === "sprechen") { sprechen(); return; }
     else if (was === "sprechen-bsp") { sprechen(true); return; }
+    else if (was === "sprechen-w") { sprechenText(t.getAttribute("data-k2-text") || w, t.getAttribute("data-k2-sprache") || lang(sc)); return; }   /* M66: Wörterbuch */
+    else if (was === "buch-mehr") kstate.k2buchN = (kstate.k2buchN || BUCH_SEITE) + BUCH_SEITE;
     else if (was === "umfang") { var kv = korrLaden(); kv.umfang = t.getAttribute("data-k2-umfang"); schreib(korrKey(), kv); kstate.k2 = null; }
     else if (was === "bearbeiten") {
       var esc0 = t.getAttribute("data-k2-sc");
@@ -38113,6 +38717,7 @@ function levenshtein(a, b) {
   }, true);
   ziel.addEventListener("change", function (e) {
     var t = e.target; if (!t || !aktiv() || !t.getAttribute) return;
+    if (t.hasAttribute("data-k2-buchgruppe")) { kstate.k2buchG = t.value; kstate.k2buchN = BUCH_SEITE; neu(); return; }   /* M66 */
     if (kstate.k2neu) {   /* M46 */
       if (t.hasAttribute("data-k2n-datei") && t.files && t.files[0]) { neuMerken(); bildEinlesen(t.files[0]); }
       else if (t.id === "k2n-stapel") { neuMerken(); neu(); }
@@ -38127,6 +38732,14 @@ function levenshtein(a, b) {
     } else if (t.hasAttribute("data-k2-spalte")) { importSpalten(); neu(); }
   }, true);
   ziel.addEventListener("input", function (e) {
+    var t0 = e.target;
+    if (t0 && t0.hasAttribute && t0.hasAttribute("data-k2-buchsuche") && aktiv()) {   /* M66: nur die Liste neu, die Eingabe behält den Fokus */
+      kstate.k2buchQ = t0.value; kstate.k2buchN = BUCH_SEITE;
+      var li = document.getElementById("wb-liste"), z = document.querySelector('[data-testid="wb-zahl"]'), sc0 = bereich();
+      if (li) li.innerHTML = buchListe(sc0);
+      if (z) { var n0 = buchTreffer(sc0).length; z.textContent = n0 + (n0 === 1 ? " Wort" : " Wörter"); }
+      return;
+    }
     var t = e.target; if (!t || !t.hasAttribute || !t.hasAttribute("data-k2-suche") || !aktiv()) return;
     kstate.k2suche = t.value;
     var tr = document.querySelector("[data-k2-treffer]"); if (tr) tr.innerHTML = trefferHtml(t.value);
@@ -38161,6 +38774,16 @@ function levenshtein(a, b) {
       return b.map(function (sc) { return { sc: sc, fach: fachName(sc), n: faellig(sc) }; }).filter(function (x) { return x.n > 0; }); },
     oeffnen: function (sc) { kstate.k2 = null; kstate.fcStapel = sc && /^eigen-/.test(sc) ? sc.slice(6) : null; if (istKind()) { kstate.fcFach = lang(sc || "kid-en"); kstate.tab = "cards"; } else { kstate.tab = null; try { state.tab = "Karten"; } catch (e) {} } neu(); },
     kern: { lage: lage, bewerte: bewerte, importieren: importieren }, stapel: stapelListe,
+    /* M68: Eltern schließen Karten aus der Wiederholung aus — dasselbe wie „Ausblenden“ im Stapel */
+    ausgeblendet: function () {
+      var p = profil(); if (!p) return [];
+      var sprachen = []; try { sprachen = typeof profLangs === "function" ? profLangs(p) : [sprache()]; } catch (e) { sprachen = [sprache()]; }
+      var b = (p.type === "kid" ? ["kid-en", "kid-de"] : sprachen.map(function (l) { return "ad-" + l; })).concat(stapelListe().map(function (st) { return "eigen-" + st.id; })), out = [];
+      b.forEach(function (sc) { Object.keys(lies(versteckKey(sc), {})).forEach(function (w) { out.push({ sc: sc, w: w, fach: fachName(sc) }); }); });
+      return out;
+    },
+    ausblenden: function (sc, w, an) { var m = lies(versteckKey(sc), {}); if (an) m[w] = 1; else delete m[w]; schreib(versteckKey(sc), m); },
+    istAusgeblendet: function (sc, w) { return !!lies(versteckKey(sc), {})[w]; },
     /* M52: Karte aus dem Wissensraum (PDF-Markierung) in einen eigenen Stapel — dieselbe Prüfung wie „Neue Karte“.
        Rückgabe true oder eine Meldung. */
     karteAnlegen: function (stapelId, neuerName, karte) {
@@ -47250,6 +47873,7 @@ function nachOben(alt, neu) { return alt !== null && alt !== neu; }
   /* ---------- Hülle um render ---------- */
   var renderVorher = render;
   var renderNeu = function () {
+    try { if (window.__OBERFLAECHE && window.__OBERFLAECHE.vorZeichnen) window.__OBERFLAECHE.vorZeichnen(); } catch (e) {}   /* M66 */
     var r = renderVorher.apply(this, arguments);
     try {
       var p = profil();
@@ -47323,7 +47947,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · Spielen · <b>v2.0</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 24.10.2026 11:21")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 2.0 · Stand 24.10.2026 21:11")}}catch(e){}
 })();
 
 </script>
