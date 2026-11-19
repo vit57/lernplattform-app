@@ -576,8 +576,9 @@ html.lp-start::after {
 /* Vorlesen (p82) */
 .vl-knopf { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; min-width: 30px; margin-left: 8px; border-radius: 999px;
   border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); font-size: 15px; cursor: pointer; vertical-align: middle; }
-.vl-knopf::before { content: "🔊"; }
+.vl-knopf:empty::before { content: "🔊"; }
 .vl-knopf:hover { border-color: var(--brand-line); }
+.k2 .vl-knopf { width: 44px; height: 44px; min-width: 44px; }
 
 /* Fortschritt (p83) */
 .fs-balken { display: grid; grid-template-columns: repeat(14, 1fr); gap: 6px; align-items: end; height: 140px; padding: 10px 12px 4px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
@@ -610,7 +611,8 @@ html.lp-start::after {
 .k2-knoepfe { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 560px; margin: 0 auto; }
 .k2-gross { font-size: 17px; padding: 14px 26px; }
 .k2-gross kbd { font: inherit; font-size: 12px; opacity: .75; margin-left: 6px; }
-.k2-note { flex: 1 1 150px; display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; font-weight: 700; }
+.k2-note { flex: 1 1 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 12px 10px; font-weight: 700; text-align: center; }
+.k2-note-titel { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .k2-note small { font-weight: 500; font-size: 12px; color: var(--ink2); }
 .k2-note.n0 { border-color: var(--line); }
 .k2-note.n1 { border-color: var(--brand-line); }
@@ -1952,7 +1954,7 @@ html[data-schrift="sehr-gross"] .lp-v-spieler { zoom: 0.8; }
 html[data-theme="dunkel"] .rk-leiste { background: #f3f2f7; color: #18171d; }
 .k2-karte { position: relative; }
 .k2-mehr { position: absolute; top: 8px; right: 8px; z-index: 2; text-align: left; }
-.k2-mehr-knopf { min-width: 40px; min-height: 40px; border-radius: 12px; border: 1px solid transparent; background: transparent; color: var(--ink2); font-size: 22px; line-height: 1; cursor: pointer; }
+.k2-mehr-knopf { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; border: 1px solid transparent; background: transparent; color: var(--ink2); font-size: 18px; line-height: 1; cursor: pointer; }
 .k2-mehr-knopf:hover, .k2-mehr-knopf[aria-expanded="true"] { background: var(--paper2); border-color: var(--line); color: var(--ink); }
 .k2-mehr-liste { position: absolute; right: 0; top: 46px; display: flex; flex-direction: column; gap: 6px; width: 250px; padding: 8px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper); box-shadow: 0 14px 34px -12px rgba(0, 0, 0, .35); }
 .k2-mehr-liste .btn { display: flex; flex-direction: column; align-items: flex-start; text-align: left; min-height: 44px; font-size: 14.5px; padding: 8px 12px; }
@@ -2445,7 +2447,14 @@ html[data-theme] #nv-titel .ui-ico { color: var(--brand); }
 .ww-wege { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
 .ww-wege .btn, .ww-sprache .btn { min-height: 44px; }
 .ww-sprache .btn.an { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
-.satz-merk { font-size: clamp(1.15rem, 3vw, 1.6rem); line-height: 1.55; padding: 16px; background: var(--brand-soft); border-radius: 12px; }
+.satz-runde .pl-tage { gap: 10px; }
+.satz-runde .lp-box { padding: clamp(16px, 2.5vw, 28px); }
+.satz-runde [data-satz-frage] { line-height: 1.35; }
+.satz-merk {
+  margin: 14px 0 20px; padding: clamp(14px, 2vw, 22px); background: var(--brand-soft); border-radius: 12px;
+  font-size: clamp(1.15rem, 3vw, 1.6rem); line-height: 1.55; overflow-wrap: anywhere;
+}
+.satz-runde [data-k2="satz-gemerkt"] { max-width: 100%; white-space: normal; }
 
 .kw-index { max-width: 1050px; }
 .kw-tabs {
@@ -31156,6 +31165,10 @@ function neuerRuecksetzCode() {
     schritt: "M6 5l9 7-9 7z M18 5v14",
     tempo: "M4 17a9 9 0 1 1 16 0H4zm8-3 4-5",
     audio: "M11 5l-5 4H3v6h3l5 4V5zm4 4a4 4 0 0 1 0 6m3-9a8 8 0 0 1 0 12",
+    wiederholen: "M20 7v5h-5M4 17v-5h5m11 0a8 8 0 0 0-14-5m-2 5a8 8 0 0 0 14 5",
+    auge: "M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12zm13 0a3 3 0 1 0-6 0 3 3 0 1 0 6 0z",
+    mehr: "M5 12h.01m6.99 0h.01m6.99 0h.01",
+    ordnen: "M3 4h18v6H3zM3 14h7v6H3zm11 0h7v6h-7z",
     karte: "M8 3h11v14H8z M5 7H3v14h12v-2m-4-11h5m-5 4h5"
   };
   window.__SYMBOL = function (name) {
@@ -39289,7 +39302,7 @@ function levenshtein(a, b) {
      Jetzt öffnet erst „⋯“ oben rechts auf der Karte ein kleines Menü; jede Aktion lässt sich rückgängig machen (p95). */
   function kartenMenue(r, c) {
     var pr = prioVon(r.sc)[c.w] || 2;
-    var s = '<div class="k2-mehr"><button type="button" class="k2-mehr-knopf" data-k2="menue" data-testid="k2-menue" aria-expanded="' + (r.menue ? "true" : "false") + '" aria-label="Weitere Aktionen für diese Karte">⋯</button>';
+    var s = '<div class="k2-mehr"><button type="button" class="k2-mehr-knopf" data-k2="menue" data-testid="k2-menue" aria-expanded="' + (r.menue ? "true" : "false") + '" aria-label="Weitere Aktionen für diese Karte">' + icon("mehr") + '</button>';
     if (r.menue) s += '<div class="k2-mehr-liste" role="menu" aria-label="Diese Karte">'
       + '<button class="btn" role="menuitem" data-k2="bekannt" data-testid="k2-bekannt">✓ Kenne ich schon<small>kommt erst in 90 Tagen wieder</small></button>'
       + '<button class="btn" role="menuitem" data-k2="ausblenden" data-testid="k2-ausblenden">🙈 Ausblenden<small>kommt nicht mehr dran</small></button>'
@@ -39312,6 +39325,9 @@ function levenshtein(a, b) {
     }).join("") + "</div></div>";
   }
   var icon = window.__SYMBOL;
+  function kartenAudio(aktion, label) {
+    return '<button class="vl-knopf" type="button" aria-label="' + label + '" data-k2="' + aktion + '">' + icon("audio") + '</button>';
+  }
   function htmlStart() {
     var sc = bereich(), pool = vorrat(sc), l = lage(pool, lies(standKey(sc), {}), Date.now());
     var eigen = /^eigen-/.test(sc), liste = stapelListe();
@@ -39506,7 +39522,7 @@ function levenshtein(a, b) {
     return '<ul class="wb-liste">' + l.slice(0, n).map(function (c) {
       var b = beispielVon(sc, c), st = dl[c.w], wort = c.anzeige || c.w;
       return '<li class="wb-e" data-testid="wb-eintrag" data-wb-w="' + h(c.w) + '"><div class="wb-kopf">'
-        + '<button class="vl-knopf" type="button" aria-label="' + h(wort) + ' vorlesen" data-k2="sprechen-w" data-k2-text="' + h(wort) + '" data-k2-sprache="' + h(sp) + '"></button>'
+        + '<button class="vl-knopf" type="button" aria-label="' + h(wort) + ' vorlesen" data-k2="sprechen-w" data-k2-text="' + h(wort) + '" data-k2-sprache="' + h(sp) + '">' + icon("audio") + '</button>'
         + '<b class="wb-wort" lang="' + h(sp) + '">' + h(wort) + "</b>"
         + '<span class="wb-tr">' + h(c.haupt || c.tr || "") + (c.neben ? ' <span class="wb-ne">· ' + h(c.neben) + "</span>" : "") + "</span></div>"
         + (b ? '<div class="wb-bsp" data-testid="wb-beispiel"><span lang="' + h(sp) + '">' + h(b.ex) + "</span>" + (b.ue ? '<span class="wb-bsp-ue" lang="' + ue + '">' + h(b.ue) + "</span>" : "") + "</div>" : "")
@@ -39542,6 +39558,20 @@ function levenshtein(a, b) {
     kstate.k2 = { sc: sc, karten: karten, i: 0, offen: false, ok: 0, bad: 0, seit: Date.now(), start: Date.now() };
     try { if (typeof FC !== "undefined") FC = null; } catch (e) {}
   }
+  function bewertungsKnoepfe(st, empfehlung) {
+    var noten = [["wiederholen", "Noch nicht", "gleich nochmal · 1"],
+      ["check", "Gewusst", "in " + naechsteTage(st, 1) + " Tg. · 2"],
+      ["strom", "Zu leicht", "in " + naechsteTage(st, 2) + " Tg. · 3"]];
+    return '<div class="k2-knoepfe" role="group" aria-label="Wie gut wusstest du es?">' + noten.map(function (note, i) {
+      return '<button class="btn k2-note n' + i + (empfehlung && i === 0 ? ' empfohlen' : '')
+        + '" data-k2="note" data-k2-note="' + i + '"' + (empfehlung && i > 0 ? ' disabled' : '') + '>'
+        + '<span class="k2-note-titel">' + icon(note[0]) + '<span>' + note[1] + '</span></span><small>' + note[2] + '</small></button>';
+    }).join("") + '</div>';
+  }
+  function antwortKnopf() {
+    return '<div class="k2-knoepfe"><button class="btn btn-primary k2-gross" data-k2="zeigen" data-testid="k2-zeigen">'
+      + icon("auge") + ' Antwort zeigen <kbd>Leertaste</kbd></button></div>';
+  }
   function htmlRunde() {
     var r = kstate.k2;
     if (r.i >= r.karten.length) {   /* Rückmeldung 2026-10-10: „Die Übersicht Runde geschafft sieht nicht gut aus!“ */
@@ -39561,14 +39591,10 @@ function levenshtein(a, b) {
       + (r.meldung ? '<p class="k2-meldung" role="status" data-testid="k2-meldung">' + h(r.meldung) + "</p>" : "")
       + '<div class="k2-karte' + (r.offen ? " offen" : "") + '" data-testid="k2-karte">' + kartenMenue(r, c) + badges(r.sc, c, st)
       + (c.em ? '<div class="k2-em" aria-hidden="true">' + c.em + "</div>" : "")
-      + '<div class="k2-wort" lang="' + vornSprache(r.sc, c) + '">' + h(vornText(c)) + ' <button class="vl-knopf" type="button" aria-label="Vorlesen" data-k2="sprechen"></button></div>';
+      + '<div class="k2-wort" lang="' + vornSprache(r.sc, c) + '">' + h(vornText(c)) + ' ' + kartenAudio("sprechen", "Vorlesen") + '</div>';
     var extra = "";   /* M71: die Aktionen stehen im Menü „⋯“ oben rechts auf der Karte (kartenMenue) */
-    if (!r.offen) s += '<p class="k2-tipp">' + (c.rueck ? "Wie heißt das auf " + (lang(r.sc) === "en" ? "Englisch" : "Deutsch") + "? Erst überlegen — dann aufdecken." : "Weißt du, was das heißt? Erst überlegen — dann aufdecken.") + '</p></div><div class="k2-knoepfe"><button class="btn btn-primary k2-gross" data-k2="zeigen" data-testid="k2-zeigen">👁 Antwort zeigen <kbd>Leertaste</kbd></button></div>' + extra;
-    else s += htmlRueckseite(r.sc, c) + "</div>"
-      + '<div class="k2-knoepfe" role="group" aria-label="Wie gut wusstest du es?">'
-      + '<button class="btn k2-note n0" data-k2="note" data-k2-note="0">🔁 Noch nicht<small>gleich nochmal · 1</small></button>'
-      + '<button class="btn k2-note n1" data-k2="note" data-k2-note="1">' + icon("check") + ' Gewusst<small>in ' + naechsteTage(st, 1) + " Tg. · 2</small></button>"
-      + '<button class="btn k2-note n2" data-k2="note" data-k2-note="2">😎 Zu leicht<small>in ' + naechsteTage(st, 2) + " Tg. · 3</small></button></div>" + extra;
+    if (!r.offen) s += '<p class="k2-tipp">' + (c.rueck ? "Wie heißt das auf " + (lang(r.sc) === "en" ? "Englisch" : "Deutsch") + "? Erst überlegen — dann aufdecken." : "Weißt du, was das heißt? Erst überlegen — dann aufdecken.") + '</p></div>' + antwortKnopf() + extra;
+    else s += htmlRueckseite(r.sc, c) + "</div>" + bewertungsKnoepfe(st, false) + extra;
     return s + "</div>";
   }
   /* ---------- M46: Kartentypen (app/kern/kartentypen.js) ----------
@@ -39659,14 +39685,8 @@ function levenshtein(a, b) {
     s += vorn + hinten + "</div>";
     var extra = "";   /* M71: die Aktionen stehen im Menü „⋯“ oben rechts auf der Karte (kartenMenue) */
     if (!r.offen) {
-      if (c.typ !== "auswahl") s += '<div class="k2-knoepfe"><button class="btn btn-primary k2-gross" data-k2="zeigen" data-testid="k2-zeigen">👁 Antwort zeigen <kbd>Leertaste</kbd></button></div>';
-    } else {
-      var empfehlung = c.typ === "auswahl" && r.gewaehlt !== k.richtig;
-      s += '<div class="k2-knoepfe" role="group" aria-label="Wie gut wusstest du es?">'
-        + '<button class="btn k2-note n0' + (empfehlung ? " empfohlen" : "") + '" data-k2="note" data-k2-note="0">🔁 Noch nicht<small>gleich nochmal · 1</small></button>'
-        + '<button class="btn k2-note n1" data-k2="note" data-k2-note="1"' + (empfehlung ? " disabled" : "") + '>✅ Gewusst<small>in ' + naechsteTage(st, 1) + " Tg. · 2</small></button>"
-        + '<button class="btn k2-note n2" data-k2="note" data-k2-note="2"' + (empfehlung ? " disabled" : "") + '>😎 Zu leicht<small>in ' + naechsteTage(st, 2) + " Tg. · 3</small></button></div>";
-    }
+      if (c.typ !== "auswahl") s += antwortKnopf();
+    } else s += bewertungsKnoepfe(st, c.typ === "auswahl" && r.gewaehlt !== k.richtig);
     return s + extra + "</div>";
   }
 
@@ -39827,8 +39847,8 @@ function levenshtein(a, b) {
     if (!aufgabe) return s + '<div class="lp-box" role="status"><strong>' + r.richtig + ' von ' + r.saetze.length
       + ' Sätzen richtig.</strong><div class="lp-knoepfe"><button class="btn btn-primary" data-k2="saetze">Neue Satzrunde</button></div></div></div>';
     if (!r.gemerkt && !fertig) s += '<div class="pl-tage" role="group" aria-label="Satzmodus">'
-      + [["legen", "Satz legen"], ["hoeren", "Hören und schreiben"], ["frei", "Frei schreiben"]].map(function (m) {
-        return '<button class="btn" data-k2="satz-' + m[0] + '" aria-pressed="' + (r.modus === m[0]) + '">' + m[1] + '</button>';
+      + [["legen", "ordnen", "Satz legen"], ["hoeren", "audio", "Hören und schreiben"], ["frei", "stift", "Frei schreiben"]].map(function (m) {
+        return '<button class="btn" data-k2="satz-' + m[0] + '" aria-pressed="' + (r.modus === m[0]) + '">' + icon(m[1]) + ' ' + m[2] + '</button>';
       }).join("") + '</div>';
     s += '<div class="lp-box"><p class="ht-datum">Satz ' + (r.i + 1) + ' von ' + r.saetze.length + '</p>'
       + '<h3 data-satz-frage tabindex="-1">' + (frei ? (r.gemerkt ? "Schreibe den Satz aus dem Kopf." : "Präge dir den ganzen Satz ein.")
@@ -39847,9 +39867,9 @@ function levenshtein(a, b) {
       + '<label class="satz-eingabe">Dein Satz<input class="lp-ein" data-satz-ein spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off" value="'
       + h(r.eingabe) + '"' + (fertig ? " readonly" : "") + '></label>';
     if (fertig) s += '<p class="lp-fb ' + (r.ergebnis ? "gut" : "schlecht") + '" role="status"><strong>' + (r.ergebnis ? "Richtig." : "So lautet der Beispielsatz:")
-      + '</strong> ' + h(aufgabe.text) + '</p><button class="btn btn-primary" data-k2="satz-weiter">Weiter →</button>';
+      + '</strong> ' + h(aufgabe.text) + '</p><button class="btn btn-primary" data-k2="satz-weiter">Weiter ' + icon("weiter") + '</button>';
     else s += '<div class="lp-knoepfe"><button class="btn btn-primary" data-k2="satz-pruefen"'
-      + (r.modus === "legen" && r.wahl.length < aufgabe.teile.length ? " disabled" : "") + '>Prüfen</button></div><p role="status" data-satz-hilfe></p>';
+      + (r.modus === "legen" && r.wahl.length < aufgabe.teile.length ? " disabled" : "") + '>' + icon("check") + ' Prüfen</button></div><p role="status" data-satz-hilfe></p>';
     return s + '</div></div>';
   }
 
@@ -39893,7 +39913,7 @@ function levenshtein(a, b) {
     if (c0.rueck) {   /* M60: Rückrichtung — die Antwort ist das Wort, darunter der Beispielsatz */
       var o = karteVon(sc, c0.wort) || c0, bsp = beispielVon(sc, o);
       return '<div class="k2-uebers" data-testid="k2-antwort"><span class="k2-fl" aria-hidden="true">' + (lang(sc) === "en" ? "🇬🇧" : "🇩🇪") + "</span> " + h(o.anzeige || o.w) + "</div>"
-        + (bsp ? '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispielsatz <button class="vl-knopf" type="button" aria-label="Beispielsatz vorlesen" data-k2="sprechen-bsp"></button></div><div class="k2-bsp-s" lang="' + lang(sc) + '">' + h(bsp.ex) + "</div>"
+        + (bsp ? '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispielsatz ' + kartenAudio("sprechen-bsp", "Beispielsatz vorlesen") + '</div><div class="k2-bsp-s" lang="' + lang(sc) + '">' + h(bsp.ex) + "</div>"
           + (bsp.ue ? '<div class="k2-bsp-ue">' + h(bsp.ue) + "</div>" : "") + "</div>" : "")
         + '<button class="k2-bearb" data-k2="bearbeiten" data-k2-w="' + h(o.w) + '" data-testid="k2-bearbeiten">' + icon("stift") + ' Bearbeiten' + (o.korrigiert ? " · von dir korrigiert" : "") + "</button>";
     }
@@ -39901,13 +39921,13 @@ function levenshtein(a, b) {
       var ce = karteVon(sc, c0.w) || c0;
       return '<div class="k2-uebers" data-testid="k2-antwort">' + h(ce.haupt || ce.tr || "") + "</div>"
         + (ce.neben ? '<div class="k2-neben" data-testid="k2-neben">' + h(ce.neben) + "</div>" : "")
-        + (ce.ex ? '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispiel <button class="vl-knopf" type="button" aria-label="Beispiel vorlesen" data-k2="sprechen-bsp"></button></div><div class="k2-bsp-s" lang="' + lang(sc) + '">' + h(ce.ex) + "</div></div>" : "")
+        + (ce.ex ? '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispiel ' + kartenAudio("sprechen-bsp", "Beispiel vorlesen") + '</div><div class="k2-bsp-s" lang="' + lang(sc) + '">' + h(ce.ex) + "</div></div>" : "")
         + '<button class="k2-bearb" data-k2="bearbeiten" data-k2-w="' + h(ce.w) + '" data-testid="k2-bearbeiten">' + icon("stift") + ' Bearbeiten' + (ce.korrigiert ? " · von dir korrigiert" : "") + "</button>";
     }
     if (!/^kid-/.test(sc)) {   /* Erwachsene: Übersetzung, seit M60 mit Beispielsatz — und bearbeitbar */
       var ca = karteVon(sc, c0.w) || c0, be = beispielVon(sc, ca);
       return '<div class="k2-uebers" data-testid="k2-antwort">' + h(ca.tr || "") + "</div>"
-        + (be ? '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispielsatz <button class="vl-knopf" type="button" aria-label="Beispielsatz vorlesen" data-k2="sprechen-bsp"></button></div><div class="k2-bsp-s" lang="' + lang(sc) + '">' + h(be.ex) + "</div>"
+        + (be ? '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispielsatz ' + kartenAudio("sprechen-bsp", "Beispielsatz vorlesen") + '</div><div class="k2-bsp-s" lang="' + lang(sc) + '">' + h(be.ex) + "</div>"
           + (be.ue ? '<div class="k2-bsp-ue">' + h(be.ue) + "</div>" : "") + "</div>" : "")
         + '<button class="k2-bearb" data-k2="bearbeiten" data-k2-w="' + h(ca.w) + '" data-testid="k2-bearbeiten">' + icon("stift") + ' Bearbeiten' + (ca.korrigiert ? " · von dir korrigiert" : "") + "</button>";
     }
@@ -39916,7 +39936,7 @@ function levenshtein(a, b) {
     if (!c.ex) { try { var ex = typeof kidEx133 === "function" ? kidEx133(lang(sc), { w: c.w }) : null; if (ex) c = Object.assign({}, c, { ex: ex, exUe: "" }); } catch (e) {} }
     var s = '<div class="k2-uebers" data-testid="k2-antwort"><span class="k2-fl" aria-hidden="true">' + flagge(sc, c.haupt, true) + "</span> " + h(c.haupt || c.tr || "") + "</div>";
     if (c.neben) s += '<div class="k2-neben" data-testid="k2-neben"><span aria-hidden="true">' + flagge(sc, c.neben, false) + "</span> " + h(c.neben) + "</div>";
-    if (c.ex) s += '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispielsatz <button class="vl-knopf" type="button" aria-label="Beispielsatz vorlesen" data-k2="sprechen-bsp"></button></div>'
+    if (c.ex) s += '<div class="k2-bsp" data-testid="k2-beispiel"><div class="k2-bsp-k">Beispielsatz ' + kartenAudio("sprechen-bsp", "Beispielsatz vorlesen") + '</div>'
       + '<div class="k2-bsp-s" lang="' + lang(sc) + '">' + h(c.ex) + "</div>" + (c.exUe ? '<div class="k2-bsp-ue" lang="' + ue + '">' + h(c.exUe) + "</div>" : "") + "</div>";
     return s + '<button class="k2-bearb" data-k2="bearbeiten" data-k2-w="' + h(c.w) + '" data-testid="k2-bearbeiten">' + icon("stift") + ' Bearbeiten' + (c.korrigiert ? " · von dir korrigiert" : "") + "</button>";
   }
@@ -49487,7 +49507,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · <b>v3.1</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 3.1 · Stand 19.11.2026 21:57")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 3.1 · Stand 19.11.2026 22:23")}}catch(e){}
 })();
 
 </script>
