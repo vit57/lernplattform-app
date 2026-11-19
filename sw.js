@@ -11,17 +11,14 @@
 
    Symbole und Manifest ändern sich selten und kommen aus dem Speicher.
    Der Cache-Name wird beim Bauen gesetzt; ein neuer räumt den alten weg. */
-const CACHE = "lernplattform-v2.0-20261118-2315";
+const CACHE = "lernplattform-v3.0-20261119-2118";
 const DATEIEN = [
   "index.html",
   "manifest.webmanifest",
   "icon-192.png",
   "icon-512.png",
   "icon-512-maskable.png",
-  "apple-touch-icon.png",   /* M64 */
-  /* M55: pdf.js gleich mit — sonst fehlt der PDF-Leser offline, sobald ein neuer Stand den alten Speicher räumt */
-  "pdfjs/pdf.min.js",
-  "pdfjs/pdf.worker.min.js"
+  "apple-touch-icon.png"
 ];
 
 self.addEventListener("install", e => {
@@ -35,7 +32,7 @@ self.addEventListener("install", e => {
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
-      .then(namen => Promise.all(namen.filter(n => n !== CACHE).map(n => caches.delete(n))))
+      .then(namen => Promise.all(namen.filter(n => /^lernplattform-v\d/.test(n) && n !== CACHE).map(n => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });
