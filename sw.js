@@ -11,7 +11,7 @@
 
    Symbole und Manifest ändern sich selten und kommen aus dem Speicher.
    Der Cache-Name wird beim Bauen gesetzt; ein neuer räumt den alten weg. */
-const CACHE = "lernplattform-v3.1-20261119-2223";
+const CACHE = "lernplattform-v3.2-20261120-1800";
 const DATEIEN = [
   "index.html",
   "manifest.webmanifest",
