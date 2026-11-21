@@ -989,6 +989,22 @@ html[data-theme] body.nv-an #tabs {
   }
   html[data-theme] body.nv-an.navopen #tabs { padding-top: calc(64px + env(safe-area-inset-top, 0px)) !important; }
 }
+/* In installierten WebKit-Apps kann iPadOS Bedienelemente am oberen Rand
+   weichzeichnen. Eine feste, durchgehende Farbfläche dient der Farbabtastung
+   am Rand. Der Zuschnitt auf leeren Text lässt die Kopfzeile sichtbar. */
+.app-statusflaeche { display: none; }
+@supports (-webkit-touch-callout: none) and (-webkit-background-clip: text) {
+  @media (display-mode: standalone) {
+    .app-statusflaeche {
+      display: block; position: fixed; inset: 0 0 auto; height: 12px; z-index: 72;
+      background-color: var(--paper); -webkit-background-clip: text; background-clip: text;
+      pointer-events: none;
+    }
+  }
+}
+html[data-theme] :is(body > header, body > header .head-in, #nv-titel, header .dz-knopf, #knav-burger, #app-zurueck) {
+  filter: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
 html[data-theme] .nv-profil { background: var(--glas); border-color: var(--glas-linie); box-shadow: var(--glas-licht); }
 html[data-theme] .nv-item { transition: background-color 150ms ease, color 150ms ease, transform 140ms var(--ease-out, ease-out); }
 html[data-theme] .nv-item.aktiv {
@@ -1993,7 +2009,7 @@ html[data-schrift="sehr-gross"] .lp-v-spieler { zoom: 0.8; }
 .rk-leiste { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 9600; display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100vw - 32px)); background: var(--ink); color: var(--paper); padding: 8px 8px 8px 16px; border-radius: 14px; font-size: 15px; box-shadow: 0 12px 32px -10px rgba(0, 0, 0, .5); }
 .rk-leiste[hidden] { display: none; }
 .rk-text { flex: 1; min-width: 0; line-height: 1.35; }
-.rk-knopf { flex: none; min-height: 40px; padding: 6px 14px; border-radius: 10px; border: 0; background: var(--brand); color: #fff; font: inherit; font-weight: 650; cursor: pointer; }
+.rk-knopf { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 14px; border-radius: 10px; border: 0; background: var(--brand); color: var(--auf-brand, #fff); font: inherit; font-weight: 650; cursor: pointer; }
 .rk-zu { flex: none; min-width: 36px; min-height: 36px; border: 0; background: transparent; color: inherit; opacity: .7; font-size: 16px; cursor: pointer; border-radius: 10px; }
 .rk-zu:hover, .rk-zu:focus-visible { opacity: 1; }
 html[data-theme="dunkel"] .rk-leiste { background: #f3f2f7; color: #18171d; }
@@ -2002,20 +2018,35 @@ html[data-theme="dunkel"] .rk-leiste { background: #f3f2f7; color: #18171d; }
 .k2-mehr-knopf { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; border: 1px solid transparent; background: transparent; color: var(--ink2); font-size: 18px; line-height: 1; cursor: pointer; }
 .k2-mehr-knopf:hover, .k2-mehr-knopf[aria-expanded="true"] { background: var(--paper2); border-color: var(--line); color: var(--ink); }
 .k2-mehr-liste:not([hidden]) {
-  --k2-menue-seitenraum: clamp(0px, (100vw - 608px) / 2, 112px);
-  position: absolute; inset-block-start: calc(100% + 4px); inset-inline-end: calc(0px - var(--k2-menue-seitenraum));
-  display: grid; gap: 4px;
+  position: absolute; inset-block-start: calc(100% + 4px); inset-inline-end: 0;
+  display: grid; gap: 3px;
   width: min(100%, 260px); max-height: min(260px, 52dvh); overflow: auto; overscroll-behavior: contain;
-  padding: 6px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper);
-  box-shadow: 0 14px 34px -8px rgba(0, 0, 0, .39);
+  padding: 5px; border-radius: 15px; border: 1px solid var(--line); background: var(--paper);
+  box-shadow: 0 14px 34px -10px rgba(0, 0, 0, .3);
 }
-@media (min-width: 901px) {
-  body.nv-an .k2-mehr-liste { --k2-menue-seitenraum: clamp(0px, (100vw - 856px) / 2, 112px); }
-  body.nv-kompakt .k2-mehr-liste { --k2-menue-seitenraum: clamp(0px, (100vw - 684px) / 2, 112px); }
+@supports (width: 1cqi) {
+  html:not([data-schrift]) .k2-runde { container-type: inline-size; }
+  html:not([data-schrift]) .k2-mehr-liste:not([hidden]) {
+    /* Bei Schriftzoom bleibt die Liste an der Kartenkante, auch wenn WebKit cqi anders skaliert. */
+    inset-inline-end: calc(0px - clamp(0px, (100cqi - 560px) / 2, 112px));
+  }
 }
-.k2-mehr-liste .btn { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px; text-align: left; min-height: 48px; font-size: 14.5px; padding: 8px 10px; }
-.k2-mehr-liste .btn small { display: block; font-size: 12px; color: var(--ink3); font-weight: 400; }
-.k2-zurueck { margin-left: 8px; border: 0; background: transparent; color: var(--brand); font: inherit; font-size: 13.5px; text-decoration: underline; cursor: pointer; min-height: 32px; }
+.k2-mehr-aktion {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px;
+  text-align: start; min-height: 48px; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid transparent; background: var(--paper); color: var(--ink);
+  font: inherit; font-size: .9rem; font-weight: 650; cursor: pointer;
+}
+.k2-mehr-aktion:is(:hover, :focus-visible, :active) { background: var(--paper2); border-color: var(--line); }
+.k2-mehr-aktion small { display: block; font-size: .78rem; color: var(--ink2); font-weight: 400; }
+.k2-runde .k2-stand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.k2-zurueck {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 5px 10px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--brand);
+  text-align: start; font: inherit; font-size: .86rem; font-weight: 650; cursor: pointer;
+}
+.k2-zurueck:hover { background: var(--brand-soft); }
+:is(.k2-zurueck, .rk-knopf) .ui-ico { color: inherit; flex: none; }
 .k2-karte .k2-badges { padding: 0 40px; }
 
 /* ---------- M72: Stufen und Punkte ---------- */
@@ -2170,56 +2201,130 @@ html[data-theme="dunkel"] .rk-leiste { background: #f3f2f7; color: #18171d; }
 }
 
 /* Körperlabor */
-.k3 [hidden]{display:none!important}
-.k3-systeme,.k3-organe,.k3-transport,.k3-antworten{display:flex;gap:8px;flex-wrap:wrap}
-.k3 .btn{min-height:44px}
-.k3 .btn[aria-pressed="true"]{background:var(--brand-soft);border-color:var(--brand);color:var(--ink)}
-.k3-systeme{margin:0 0 14px}
-.k3-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(245px,1fr);align-items:start;gap:16px}
-.k3-ansicht,.k3-abfolge,.k3-panel{border:1px solid var(--line);border-radius:18px;background:var(--paper);min-width:0}
-.k3-ansicht{overflow:hidden}
-.k3-buehne{position:relative;isolation:isolate;min-height:300px;height:clamp(330px,49vw,510px);background:radial-gradient(ellipse at 50% 47%,#203d4a,#10202f 72%,#0c1825);color:#ecf4f8}
-.k3-buehne::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle,#8bbac939 1px,transparent 1.3px) 0 0/21px 21px;mask-image:linear-gradient(0deg,transparent,#000 20%,#000 80%,transparent)}
-.k3-buehne canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:pan-y}
-.k3-buehne canvas:active{cursor:grabbing}
-.k3-orientierung,.k3-modellstatus{position:absolute;left:14px;top:14px;font-size:13px;background:#112131;border:1px solid #416073;color:#ecf4f8;border-radius:20px;padding:6px 12px;pointer-events:none}
-.k3-modellstatus{top:50%;left:50%;width:max-content;max-width:calc(100% - 24px);transform:translate(-50%,-50%);text-align:center;border-radius:12px}
-.k3-kamera{position:absolute;inset:auto 12px 12px;display:flex;justify-content:flex-end;gap:6px;pointer-events:none}
-html[data-theme] #view .k3-kamera .btn:not(.btn-primary):not(.k2-note){pointer-events:auto;padding:4px;width:44px;border-color:#607c8a!important;background:#142737!important;color:#f2f8fc!important;font-size:20px}
-.k3-kamera .btn:focus-visible{outline:3px solid var(--k3-akzent);outline-offset:2px}
-.k3-ansichtleiste{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;color:var(--ink2);font-size:13px}
-.k3-ansichtleiste span{margin-inline-end:auto}
-.k3-abfolge,.k3-panel{padding:16px}
-.k3 h3{margin:0 0 12px;font-size:1.12rem}
-.k3-schritte{display:grid;gap:5px;margin-bottom:12px}
-.k3-schritt{display:flex;align-items:center;text-align:left;gap:9px;min-height:44px;padding:7px 9px;color:var(--ink2);background:transparent;border:1px solid transparent;border-radius:10px;font:inherit;cursor:pointer}
-.k3-schritt span{display:grid;place-items:center;flex:0 0 24px;min-height:24px;border-radius:50%;background:var(--paper2);color:var(--ink2);font-size:12px;font-weight:700}
-.k3-schritt[aria-current="step"]{background:var(--brand-soft);border-color:var(--brand);color:var(--ink);font-weight:700}
-.k3-beschreibung{min-height:8.25em;font-size:.95rem;line-height:1.45}
-.k3-beschreibung p,.k3-organtext{margin:5px 0 0;color:var(--ink2)}
-.k3-legende{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:13px;margin:8px 0 0;color:var(--ink2)}
-.k3-legende span::before{display:inline-block;content:"";width:.65em;height:.65em;border-radius:50%;margin-inline-end:5px;background:#356bc2}
-.k3-legende span+span::before{background:#c74c39}
-.k3-zeit-label{display:block;margin-top:10px;font-size:13px;color:var(--ink2)}
-.k3 #k3-zeit{width:100%;display:block;min-height:32px;margin:2px 0 10px;accent-color:var(--brand)}
-.k3-transport .btn:first-child{font-weight:750}
-.k3-panel{margin-top:14px}
-.k3-organtext{margin-top:12px}
-.k3-organtext strong{color:var(--ink);margin-inline-end:4px}
-.k3 fieldset{margin:0;padding:0;border:0;min-width:0}
-.k3 legend{font-weight:700;padding:0}
-.k3-quizstand{font-size:13px;color:var(--ink2);margin:4px 0 10px}
-.k3-antworten .btn{white-space:normal;text-align:left}
-.k3 [data-k3-quizweiter]{margin-top:12px}
-.k3-feedback{margin:0}
-.k3-feedback:not(:empty){margin-top:10px}
-.k3 .btn[data-urteil="gut"]{border-color:var(--good);background:var(--good-soft);opacity:1}
-.k3 .btn[data-urteil="versuch"]{border-color:var(--bad);background:var(--bad-soft);opacity:1}
-.k3-quellen{margin:16px 0;color:var(--ink2);font-size:.88rem}
-.k3-quellen summary{cursor:pointer;min-height:32px}
-@media (max-width:900px){.k3-layout{grid-template-columns:minmax(0,1fr)}.k3-beschreibung{min-height:0}}
-@media (min-width:901px) and (max-width:1160px){.k3-beschreibung{min-height:9em}}
-@media (prefers-reduced-motion:reduce){.k3 .k3-transport [data-k3="play"],.k3 .k3-transport [data-k3="tempo"]{display:none}}
+.k3 { container-type: inline-size; }
+.k3 [hidden] { display: none !important; }
+.k3 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; text-wrap: pretty; }
+html[data-theme] #view .k3 .btn:not(.btn-primary) {
+  background: var(--paper) !important; border-color: var(--line) !important; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+html[data-theme] #view .k3 .btn[aria-pressed="true"]:not(.btn-primary) {
+  background: var(--brand-soft) !important; border-color: var(--brand) !important; color: var(--ink);
+}
+.k3-systeme { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.k3-systeme .btn { padding: 8px 10px; white-space: normal; }
+.k3-systeme .ui-ico, .k3-lerntabs .ui-ico { flex: none; }
+.k3 .k3-intro { margin: 10px 0 18px; }
+.k3-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 14px; }
+@container (min-width: 700px) {
+  .k3-layout { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+}
+.k3-ansicht, .k3-lernen {
+  min-width: 0; border: 1px solid var(--line); border-radius: 18px; background: var(--paper);
+}
+.k3-ansicht { overflow: hidden; }
+.k3-modellkopf {
+  display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; padding: 12px 14px;
+}
+.k3-modellkopf h3 { margin: 0; font-size: 1.05rem; }
+.k3-orientierung { color: var(--ink2); font-size: .8rem; }
+.k3-buehne {
+  position: relative; isolation: isolate; min-height: 280px; height: clamp(280px, 48vw, 470px);
+  background: radial-gradient(ellipse at 50% 47%, #203d4a, #10202f 72%, #0c1825); color: #ecf4f8;
+}
+@supports (width: 1cqi) { .k3-buehne { height: clamp(280px, 47cqi, 470px); } }
+.k3-buehne::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle, #8bbac939 1px, transparent 1.3px) 0 0 / 21px 21px;
+  mask-image: linear-gradient(0deg, transparent, #000 20%, #000 80%, transparent);
+}
+.k3-buehne canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+.k3-buehne canvas:active { cursor: grabbing; }
+.k3-modellstatus {
+  position: absolute; top: 50%; left: 50%; width: max-content; max-width: calc(100% - 24px);
+  transform: translate(-50%, -50%); background: #112131; border: 1px solid #416073; color: #ecf4f8;
+  padding: 10px 14px; border-radius: 12px; font-size: .86rem; text-align: center; pointer-events: none;
+}
+.k3-kamera, .k3-ansichtleiste, .k3-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.k3-kamera { justify-content: center; padding: 9px 10px; background: var(--paper2); border-bottom: 1px solid var(--line); }
+.k3-kamera .btn { width: 44px; padding: 4px; }
+.k3-kamera .ui-ico { width: 21px; height: 21px; }
+.k3-ansichtleiste { justify-content: center; padding: 9px 10px; }
+.k3-ansichtleiste .btn, .k3-transport .btn { padding: 6px 10px; font-size: .87rem; }
+
+.k3-lerntabs {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 5px;
+  border-radius: 17px 17px 0 0; background: var(--paper2); border-bottom: 1px solid var(--line);
+}
+.k3-lerntabs button {
+  display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 44px;
+  padding: 5px; border: 1px solid transparent; border-radius: 12px;
+  background: transparent; color: var(--ink2); font: inherit; font-size: .9rem; font-weight: 650; cursor: pointer;
+}
+.k3-lerntabs button[aria-selected="true"] { background: var(--paper); color: var(--brand); border-color: var(--line); }
+.k3-lerntabs button:hover:not([aria-selected="true"]) { color: var(--ink); }
+.k3-panel { padding: clamp(12px, 2vw, 18px); }
+.k3-schritte { display: grid; gap: 3px; }
+.k3-schritt {
+  display: flex; align-items: center; text-align: start; gap: 9px; min-height: 44px; padding: 6px 8px;
+  color: var(--ink2); background: transparent; border: 1px solid transparent; border-radius: 10px;
+  font: inherit; font-size: .93rem; cursor: pointer;
+}
+.k3-schritt span {
+  display: grid; place-items: center; flex: 0 0 24px; min-height: 24px; border-radius: 50%;
+  background: var(--paper2); color: var(--ink2); font-size: .78rem; font-weight: 700;
+}
+.k3-schritt[aria-current="step"] { background: var(--brand-soft); border-color: var(--brand); color: var(--ink); font-weight: 700; }
+.k3-schritt[aria-current="step"] span { background: var(--paper); color: var(--brand); }
+.k3-beschreibung, .k3-organtext {
+  margin: 12px 0 0; padding: 10px 12px; background: var(--paper2); border-radius: 10px;
+  color: var(--ink2); font-size: .94rem; line-height: 1.5;
+}
+.k3-beschreibung { min-height: 4.7em; }
+@container (min-width: 700px) { .k3-beschreibung { min-height: 7.2em; } }
+.k3-beschreibung p { margin: 0; }
+.k3-organtext strong { display: block; color: var(--ink); }
+.k3-organtext p { margin: 4px 0 0; }
+.k3-legende {
+  display: flex; gap: 5px 14px; flex-wrap: wrap; font-size: .8rem; margin: 8px 0 0; color: var(--ink2);
+}
+.k3-legende span::before {
+  display: inline-block; content: ""; width: .65em; height: .65em; border-radius: 50%; margin-inline-end: 5px;
+}
+.k3-legende .k3-gas-o::before { background: #b67419; }
+.k3-legende .k3-gas-c::before { background: #5989d2; }
+.k3-legende .k3-blut-arm::before { background: #4887d9; }
+.k3-legende .k3-blut-reich::before { background: #d05c49; }
+.k3-wiedergabe { margin-top: 14px; }
+.k3-zeit-label { display: block; font-size: .8rem; color: var(--ink2); }
+.k3 #k3-zeit { width: 100%; display: block; min-height: 32px; margin: 0 0 8px; accent-color: var(--brand); }
+.k3-details { border-top: 1px solid var(--line); margin-top: 12px; }
+.k3-details summary, .k3-quellen summary { cursor: pointer; padding-block: 8px; min-height: 38px; }
+.k3-details p { margin: 0 0 4px; color: var(--ink2); line-height: 1.55; }
+
+.k3-organe { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 7px; }
+.k3-organe .btn { justify-content: flex-start; padding: 7px 10px; text-align: start; white-space: normal; }
+.k3 fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.k3 legend { font-weight: 700; padding: 0; }
+.k3-quizstand { color: var(--ink2); font-size: .8rem; margin: 5px 0 12px; }
+.k3-antworten { display: grid; gap: 7px; }
+.k3-antworten .btn { justify-content: flex-start; padding: 9px 12px; white-space: normal; text-align: start; }
+.k3-antworten .btn::before {
+  content: ""; width: 13px; height: 13px; flex: none; border: 1px solid var(--ink2); border-radius: 50%;
+}
+.k3-antworten .btn[aria-pressed="true"]::before { background: var(--brand); border-color: var(--brand); box-shadow: inset 0 0 0 3px var(--paper); }
+.k3-quizaktionen { display: flex; margin-top: 13px; }
+.k3-feedback { margin: 0; }
+.k3-feedback:not(:empty) { margin-top: 10px; font-size: .92rem; }
+html[data-theme] #view .k3-antworten .btn[data-urteil="gut"]:not(.btn-primary) { border-color: var(--good) !important; background: var(--good-soft) !important; opacity: 1; }
+html[data-theme] #view .k3-antworten .btn[data-urteil="versuch"]:not(.btn-primary) { border-color: var(--bad) !important; background: var(--bad-soft) !important; opacity: 1; }
+.k3-quellen { margin: 10px 0 0; color: var(--ink2); font-size: .86rem; }
+@container (max-width: 465px) {
+  .k3-systeme .btn { flex-direction: column; min-height: 66px; padding-inline: 5px; font-size: .83rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .k3 [data-k3="play"], .k3 [data-k3="tempo"] { display: none !important; }
+}
 
 /* Rückmeldungen beim Satzbau und bei der Mehrfachauswahl. */
 .uw-auswahlstand,.v118-stand{font-size:14px;color:var(--ink2);margin:0 0 10px}
@@ -2599,32 +2704,10 @@ html[data-theme] #view .fs-seite .fs-block {
 .fs-seite .wo-tag.an { background: var(--good-soft); color: var(--good); }
 .fs-seite .wo-tag.heute { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
 
-.k3-kamera {
-  position: static; inset: auto; justify-content: center; flex-wrap: wrap; padding: 9px 10px;
-  border-bottom: 1px solid var(--line); background: var(--paper2); pointer-events: auto;
-}
-html[data-theme] #view .k3 .k3-kamera .btn:not(.btn-primary):not(.k2-note) {
-  display: inline-grid; place-items: center; min-height: 44px; width: 44px;
-  border-color: var(--line) !important; background: var(--paper) !important; color: var(--ink) !important;
-}
-.k3-kamera .ui-ico { width: 21px; height: 21px; }
-.k3-kamera .btn:focus-visible { outline-color: var(--brand); }
-.k3-transport .ui-ico, .k3-ansichtleiste .ui-ico { margin-inline-end: 2px; }
-.k3-details { border-block-start: 1px solid var(--line); margin-block: 13px 9px; }
-.k3-details summary { cursor: pointer; min-height: 44px; padding-block: 11px; font-weight: 650; }
-.k3-details p { margin: 0 0 10px; color: var(--ink2); line-height: 1.55; }
-.k3-legende[hidden] { display: none; }
-.k3-legende span.k3-gas-o::before { background: #b67419; }
-.k3-legende span.k3-gas-c::before { background: #5989d2; }
-.k3-legende span.k3-blut-arm::before { background: #4887d9; }
-.k3-legende span.k3-blut-reich::before { background: #d05c49; }
-
 @media (max-width: 670px) {
   .kw-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kw-tabs button { padding-inline: 7px; font-size: .9em; hyphens: auto; overflow-wrap: anywhere; }
 }
-.k3-abfolge .k3-transport .btn { padding-inline: 10px; }
-.k3-details:last-child { margin-block-end: 0; }
 
 /* Gemeinsame Bediensymbole */
 .ui-zeichen { display: inline-flex; align-items: center; vertical-align: -.22em; }
@@ -3211,6 +3294,7 @@ function abgleichen(lokal, fremd) {
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
 </head>
 <body>
+<div class="app-statusflaeche" aria-hidden="true"></div>
 <header>
   <div class="wrap head-in">
     <div class="logo">🎓</div>
@@ -31511,6 +31595,8 @@ function neuerRuecksetzCode() {
     strom: "M13 2L4 14h7l-1 8 10-13h-7z",
     code: "M8 6l-6 6 6 6m8-12 6 6-6 6m-2-15-4 18",
     netz: "M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18zm-9 9h18m-9-9c5 5 5 13 0 18m0-18c-5 5-5 13 0 18",
+    lunge: "M12 3v8m0-2-3 3m3-3 3 3M9 9c-1-3-4 0-5 3l-1 5c-.7 3 4 4 7 2V9m5 0c1-3 4 0 5 3l1 5c.7 3-4 4-7 2V9",
+    magen: "M9 2v4c0 2 1 3 2 4 2-3 7-3 9 1 2 5-2 9-7 9-2 0-4-1-6 0l-2 2H3v-4l2-2c1-1 3-1 5-1-4-3-5-6-5-9V2",
     koerper: "M12 21l-8-8a5 5 0 1 1 8-6 5 5 0 1 1 8 6l-8 8zM4 12h4l2-3 3 6 2-3h5",
     drehenLinks: "M3 4v6h6m-6 0a9 9 0 1 1 2 8",
     drehenRechts: "M21 4v6h-6m6 0a9 9 0 1 0-2 8",
@@ -31542,6 +31628,7 @@ function neuerRuecksetzCode() {
     binaer: "M7 6c-4 0-4 12 0 12s4-12 0-12zm7 3 3-3v12m-3 0h6",
     gatter: "M3 8h5m-5 8h5m0-11h5a7 7 0 0 1 0 14H8zM20 12h2",
     sortieren: "M4 7h8m-8 5h6m-6 5h4m7-12v14m-4-4 4 4 4-4",
+    rueckgaengig: "M9 4 4 9l5 5M4 9h10a6 6 0 0 1 0 12h-2",
     zuruecksetzen: "M9 9H4V4m0 5 3-3a8 8 0 1 1-2 10",
     bruch: "M3 7h18v10H3z M9 7v10m6-10v10 M5 12h2",
     diagramm: "M3 4v16h18M6 9h9v3H6zm0 6h13v3H6z",
@@ -31629,7 +31716,7 @@ function neuerRuecksetzCode() {
     "🔍": "suche", "🔎": "suche", "✏": "stift", "✍": "stift", "📝": "dokument", "📄": "dokument",
     "💾": "speichern", "📁": "ordner", "📦": "box", "📥": "import", "📤": "export", "🔗": "link",
     "🌳": "baum", "🌱": "baum", "🌿": "baum", "🧱": "ordnen", "☰": "liste", "📋": "kopieren",
-    "🔁": "wiederholen", "🔄": "wiederholen", "↻": "wiederholen", "↶": "drehenLinks", "🔀": "wiederholen",
+    "🔁": "wiederholen", "🔄": "wiederholen", "↻": "wiederholen", "↶": "rueckgaengig", "🔀": "wiederholen",
     "▶": "play", "⏱": "zeit", "🕒": "zeit", "🕰": "zeit", "⏮": "links", "⏭": "rechts",
     "🖨": "drucken", "🌐": "netz", "⚠": "warnung", "🎯": "ziel", "🏅": "pokal", "☆": "stern",
     "🗑": "muell", "🔊": "audio", "🎧": "kopfhoerer", "🎬": "film", "👁": "auge", "🙈": "geheim",
@@ -39984,14 +40071,20 @@ function levenshtein(a, b) {
   /* M71 (Chat 2026-11-07: „Bessere auch die Platzierung bei den Flashcards (Ausblenden, Priorität …) nach, da man es
      versehentlich anklicken kann“): Die drei Aktionen lagen direkt unter „Antwort zeigen“ und den Bewertungsknöpfen.
      Jetzt öffnet erst „⋯“ oben rechts auf der Karte ein kleines Menü; jede Aktion lässt sich rückgängig machen (p95). */
+  function rundenKopf(r) {
+    return '<div class="hb k2 k2-runde"><button class="back" data-k2="ende">← Karteikarten</button>'
+      + '<div class="k2-stand"><span aria-live="polite">Karte ' + (r.i + 1) + " von " + r.karten.length + " · " + icon("check") + " " + r.ok + "</span>"
+      + (r.vorige ? '<button type="button" class="k2-zurueck" data-k2="bewertung-zurueck" data-testid="k2-bewertung-zurueck">' + icon("rueckgaengig") + ' Letzte Bewertung zurücknehmen</button>' : "") + "</div>"
+      + (r.meldung ? '<p class="k2-meldung" role="status" data-testid="k2-meldung">' + h(r.meldung) + "</p>" : "");
+  }
   function kartenMenue(r, c) {
     var pr = prioVon(r.sc)[c.w] || 2;
     var offen = !!r.menue;
     return '<div class="k2-mehr"><button type="button" class="k2-mehr-knopf" data-k2="menue" data-testid="k2-menue" aria-controls="k2-kartenaktionen" aria-expanded="' + offen + '" aria-label="Weitere Aktionen für diese Karte">' + icon("mehr") + '</button>'
       + '<div class="k2-mehr-liste" id="k2-kartenaktionen" role="group" aria-label="Diese Karte"' + (offen ? "" : " hidden") + ">"
-      + '<button class="btn" data-k2="bekannt" data-testid="k2-bekannt">' + icon("check") + '<span>Kenne ich schon<small>Kommt in 90 Tagen wieder</small></span></button>'
-      + '<button class="btn" data-k2="ausblenden" data-testid="k2-ausblenden">' + icon("geheim") + '<span>Ausblenden<small>Kommt nicht mehr dran</small></span></button>'
-      + '<button class="btn" data-k2="prio" data-testid="k2-prio" aria-label="Priorität: ' + PRIO[pr][1] + ' — ändern">' + icon("stern") + '<span>Priorität ' + PRIO[pr][1] + '<small>Tippen zum Wechseln</small></span></button></div></div>';
+      + '<button class="k2-mehr-aktion" data-k2="bekannt" data-testid="k2-bekannt">' + icon("check") + '<span>Kenne ich schon<small>Kommt in 90 Tagen wieder</small></span></button>'
+      + '<button class="k2-mehr-aktion" data-k2="ausblenden" data-testid="k2-ausblenden">' + icon("geheim") + '<span>Ausblenden<small>Kommt nicht mehr dran</small></span></button>'
+      + '<button class="k2-mehr-aktion" data-k2="prio" data-testid="k2-prio" aria-label="Priorität: ' + PRIO[pr][1] + ' — ändern">' + icon("stern") + '<span>Priorität ' + PRIO[pr][1] + '<small>Tippen zum Wechseln</small></span></button></div></div>';
   }
   function kartenMenueSetzen(offen) {
     var knopf = document.querySelector(".k2-mehr-knopf"), liste = document.getElementById("k2-kartenaktionen");
@@ -40278,9 +40371,7 @@ function levenshtein(a, b) {
     }
     var c = r.karten[r.i], st = lies(standKey(r.sc), {})[c.w];
     if (c.typ && c.typ !== "einfach") return htmlTypRunde(r, c, st);   /* M46 */
-    var s = '<div class="hb k2 k2-runde"><button class="back" data-k2="ende">← Karteikarten</button>'
-      + '<p class="k2-stand" aria-live="polite">Karte ' + (r.i + 1) + " von " + r.karten.length + " · " + icon("check") + " " + r.ok + (r.vorige ? ' <button type="button" class="k2-zurueck" data-k2="bewertung-zurueck" data-testid="k2-bewertung-zurueck">↶ Letzte Bewertung zurücknehmen</button>' : "") + "</p>"
-      + (r.meldung ? '<p class="k2-meldung" role="status" data-testid="k2-meldung">' + h(r.meldung) + "</p>" : "")
+    var s = rundenKopf(r)
       + '<div class="k2-karte' + (r.offen ? " offen" : "") + '" data-testid="k2-karte">' + kartenMenue(r, c) + badges(r.sc, c, st)
       + '<div class="k2-wort" lang="' + vornSprache(r.sc, c) + '">' + h(vornText(c)) + ' ' + kartenAudio("sprechen", "Vorlesen") + '</div>';
     var extra = "";   /* M71: die Aktionen stehen im Menü „⋯“ oben rechts auf der Karte (kartenMenue) */
@@ -40332,9 +40423,7 @@ function levenshtein(a, b) {
       }).join("") + "</div>";
   }
   function htmlTypRunde(r, c, st) {
-    var k = c.karte || {}, s = '<div class="hb k2 k2-runde"><button class="back" data-k2="ende">← Karteikarten</button>'
-      + '<p class="k2-stand" aria-live="polite">Karte ' + (r.i + 1) + " von " + r.karten.length + " · " + icon("check") + " " + r.ok + (r.vorige ? ' <button type="button" class="k2-zurueck" data-k2="bewertung-zurueck" data-testid="k2-bewertung-zurueck">↶ Letzte Bewertung zurücknehmen</button>' : "") + "</p>"
-      + (r.meldung ? '<p class="k2-meldung" role="status" data-testid="k2-meldung">' + h(r.meldung) + "</p>" : "")
+    var k = c.karte || {}, s = rundenKopf(r)
       + '<div class="k2-karte typ-' + c.typ + (r.offen ? " offen" : "") + '" data-testid="k2-karte">' + kartenMenue(r, c) + badges(r.sc, c, st);
     var vorn = "", hinten = "";
     if (c.typ === "luecke") {
@@ -49335,12 +49424,22 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
   const h = LB.h, icon = window.__SYMBOL;
   const begrenze = (n, min, max) => Math.min(max, Math.max(min, n));
 
-  function knopf(aktion, text, extra = "") {
-    return '<button type="button" class="btn" data-k3="' + aktion + '"' + extra + '>' + text + '</button>';
+  function knopf(aktion, text, extra = "", hervorgehoben = false) {
+    return '<button type="button" class="btn' + (hervorgehoben ? " btn-primary" : "") + '" data-k3="' + aktion + '"' + extra + '>' + text + '</button>';
   }
   function auswahl(d, attr, aktiv) {
     return Object.entries(d).map(([id, x]) => '<button type="button" class="btn" data-' + attr + '="' + id
       + '" aria-pressed="' + (id === aktiv) + '">' + h(x.titel || x[0]) + '</button>').join("");
+  }
+
+  const ANSICHTEN = [["ablauf", "Ablauf", "liste"], ["organe", "Organe", "koerper"], ["quiz", "Quiz", "frage"]];
+  const SYSTEMSYMBOL = { atmung: "lunge", kreislauf: "koerper", verdauung: "magen" };
+
+  function lerntabs() {
+    return '<div class="k3-lerntabs" role="tablist" aria-label="Körperlabor">' + ANSICHTEN.map(([id, titel, symbol], i) =>
+      '<button type="button" role="tab" id="k3-tab-' + id + '" data-k3-tab="' + id + '" aria-controls="k3-panel-' + id
+      + '" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' + icon(symbol) + '<span>' + titel + "</span></button>"
+    ).join("") + "</div>";
   }
 
   LB.modul({
@@ -49348,11 +49447,14 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
     text: "Atmung, Herz und Verdauung im drehbaren 3D-Modell. Mit Ablaufanimationen und Übungen.",
     start: () => ({ modul: "koerper", system: "atmung", fortschritt: 0, kontur: true, innen: false, langsam: false }),
     html: (L) => '<section class="k3" aria-label="Körperlabor">'
-      + '<div class="k3-systeme" role="group" aria-label="Organsystem">' + auswahl(KOERPERSYSTEME, "k3-system", L.system) + '</div>'
-      + '<p class="hb-sub" data-k3-intro></p>'
+      + '<div class="k3-systeme" role="group" aria-label="Organsystem">' + Object.entries(KOERPERSYSTEME).map(([id, system]) =>
+        '<button type="button" class="btn" data-k3-system="' + id + '" aria-pressed="' + (L.system === id) + '">'
+        + icon(SYSTEMSYMBOL[id]) + '<span>' + h(system.titel) + '</span></button>'
+      ).join("") + '</div>'
+      + '<p class="hb-sub k3-intro" data-k3-intro></p>'
       + '<div class="k3-layout"><section class="k3-ansicht" aria-label="Räumliches Organmodell">'
+      + '<div class="k3-modellkopf"><h3>3D-Modell</h3><span class="k3-orientierung" data-k3-orientierung>Vorderansicht</span></div>'
       + '<div class="k3-buehne"><canvas aria-label="Drehbares 3D-Modell der Organe" role="img"></canvas>'
-      + '<span class="k3-orientierung" data-k3-orientierung>Vorderansicht</span>'
       + '<span class="k3-modellstatus" data-k3-modellstatus role="status">3D-Modell wird geladen …</span>'
       + '</div><div class="k3-kamera" data-k3-kamera role="group" aria-label="3D-Ansicht bedienen">'
       + knopf("links", icon("drehenLinks"), ' aria-label="Nach links drehen" title="Nach links drehen"')
@@ -49361,21 +49463,22 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
       + knopf("groesser", icon("plus"), ' aria-label="Vergrößern" title="Vergrößern"')
       + knopf("reset", icon("zentrieren"), ' aria-label="Vorderansicht zurücksetzen" title="Vorderansicht zurücksetzen"') + '</div>'
       + '<div class="k3-ansichtleiste" data-k3-ansichtleiste>'
-      + '<span>Ziehen zum Drehen · Tippen zum Auswählen</span>'
       + knopf("kontur", icon("profil") + " Körperkontur", ' aria-pressed="' + L.kontur + '"')
       + knopf("innen", icon("koerper") + " Herzkammern", ' aria-pressed="' + L.innen + '" hidden') + '</div></section>'
-      + '<section class="k3-abfolge" aria-labelledby="k3-abfolge-titel">'
-      + '<h3 id="k3-abfolge-titel">So läuft es ab</h3><div class="k3-schritte" data-k3-schritte></div>'
+      + '<div class="k3-lernen">' + lerntabs()
+      + '<section class="k3-panel" id="k3-panel-ablauf" role="tabpanel" aria-labelledby="k3-tab-ablauf">'
+      + '<div class="k3-schritte" data-k3-schritte role="group" aria-label="Ablaufschritt"></div>'
       + '<div class="k3-beschreibung" aria-live="polite" data-k3-schritttext></div>'
       + '<p class="k3-legende" data-k3-legende hidden></p>'
-      + '<label class="k3-zeit-label" for="k3-zeit">Ablaufposition</label><input id="k3-zeit" type="range" min="0" max="1000" value="0">'
-      + '<div class="k3-transport">' + knopf("play", icon("play") + " Abspielen") + knopf("step", icon("schritt") + " Nächster Schritt") + knopf("tempo", icon("tempo") + " ½ Tempo", ' aria-pressed="' + L.langsam + '"') + '</div>'
-      + '<details class="k3-details"><summary>Genauer erklärt</summary><p data-k3-details></p></details></section></div>'
-      + '<section class="k3-panel" aria-labelledby="k3-organ-titel"><h3 id="k3-organ-titel">Organe erkunden</h3>'
+      + '<div class="k3-wiedergabe"><label class="k3-zeit-label" for="k3-zeit">Ablaufposition</label><input id="k3-zeit" type="range" min="0" max="1000" value="0">'
+      + '<div class="k3-transport">' + knopf("play", icon("play") + " Abspielen", "", true)
+      + knopf("step", icon("schritt") + " Nächster Schritt") + knopf("tempo", icon("tempo") + " ½ Tempo", ' aria-pressed="' + L.langsam + '"') + '</div></div>'
+      + '<details class="k3-details"><summary>Genauer erklärt</summary><p data-k3-details></p></details></section>'
+      + '<section class="k3-panel" id="k3-panel-organe" role="tabpanel" aria-labelledby="k3-tab-organe" hidden>'
       + '<div class="k3-organe" data-k3-organe role="group" aria-label="Organ auswählen"></div>'
-      + '<p class="k3-organtext" data-k3-organtext role="status"></p></section>'
-      + '<section class="k3-panel" aria-labelledby="k3-quiz-titel"><h3 id="k3-quiz-titel">' + icon("frage") + ' Verständnis prüfen</h3>'
-      + '<div data-k3-quiz></div><p class="k3-feedback" data-k3-feedback role="status"></p></section>'
+      + '<div class="k3-organtext" data-k3-organtext role="status"></div></section>'
+      + '<section class="k3-panel" id="k3-panel-quiz" role="tabpanel" aria-labelledby="k3-tab-quiz" hidden>'
+      + '<div data-k3-quiz></div><p class="k3-feedback" data-k3-feedback role="status"></p></section></div></div>'
       + '<details class="k3-quellen"><summary>Quellen und Modell</summary>'
       + '<p>Erwachsenes Referenzmodell. Animation und Farben verdeutlichen die Vorgänge schematisch. Die Ablaufschritte zeigen den Weg durch die Organe. Sie geben weder Atemfrequenz noch Puls im Echtzeitmaßstab wieder.</p>'
       + '<ul><li><a data-k3-quelle target="_blank" rel="noopener noreferrer"></a></li>'
@@ -49392,6 +49495,7 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
     const control = (name) => root.querySelector('[data-k3="' + name + '"]');
     const zeit = root.querySelector("#k3-zeit");
     const status = el("modellstatus");
+    const tabs = Array.from(root.querySelectorAll("[data-k3-tab]"));
     const abbruch = new AbortController();
     const option = { signal: abbruch.signal };
     let grafik = null, gestorben = false, rahmen = 0, vorher = null, richtung = null, phase = -1;
@@ -49401,6 +49505,16 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
       id: L.system, system: KOERPERSYSTEME[L.system], fortschritt: L.fortschritt,
       yaw: 0, pitch: 0, zoom: 1, kontur: L.kontur, innen: L.innen, organ: null, spuren: [], bewegung: null, verengung: null,
     };
+
+    function ansichtZeigen(name) {
+      if (name !== "ablauf") anhalten();
+      tabs.forEach((tab) => {
+        const an = tab.dataset.k3Tab === name;
+        tab.tabIndex = an ? 0 : -1;
+        tab.setAttribute("aria-selected", String(an));
+        root.querySelector("#" + tab.getAttribute("aria-controls")).hidden = !an;
+      });
+    }
 
     function zeichne() {
       const { i, schritt, anteil } = koerperPhase(z.system, z.fortschritt);
@@ -49426,7 +49540,7 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
       const organ = z.system.organe[name];
       el("organe").querySelectorAll("[data-k3-organ]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k3Organ === name)));
       control("innen").setAttribute("aria-pressed", String(z.innen));
-      el("organtext").innerHTML = organ ? "<strong>" + h(organ[0]) + "</strong> " + h(organ[1]) : "";
+      el("organtext").innerHTML = organ ? "<strong>" + h(organ[0]) + "</strong><p>" + h(organ[1]) + "</p>" : "";
     }
 
     function ablauf(n, folgeOrgan) {
@@ -49437,7 +49551,7 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
         phase = i;
         zeit.setAttribute("aria-valuetext", schritt.titel + ", " + (i + 1) + " von " + z.system.schritte.length);
         el("schritte").querySelectorAll("button").forEach((b, k) => b.setAttribute("aria-current", k === i ? "step" : "false"));
-        el("schritttext").innerHTML = "<strong>" + h(schritt.titel) + "</strong><p>" + h(schritt.text) + "</p>";
+        el("schritttext").innerHTML = "<p>" + h(schritt.text) + "</p>";
         el("details").textContent = z.system.details[i];
         legende(i);
         if (folgeOrgan) organInfo(schritt.organ);
@@ -49485,7 +49599,7 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
         el("quiz").innerHTML = '<fieldset><legend>' + h(q[0]) + '</legend><p class="k3-quizstand">Frage '
           + (testIndex + 1) + ' von ' + z.system.aufgaben.length + '</p><div class="k3-antworten">'
           + q[1].map((a, i) => '<button type="button" class="btn" data-k3-antwort="' + i + '" aria-pressed="false">' + h(a) + '</button>').join("")
-          + '</div></fieldset><div class="k3-transport">' + knopf("quiz-pruefen", icon("check") + " Prüfen", " disabled") + '</div><div data-k3-quizweiter hidden>' + knopf("quiz-next", (testIndex + 1 < z.system.aufgaben.length ? "Nächste Frage " : "Auswertung ") + icon("weiter")) + '</div>';
+          + '</div></fieldset><div class="k3-quizaktionen">' + knopf("quiz-pruefen", icon("check") + " Prüfen", " disabled", true) + knopf("quiz-next", (testIndex + 1 < z.system.aufgaben.length ? "Nächste Frage " : "Auswertung ") + icon("weiter"), " hidden", true) + '</div>';
       }
       if (fokus) el("quiz").querySelector("h4, button").focus({ preventScroll: true });
     }
@@ -49502,7 +49616,7 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
       if (passt) {
         geloest = true;
         control("quiz-pruefen").hidden = true;
-        el("quizweiter").hidden = false;
+        control("quiz-next").hidden = false;
         control("quiz-next").focus({ preventScroll: true });
         el("quiz").querySelectorAll("[data-k3-antwort]").forEach((a) => { a.disabled = true; });
         el("feedback").innerHTML = icon("check") + " Richtig. " + h(q[3]);
@@ -49551,6 +49665,7 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
     root.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b || b.disabled) return;
+      if (b.dataset.k3Tab) return ansichtZeigen(b.dataset.k3Tab);
       if (b.dataset.k3System) return systemZeigen(b.dataset.k3System);
       if (b.dataset.k3Phase != null) return schrittZeigen(Number(b.dataset.k3Phase));
       if (b.dataset.k3Organ) { organInfo(b.dataset.k3Organ); return zeichne(); }
@@ -49583,6 +49698,21 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
       }
       kamera();
     }, option);
+    root.addEventListener("keydown", (e) => {
+      const index = tabs.indexOf(e.target);
+      if (index < 0) return;
+      const naechster = {
+        ArrowLeft: (index - 1 + tabs.length) % tabs.length,
+        ArrowRight: (index + 1) % tabs.length,
+        Home: 0,
+        End: tabs.length - 1,
+      }[e.key];
+      if (naechster == null) return;
+      e.preventDefault();
+      const tab = tabs[naechster];
+      ansichtZeigen(tab.dataset.k3Tab);
+      tab.focus({ preventScroll: true });
+    }, option);
     zeit.addEventListener("input", () => { ablauf(Number(zeit.value) / 1000, true); anhalten(); }, option);
     canvas.addEventListener("pointerdown", (e) => {
       if (!grafik || !e.isPrimary || e.button !== 0) return;
@@ -49602,7 +49732,7 @@ function koerperSpuren(id, schritt, phase, anteil, farbe) {
       if (!drag || drag.id !== e.pointerId) return;
       if (drag.d <= 5) {
         const name = grafik.treffer(z, e.clientX, e.clientY);
-        if (name) { organInfo(name); zeichne(); }
+        if (name) { ansichtZeigen("organe"); organInfo(name); zeichne(); }
       }
       drag = null;
     }, option);
@@ -50233,7 +50363,7 @@ function abnehmen(stapel) {
   function zeigen(text, mitKnopf, dauer) {
     var l = leisteHolen();
     l.innerHTML = '<span class="rk-text">' + h(text) + "</span>"
-      + (mitKnopf ? '<button type="button" class="rk-knopf" data-rk="zurueck" data-testid="rueck-knopf">↶ Rückgängig</button>' : "")
+      + (mitKnopf ? '<button type="button" class="rk-knopf" data-rk="zurueck" data-testid="rueck-knopf">' + window.__SYMBOL("rueckgaengig") + ' Rückgängig</button>' : "")
       + '<button type="button" class="rk-zu" data-rk="zu" aria-label="Hinweis schließen">✕</button>';
     l.hidden = false;
     clearTimeout(uhr);
@@ -50255,7 +50385,7 @@ function abnehmen(stapel) {
     try { if (typeof syncProfile === "function") syncProfile(); } catch (x) {}
     try { if (typeof render === "function") render(); } catch (x) {}
     var l = letzter(stapel);
-    zeigen("↶ Rückgängig gemacht: " + e.text.replace(/^[^\wÄÖÜäöü„"]+\s*/, ""), !!l, l ? 6000 : 3000);
+    zeigen("Rückgängig gemacht: " + e.text.replace(/^[^\wÄÖÜäöü„"]+\s*/, ""), !!l, l ? 6000 : 3000);
     return true;
   }
 
@@ -50706,7 +50836,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · <b>v3.2.1</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 3.2.1 · Stand 21.11.2026 00:05")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 3.2.1 · Stand 21.11.2026 16:26")}}catch(e){}
 })();
 
 </script>
