@@ -28313,7 +28313,7 @@ function zurueckspielen(frisch, daten) {
   function nachfragen(a) {
     var st = standVon(a) || {};
     if (a.lauf.name === "lernpfad" && a.o.pruefung) {
-      return frage("Test verlassen?", "Abgegebene Antworten bleiben gespeichert. Die Zeit läuft weiter.",
+      return frage("Test verlassen?", "Abgegebene Antworten bleiben gespeichert. " + (Number.isFinite(a.o.pausiert) ? "Der Test bleibt pausiert." : "Die Zeit läuft weiter."),
         [["bleiben", "Im Test bleiben", true], ["gehen", "Verlassen"]], "as-verlassen");
     }
     return frage(istKind() ? "Aufgabe verlassen?" : "Übung verlassen?",
@@ -31479,9 +31479,12 @@ function neuerRuecksetzCode() {
   }
 
   /* ---------------- Schranken ---------------- */
-  function elternOk(grund) {
+  function elternOk(grund, pinErforderlich) {
     var s = lade();
-    if (!s.eltern) return Promise.resolve(true);
+    if (!s.eltern) {
+      if (!pinErforderlich) return Promise.resolve(true);
+      return hinweisDialog("Eltern-PIN einrichten", "Diese Aktion braucht eine Eltern-PIN. Du kannst sie unter „PINs &amp; Elternbereich“ einrichten.").then(function () { return false; });
+    }
     return pinAbfrage("Eltern-PIN", grund, s.eltern, "eltern");
   }
   function profilOk(id) {
@@ -33203,6 +33206,14 @@ function gleicherWochenVersuch(a, b) {
   return !!(a && b && a.start === b.start && a.pruefung?.versuch === b.pruefung?.versuch);
 }
 
+function testRestzeit(lauf, jetzt) {
+  if (Number.isFinite(lauf.pausiert)) return lauf.pausiert;
+  if (lauf.pruefung.art === 'woche' && !lauf.pruefung.elternSteuerung) {
+    return lauf.minuten * 60000 - wochenVerbrauch(lauf);
+  }
+  return Math.max(0, lauf.ende - jetzt);
+}
+
 
   if (typeof kstate === "undefined" || typeof render !== "function" || typeof PROFILES === "undefined") return;
   var INHALT = window.__INHALT_DATEN;
@@ -33986,9 +33997,11 @@ function gleicherWochenVersuch(a, b) {
   function klausurStarten(ziel) {
     if (ziel.lauf) {
       kstate.lp = ziel.lauf;
-      if (istWochentest(ziel.lauf) && Number.isFinite(ziel.lauf.ende)) {
-        ziel.lauf.verbraucht = wochenVerbrauch(ziel.lauf);
-        delete ziel.lauf.ende;
+      if (ziel.lauf.pruefung && !ziel.lauf.pruefung.elternSteuerung) {
+        var jetzt = Date.now();
+        ziel.lauf.ende = jetzt + testRestzeit(ziel.lauf, jetzt);
+        ziel.lauf.pruefung.elternSteuerung = true;
+        pruefungsStand(ziel.lauf);
       }
       return;
     }
@@ -34003,47 +34016,41 @@ function gleicherWochenVersuch(a, b) {
     if (ziel.pruefung) {
       var l = kstate.lp;
       l.pruefung = ziel.pruefung;
-      if (!istWochentest(l)) l.ende = l.start + l.minuten * 60000;
+      l.pruefung.elternSteuerung = true;
+      l.ende = l.start + l.minuten * 60000;
       melde("lp:pruefung-stand", { lauf: l, neu: true });
     }
   }
-  /* Sichtbare Bearbeitungszeit für den Wochentest. */
-  var wochenUhr = null;
   function istWochentest(l) { return l?.pruefung?.art === "woche"; }
-  function wochenZeit(l, jetzt) {
-    return wochenVerbrauch(l, wochenUhr?.lauf === l ? jetzt - wochenUhr.seit : 0);
-  }
+  function pruefungPausiert(l) { return Number.isFinite(l.pausiert); }
   function pruefungsStand(l) {
-    if (istWochentest(l) && wochenUhr?.lauf === l) {
-      var jetzt = Date.now();
-      l.verbraucht = wochenZeit(l, jetzt);
-      wochenUhr.seit = jetzt;
-    }
     melde("lp:pruefung-stand", { lauf: l });
   }
-  function wochenUhrSchalten(pause) {
-    if (!wochenUhr && !istWochentest(kstate.lp)) return;
-    var p = profil(), l = !pause && p && kstate.tab === "lernpfad"
-      && document.visibilityState !== "hidden" && !(typeof showProfiles !== "undefined" && showProfiles) ? kstate.lp : null;
-    if (!istWochentest(l) || l.ergebnis || l.pruefung.profil !== p?.id) l = null;
-    if (wochenUhr?.lauf === l) return;
-    if (wochenUhr && !wochenUhr.lauf.ergebnis) pruefungsStand(wochenUhr.lauf);
-    wochenUhr = l ? { lauf: l, seit: Date.now() } : null;
+  function pruefungImBlick(l) {
+    return kstate.lp === l && kstate.tab === "lernpfad" && document.visibilityState !== "hidden"
+      && !(typeof showProfiles !== "undefined" && showProfiles) && profil()?.id === l.pruefung.profil;
   }
-  document.addEventListener("visibilitychange", function () { wochenUhrSchalten(false); });
-  window.addEventListener?.("pagehide", function () { wochenUhrSchalten(true); });
-  window.addEventListener?.("pageshow", function () { wochenUhrSchalten(false); });
+  function zurTestUebersicht(l) {
+    kstate.lp = null;
+    kstate.tab = l.ruecksprung;
+  }
+  function sichtbarenTestWiederAufnehmen() {
+    var l = kstate.lp;
+    if (!l?.pruefung || l.ergebnis || !pruefungImBlick(l) || restKl(l) > 0) return;
+    zurTestUebersicht(l);
+    rerenderLp();
+  }
+  document.addEventListener("visibilitychange", sichtbarenTestWiederAufnehmen);
+  window.addEventListener?.("pageshow", sichtbarenTestWiederAufnehmen);
   function restKl(l) {
-    if (istWochentest(l)) return Math.ceil((l.minuten * 60000 - wochenZeit(l, Date.now())) / 1000);
-    return Math.max(0, l.ende ? Math.ceil((l.ende - Date.now()) / 1000) : Math.round(l.minuten * 60 - (l.verbraucht || 0) / 1000));
+    if (l.pruefung) return Math.ceil(testRestzeit(l, Date.now()) / 1000);
+    return Math.max(0, Math.round(l.minuten * 60 - (l.verbraucht || 0) / 1000));
   }
   function uhrKl(l) { var r = restKl(l), m = Math.floor(r / 60), s = r % 60; return m + ":" + (s < 10 ? "0" : "") + s; }
   function klausurZeitPruefen(l) {
-    if (!l || l.art !== "klausur" || !l.minuten || l.ergebnis || restKl(l) > 0) return false;
-    if (istWochentest(l) && !l.antworten.length) {
-      pruefungsStand(l);
-      kstate.lp = null;
-      kstate.tab = l.ruecksprung;
+    if (!l || l.art !== "klausur" || !l.minuten || l.ergebnis || pruefungPausiert(l) || restKl(l) > 0) return false;
+    if (l.pruefung && !l.antworten.length) {
+      zurTestUebersicht(l);
       return true;
     }
     for (; l.i < l.liste.length; l.i++) l.antworten.push({ skill: l.liste[l.i].skill, ok: false, q: l.liste[l.i].q, gegeben: "— (keine Zeit mehr)" });
@@ -34053,14 +34060,12 @@ function gleicherWochenVersuch(a, b) {
   }
   setInterval(function () {
     try {
-      wochenUhrSchalten(false);
       var l = kstate.lp;
       if (!l || l.art !== "klausur" || !l.minuten || l.ergebnis || kstate.tab !== "lernpfad" || l.i >= l.liste.length) return;
-      if (!l.ende && typeof document.visibilityState === "string" && document.visibilityState !== "visible") return;
-      if (istWochentest(l)) {
-        if (wochenUhr?.lauf !== l) return;
-        if (Date.now() - wochenUhr.seit >= 10000) pruefungsStand(l);
-      } else if (!l.ende) l.verbraucht = (l.verbraucht || 0) + 1000;
+      if (document.visibilityState === "hidden") return;
+      if (l.pruefung) {
+        if (pruefungPausiert(l) || !pruefungImBlick(l)) return;
+      } else l.verbraucht = (l.verbraucht || 0) + 1000;
       var u = document.querySelector("[data-kl-uhr]");
       if (u) { u.textContent = uhrKl(l); u.parentElement.classList.toggle("knapp", restKl(l) <= 60); }
       if (klausurZeitPruefen(l)) rerenderLp();
@@ -34068,14 +34073,13 @@ function gleicherWochenVersuch(a, b) {
   }, 1000);
   function klausurAbschliessen(l) {
     if (l.ergebnis) return;
-    if (istWochentest(l) && !window.__WOCHE?.pruefungAktuell(l)) {
-      kstate.lp = null;
-      kstate.tab = l.ruecksprung;
+    if (l.pruefung && !window.__WOCHE?.pruefungAktuell(l)) {
+      zurTestUebersicht(l);
       return;
     }
     var a = auswertung(l.antworten, function (sk) { return sk === "eigene-aufgaben" ? "Eigene Aufgaben" : sk === "karteikarten" ? "Karteikarten" : (SKILLS[sk] || {}).titel || sk; });
     l.ergebnis = a;
-    l.dauer = istWochentest(l) ? wochenZeit(l, Date.now()) : (l.ende ? Math.min(Date.now(), l.ende) : Date.now()) - l.start;
+    l.dauer = l.pruefung ? l.minuten * 60000 - testRestzeit(l, Date.now()) : Date.now() - l.start;
     if (l.pruefung) l.antworten.forEach(function (x) { if (x.ereignis && x.skill !== "eigene-aufgaben") melde("lp:antwort", x.ereignis); });
     var v = klausurenLaden();
     var beendet = Date.now();
@@ -34086,16 +34090,65 @@ function gleicherWochenVersuch(a, b) {
     melde("lp:klausur-fertig", { id: l.id, titel: l.titel, note: a.note, prozent: a.prozent, pruefung: l.pruefung, beendet: beendet,
       n: a.n, richtig: a.richtig, karten: a.jeStation.find(function (x) { return x.skill === "karteikarten"; }), fehlerSkills: Array.from(new Set(l.antworten.filter(function (x) { return !x.ok && SKILLS[x.skill]; }).map(function (x) { return x.skill; }))) });
   }
+  var testElternAktionen = {
+    "test-pause": { icon: "pause", text: "Test pausieren", pin: "Zum Pausieren des Tests brauchst du die Eltern-PIN." },
+    "test-zu-schwer": { icon: "warnung", text: "Zu schwer", pin: "Zum Tauschen der Aufgabe brauchst du die Eltern-PIN.", richtung: -1 },
+    "test-zu-einfach": { icon: "funke", text: "Zu einfach", pin: "Zum Tauschen der Aufgabe brauchst du die Eltern-PIN.", richtung: 1 }
+  };
+  async function testElternAktion(l, aktion) {
+    var i = l.i, frage = l.liste[i];
+    if (!frage || pruefungPausiert(l) || !pruefungImBlick(l) || testRestzeit(l, Date.now()) <= 0) return;
+    if (!await window.__PROFILSCHUTZ?.elternOk(aktion.pin, true)) return;
+    var rest = testRestzeit(l, Date.now());
+    if (!pruefungImBlick(l) || l.ergebnis || pruefungPausiert(l) || !rest || l.i !== i || l.liste[i] !== frage
+        || !window.__WOCHE?.pruefungAktuell(l)) return;
+    var meldung;
+    if (aktion.richtung) {
+      var ersatz = window.__WOCHE.ersatzaufgabe(l, aktion.richtung);
+      if (!ersatz) {
+        document.querySelector("[data-kl-tauschmeldung]").textContent = "Für diese Schwierigkeit ist keine weitere Aufgabe aus deinen geübten Themen verfügbar.";
+        return;
+      }
+      l.ausgetauscht = (l.ausgetauscht || []).concat(frage);
+      l.liste[i] = { skill: ersatz.skill, q: mischeAntworten(ersatz.q) };
+      l.eingabe = ""; l.auswahl = []; l.qStart = null;
+      meldung = "Die Aufgabe wurde getauscht.";
+    } else {
+      l.pausiert = rest;
+      l.qStart = null;
+    }
+    pruefungsStand(l);
+    rerenderLp();
+    if (meldung) document.querySelector("[data-kl-tauschmeldung]").textContent = meldung;
+    else document.querySelector('[data-lp="test-fortsetzen"]')?.focus({ preventScroll: true });
+  }
+  function testFortsetzen(l) {
+    if (!pruefungPausiert(l) || l.ergebnis || !pruefungImBlick(l) || !window.__WOCHE?.pruefungAktuell(l)) return;
+    l.ende = Date.now() + l.pausiert;
+    delete l.pausiert;
+    pruefungsStand(l);
+    rerenderLp();
+    document.querySelector("#view .lp-kopf h2")?.focus({ preventScroll: true });
+  }
   function htmlKlausur(l) {
-    var s = '<button class="back" data-lp="zurueck">← ' + (l.i >= l.liste.length ? "Zur Übersicht" : l.pruefung ? "Verlassen" : "Abbrechen") + '</button><div class="lp-kopf"><h2>' + (l.pruefung ? window.__SYMBOL("dokument") + " " : "") + h(l.titel) + "</h2></div>";
+    var s = '<button class="back" data-lp="zurueck">← ' + (l.i >= l.liste.length ? "Zur Übersicht" : l.pruefung ? "Verlassen" : "Abbrechen") + '</button><div class="lp-kopf"><h2 tabindex="-1">' + (l.pruefung ? window.__SYMBOL("dokument") + " " : "") + h(l.titel) + "</h2></div>";
     if (!l.liste.length) return s + '<div class="lp-box">Für diese Auswahl gibt es noch keine Aufgaben.</div>';
     if (l.i < l.liste.length) {
       var q = { liste: l.liste.map(function (x) { return x.q; }), i: l.i, auswahl: l.auswahl, fb: null, stufe: 5, eingabe: l.eingabe, pruefung: l.pruefung };
-      return s + '<p class="kl-stand" data-testid="kl-stand">' + (l.liste[l.i].skill === "karteikarten" ? "Karteikarte · " : "") + "Aufgabe " + (l.i + 1) + " von " + l.liste.length + (l.pruefung ? " · Auswertung am Ende" : " · ohne Rückmeldung — die Auswertung kommt am Ende")
+      var pausiert = l.pruefung && pruefungPausiert(l);
+      s += '<p class="kl-stand" data-testid="kl-stand">' + (l.liste[l.i].skill === "karteikarten" ? "Karteikarte · " : "") + "Aufgabe " + (l.i + 1) + " von " + l.liste.length + (l.pruefung ? " · Auswertung am Ende" : " · ohne Rückmeldung — die Auswertung kommt am Ende")
         + (l.minuten ? ' <span class="kl-uhr">' + window.__SYMBOL("zeit") + ' <span data-kl-uhr data-testid="kl-uhr" role="timer" aria-label="Restzeit">' + uhrKl(l) + "</span></span>" : "") + "</p>"
-        + '<div class="kl-balken" aria-hidden="true"><span style="width:' + Math.round(100 * l.i / l.liste.length) + '%"></span></div>' + frageHtml(q);
+        + '<div class="kl-balken" aria-hidden="true"><span style="width:' + Math.round(100 * l.i / l.liste.length) + '%"></span></div>';
+      if (pausiert) return s + '<div class="lp-box"><h3>' + window.__SYMBOL("pause") + ' Test pausiert</h3>'
+        + '<button type="button" class="btn btn-primary" data-lp="test-fortsetzen">' + window.__SYMBOL("play") + ' Test fortsetzen</button></div>';
+      s += frageHtml(q);
+      if (l.pruefung) s += '<div class="lp-knoepfe" role="group" aria-label="Teststeuerung für Eltern">'
+        + Object.entries(testElternAktionen).map(function ([id, a]) {
+          return '<button type="button" class="btn" data-lp="' + id + '">' + window.__SYMBOL(a.icon) + ' ' + a.text + '</button>';
+        }).join("") + '</div><p role="status" data-kl-tauschmeldung></p>';
+      return s;
     }
-    var a = l.ergebnis, min = Math.max(1, Math.round(((istWochentest(l) || l.ende || !l.minuten ? l.dauer : l.verbraucht) || 0) / 60000));
+    var a = l.ergebnis, min = Math.max(1, Math.round(((l.pruefung || !l.minuten ? l.dauer : l.verbraucht) || 0) / 60000));
     if (l.zeitAus) s += '<div class="lp-box kl-zeit" role="status" data-testid="kl-zeit-aus">⏰ Die Zeit war um. Nicht bearbeitete Aufgaben zählen als falsch — wie in der echten Arbeit.</div>';
     s += '<div class="kl-ergebnis" role="status" data-testid="kl-ergebnis"><div class="kl-note n' + a.note + '"><span>Note</span><b>' + a.note + "</b><small>" + h(a.notenwort) + "</small></div>"
       + '<div class="kl-zahlen"><b>' + a.richtig + " von " + a.n + "</b> richtig (" + a.prozent + " %) · " + min + " Min.</div></div>";
@@ -34157,7 +34210,7 @@ function gleicherWochenVersuch(a, b) {
       try { renderTabs(); } catch (e) {}
       var su = fachJetzt(), view = document.getElementById("view");
       var l = kstate.lp;
-      if (l && l.liste && l.i < l.liste.length && !l.fb && l.qStart == null) l.qStart = jetztAktiv();   /* Bearbeitungszeit (M10), seit M6 rein aktiv */
+      if (l && l.liste && l.i < l.liste.length && !l.fb && !pruefungPausiert(l) && l.qStart == null) l.qStart = jetztAktiv();   /* Bearbeitungszeit (M10), seit M6 rein aktiv */
       /* Eine laufende Lektion/Runde braucht kein Fach aus der Seitenleiste
          (aus dem Tagesplan kann sie für ein anderes Fach gestartet sein). */
       if (!su && !l) { kstate.tab = null; return renderVorher.apply(this, arguments); }
@@ -34205,6 +34258,13 @@ function gleicherWochenVersuch(a, b) {
 
   /* ---------- Klicks ---------- */
   function antwortGeben(l, antwort, istDiagnose) {
+    if (l.pruefung) {
+      if (pruefungPausiert(l)) return;
+      if (!window.__WOCHE?.pruefungAktuell(l)) {
+        zurTestUebersicht(l);
+        return rerenderLp();
+      }
+    }
     if (klausurZeitPruefen(l)) return rerenderLp();
     var q = istDiagnose ? l.liste[l.i].q : l.liste[l.i];
     var ok = bewerte(q, antwort);
@@ -34217,7 +34277,7 @@ function gleicherWochenVersuch(a, b) {
       var LM = window.__LERNMODELL, skillQ = istDiagnose ? l.liste[l.i].skill : l.skill || q.skill;
       var vorher = LM && skillQ && (l.stufe === 3 || l.stufe === 4 || l.stufe === 5) && !istDiagnose && l.art === "lektion" && !l.gestuft ? LM.levelVon(skillQ, klasse()).level : 0;
       var karte = skillQ === "karteikarten";
-      ereignis = { skill: karte ? null : skillQ, fach: karte ? q.fach : (SKILLS[skillQ] || {}).fach || "", ok: ok, w: karte ? "kartentest" : l.art === "klausur" ? "klausur" : undefined,
+      ereignis = { skill: karte ? null : skillQ, fach: karte ? q.fach : (SKILLS[skillQ] || {}).fach || "", ok: ok, w: karte ? "kartentest" : l.art === "klausur" ? "klausur" : istDiagnose ? "diagnose" : undefined,
         frage: String(q.q || "").replace(/<[^>]+>/g, ""), gegeben: gegeben, richtig: loesungText(q), dauer: l.qStart != null ? Math.max(0, jetztAktiv() - l.qStart) : 0,
         aufgabe: q.id || null, hinweise: l.hinweise || 0, level: LM ? LM.aufgabenLevel(q) : 0 };
       if (!l.pruefung) melde("lp:antwort", ereignis);
@@ -34325,6 +34385,8 @@ function gleicherWochenVersuch(a, b) {
     }
     if (a === "diagnose") { var pfD = pfadFuer(fachJetzt()); if (pfD) diagnoseStarten(pfD.fach); return rerenderLp(); }
     if (!l) return;
+    if (l.pruefung && a === "test-fortsetzen") return testFortsetzen(l);
+    if (l.pruefung && Object.hasOwn(testElternAktionen, a)) return testElternAktion(l, testElternAktionen[a]);
     if (a === "aufloesen") { l.aufgeloest = true; return rerenderLp(); }
     if (a === "stufe") { stufeSetzen(l, l.art === "lektion" && (l.stufe >= 3 || (l.stufe === 2 && l.geuebt)) ? 5 : l.stufe + 1); return rerenderLp(); }   /* M75: nach dem Üben gleich der Nachweis */
     if (a === "nochmal") {
@@ -34433,13 +34495,12 @@ function gleicherWochenVersuch(a, b) {
       if (LM && LM.starteWiederholung(ziel.anzahl || 8, ziel.ruecksprung || null)) return;
       ziel = { typ: "runde", titel: "🔁 Aufwärmen", skills: ziel.skills || [], anzahl: 5, ruecksprung: ziel.ruecksprung };
     }
-    if (ziel.typ === "klausur") { klausurStarten(ziel); if (ziel.lauf && !istWochentest(ziel.lauf)) klausurZeitPruefen(kstate.lp); }
+    if (ziel.typ === "klausur") { klausurStarten(ziel); if (ziel.auswerten && klausurZeitPruefen(kstate.lp) && !kstate.lp) return rerenderLp(); }
     else if (ziel.typ === "runde" && Array.isArray(ziel.liste)) kstate.lp = { art: "runde", titel: ziel.titel || "🔁 Runde", liste: ohneAussortierte(ziel.liste, aussortiertStand(), Date.now()).map(mischeAntworten), i: 0, auswahl: [], fb: null, stufe: 4, richtig: 0, hinweise: 0 };   /* M51: feste Aufgabenliste (Rechtschreibtrainer) */
     else if (ziel.typ === "runde") rundeStarten(ziel.titel || "🔁 Aufwärmen", ziel.skills || [], ziel.anzahl || 5);
     else lektionStarten(ziel.skill, ziel.stufe || 1);
     kstate.lp.ruecksprung = ziel.ruecksprung || null;
     kstate.tab = "lernpfad";
-    wochenUhrSchalten(false);
     rerenderLp();
   }
   function wochenErgebnisEntfernen(id, ergebnis) {
@@ -34484,7 +34545,7 @@ function gleicherWochenVersuch(a, b) {
       liste: function () { return aussortierteListe(aussortiertStand(), Date.now()); }, zurueck: function (id) { try { if (window.__RUECK) window.__RUECK.merken("Aufgabe zurückgeholt", [aussortiertKey()]); } catch (x) {} aussortiertSpeichern(zurueckholen(aussortiertStand(), id)); },
       /* M68: Elternbereich — art „eltern“ */
       setzen: function (id, art) { try { if (window.__RUECK) window.__RUECK.merken("Aufgabe aus der Wiederholung genommen", [aussortiertKey()]); } catch (x) {} aussortiertSpeichern(aussortieren(aussortiertStand(), id, art, Date.now())); }, ist: function (id) { return istAussortiert(aussortiertStand(), id, Date.now()); } },
-    checkAktion: checkAktion, mathKlasse: function () { try { return defGrade(); } catch (e) { return null; } }, pfad: pfad, aufgabenVon: aufgabenVon, mischeAntworten: mischeAntworten, bewerte: bewerte, lade: lade, stand: stand, starte: starte, klausuren: klausurenLaden, wochenErgebnisEntfernen: wochenErgebnisEntfernen, wochenUhrSchalten: wochenUhrSchalten, spielbar: spielbar,
+    checkAktion: checkAktion, mathKlasse: function () { try { return defGrade(); } catch (e) { return null; } }, pfad: pfad, aufgabenVon: aufgabenVon, mischeAntworten: mischeAntworten, bewerte: bewerte, lade: lade, stand: stand, starte: starte, klausuren: klausurenLaden, wochenErgebnisEntfernen: wochenErgebnisEntfernen, spielbar: spielbar,
     FACH: FACH, klasse: klasse, SKILLS: SKILLS, teileHtml: function (thema, checks, attr) { return teileHtml(verstehenTeile([thema]), checks, attr); }, klasseAendern: klasseAendern, themenVon: themenVon,
     pfadFuer: pfadFuer, faecherHeute: faecherHeute, faecherThemen: faecherThemen, hatPfad: hatPfad, PFADE: PFADE, fachJetzt: fachJetzt,
     fokusUmziehen: function (f) { return fokusUmziehen(f, SKILLS); } };
@@ -43784,6 +43845,18 @@ function prioritaeten(lage) {
 
 const normTestFrage = (s) => String(s || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
 
+function testErsatzaufgabe(fragen, belegt, aktuell, richtung, zufall = Math.random) {
+  const ids = new Set(belegt.map((x) => x.q.id));
+  const texte = new Set(belegt.map((x) => normTestFrage(x.text)));
+  const passend = fragen.filter((x) => !ids.has(x.q.id) && !texte.has(normTestFrage(x.text))
+    && (x.level - aktuell.level) * richtung >= 0);
+  const andereStufe = passend.filter((x) => x.level !== aktuell.level);
+  const auswahl = andereStufe.length ? andereStufe : passend;
+  const gleichesThema = auswahl.filter((x) => x.skill === aktuell.skill);
+  const vorrat = gleichesThema.length ? gleichesThema : auswahl;
+  return vorrat[Math.floor(zufall() * vorrat.length)] || null;
+}
+
 /** Automatische Tests berücksichtigen die letzte Antwort je Aufgabe und nutzen
  * alte Protokolle ohne Kennung über den gespeicherten Fragetext.
  * @param {{ fragen: {skill: string, text: string, q: {id?: string, t: string, uebungsformat?: string}, level: number}[],
@@ -43952,6 +44025,152 @@ function gleicherWochenVersuch(a, b) {
   return !!(a && b && a.start === b.start && a.pruefung?.versuch === b.pruefung?.versuch);
 }
 
+function testRestzeit(lauf, jetzt) {
+  if (Number.isFinite(lauf.pausiert)) return lauf.pausiert;
+  if (lauf.pruefung.art === 'woche' && !lauf.pruefung.elternSteuerung) {
+    return lauf.minuten * 60000 - wochenVerbrauch(lauf);
+  }
+  return Math.max(0, lauf.ende - jetzt);
+}
+
+
+  // @ts-check
+/**
+ * Der Lernpfad je Fach (AUFTRAG-v2.md §7) — reine Funktion.
+ *
+ * Aus dem Skill-Graph (app/inhalt/skills.json) wird je Fach eine Abfolge
+ * von Stationen: nach Klassenstufe aufsteigend, innerhalb einer Stufe in
+ * der Reihenfolge der Voraussetzungen. Jede Station hat einen Zustand —
+ * gesperrt · verfuegbar · begonnen · gemeistert · wiederholung-faellig —
+ * und, wenn gesperrt, einen Grund. Genau eine Station ist „jetzt dran“.
+ *
+ * Klassenbindung (§7.1): Stufen bis zur eigenen Klasse sind offen
+ * (rückwärts immer), höhere nur mit ausdrücklicher Freigabe. Ohne
+ * bekannte Klasse ist alles offen.
+ *
+ * Voraussetzungen zählen nur innerhalb desselben Fachs; eine Station wird
+ * frei, wenn alle Voraussetzungen einmal `sicher` waren (Höchststand
+ * ≥ 75). Ein späterer Verfall sperrt nichts wieder, sondern macht die
+ * Station „wiederholung-faellig“.
+ */
+
+/** @typedef {{ skill: string, warum?: string } | string} Kante */
+/** @typedef {{ titel: string, fach: string, stufe?: string, klassenstufen?: string[], voraussetzungen?: Kante[] }} Skill */
+/** @typedef {{ score: number, hoechst: number, gesehen: number }} MasteryStand */
+/** @typedef {'gesperrt'|'verfuegbar'|'begonnen'|'gemeistert'|'wiederholung-faellig'} Zustand */
+/** @typedef {{ skill: string, titel: string, stufe: string, klasse: number, zustand: Zustand, grund: string, jetzt: boolean, score: number }} Station */
+
+/* Eigener Name: mastery.js deklariert FREI_AB, beide landen beim Bauen im selben Baustein. */
+const PFAD_FREI_AB = 75;
+
+/** Kleinste Klasse eines Skills; "910" → 9, "alle" → 0. @param {Skill} s */
+function klasseVon(s) {
+  const k = (s.klassenstufen || []).map((x) => (x === 'alle' ? 0 : x === '910' ? 9 : parseInt(x, 10)))
+    .filter((x) => Number.isFinite(x));
+  return k.length ? Math.min(...k) : 0;
+}
+
+/** Einzelklassen und gemeinsame Stufen wie Klasse 3/4 anzeigen.
+ * @param {{ klasse: number, stufe: string }} station @param {number} klasse */
+function stationPasstZurKlasse(station, klasse) {
+  const gruppe = /^Klasse\s+(\d+)\s*[/–-]\s*(\d+)$/.exec(station.stufe);
+  return gruppe ? klasse >= Number(gruppe[1]) && klasse <= Number(gruppe[2]) : station.klasse === klasse;
+}
+
+/** @param {Kante} k */
+const kanteZu = (k) => (typeof k === 'string' ? { skill: k } : k);
+
+/**
+ * @param {Record<string, Skill>} skills
+ * @param {{ fach: string, klasse?: number | null, freigaben?: string[], mastery?: Record<string, MasteryStand> }} wahl
+ * @returns {Station[]}
+ */
+function stationen(skills, wahl) {
+  const mastery = wahl.mastery || {};
+  const freigaben = wahl.freigaben || [];
+  const ids = Object.keys(skills).filter((id) => skills[id].fach === wahl.fach);
+  const imFach = new Set(ids);
+  const reihe = new Map(ids.map((id, i) => [id, i]));
+
+  /* Innerhalb derselben Klassenstufe topologisch, sonst nach Klasse. */
+  const geordnet = [];
+  const erledigt = new Set();
+  /* Klassenübergreifende Skills („alle“, z. B. Sachaufgaben) sind immer
+     offen, stehen aber HINTER den Stationen der Klassen — sonst begänne der
+     Mathe-Pfad der 3. Klasse mit den Sachaufgaben (im Tagesplan aufgefallen). */
+  const rang = (id) => ((skills[id].klassenstufen || []).includes('alle') ? 99 : klasseVon(skills[id]));
+  const nachKlasse = ids.slice().sort((a, b) => rang(a) - rang(b) || reihe.get(a) - reihe.get(b));
+  const besuche = (id, weg) => {
+    if (erledigt.has(id) || weg.has(id)) return;
+    weg.add(id);
+    for (const k of skills[id].voraussetzungen || []) {
+      const v = kanteZu(k).skill;
+      if (imFach.has(v) && klasseVon(skills[v]) === klasseVon(skills[id])) besuche(v, weg);
+    }
+    weg.delete(id);
+    erledigt.add(id);
+    geordnet.push(id);
+  };
+  nachKlasse.forEach((id) => besuche(id, new Set()));
+
+  const m = (id) => mastery[id] || { score: 0, hoechst: 0, gesehen: 0 };
+  const warSicher = (id) => m(id).hoechst >= PFAD_FREI_AB;
+
+  const liste = geordnet.map((id) => {
+    const s = skills[id], klasse = klasseVon(s), stufe = s.stufe || '';
+    const stand = m(id);
+    let zustand = /** @type {Zustand} */ ('verfuegbar'), grund = '';
+    const stufeOffen = wahl.klasse == null || klasse <= wahl.klasse || freigaben.includes(stufe);
+    const fehlend = (s.voraussetzungen || []).map(kanteZu).filter((k) => imFach.has(k.skill) && !warSicher(k.skill));
+    if (!stufeOffen) {
+      zustand = 'gesperrt';
+      grund = stufe + ' ist noch nicht freigegeben — das können die Eltern tun.';
+    } else if (fehlend.length) {
+      zustand = 'gesperrt';
+      grund = 'Erst „' + fehlend.map((k) => skills[k.skill].titel).join('“ und „') + '“ meistern.'
+        + (fehlend[0].warum ? ' ' + fehlend[0].warum : '');
+    } else if (stand.score >= PFAD_FREI_AB) zustand = 'gemeistert';
+    else if (stand.hoechst >= PFAD_FREI_AB) zustand = 'wiederholung-faellig';
+    else if (stand.gesehen > 0) zustand = 'begonnen';
+    return { skill: id, titel: s.titel, stufe, klasse, zustand, grund, jetzt: false, score: stand.score, stufeOffen };
+  });
+
+  /* M29: „Jetzt dran“ beginnt in der Stufe der eigenen Klasse (Klasse 3 →
+     „Klasse 3/4“, nicht zuerst zehn Stationen der Klasse 1/2). Niedrigere
+     Stufen bleiben offen zum Wiederholen; ist die eigene Stufe fertig, geht
+     es dort weiter, wo noch etwas offen ist. */
+  const eigene = wahl.klasse == null ? null
+    : Math.max(-1, ...liste.filter((x) => x.klasse > 0 && x.klasse <= wahl.klasse).map((x) => x.klasse));
+  const offen = (x) => x.zustand === 'begonnen' || x.zustand === 'verfuegbar';
+  const dran = liste.find((x) => x.zustand === 'wiederholung-faellig')
+    || (eigene != null && eigene >= 0 ? liste.find((x) => x.klasse === eigene && offen(x)) : null)
+    || liste.find(offen);
+  if (dran) dran.jetzt = true;
+  return liste;
+}
+
+/**
+ * Themenpfad (M16): Wo der Skill-Graph grob ist — Sachfächer, Englisch und
+ * Studium der Erwachsenen —, wird jedes Thema eine Station. Die Themen
+ * werden zu Skills „thema:<id>“, damit stationen(), Mastery und Tagesplan
+ * sie wie jeden anderen Skill behandeln.
+ * @param {{ stufe: string, klasse: number, themen: { id?: string, title?: string, name?: string, ex?: any[] }[] }[]} gruppen
+ * @param {string} fach eindeutiger Fachname des Pfads, z. B. "Pfad:Biologie"
+ * @returns {Record<string, Skill & { masteryItems: number, thema: string }>}
+ */
+function themenSkills(gruppen, fach) {
+  const out = {};
+  for (const g of gruppen || []) for (const t of g.themen || []) {
+    if (!t || !t.id) continue;
+    const id = 'thema:' + t.id;
+    if (out[id]) continue;
+    const n = Array.isArray(t.ex) ? t.ex.length : 0;
+    out[id] = { titel: t.title || t.name || t.id, fach, stufe: g.stufe, klassenstufen: [String(g.klasse || 0)], voraussetzungen: [],
+      masteryItems: n ? Math.min(8, n) : 8, thema: t.id };
+  }
+  return out;
+}
+
 
   if (typeof kstate === "undefined" || typeof render !== "function") return;
   var STIMMUNG = [["super", "😄"], ["gut", "🙂"], ["geht so", "😐"], ["schwer", "😟"], ["zu viel", "😵"]];
@@ -44036,6 +44255,22 @@ function gleicherWochenVersuch(a, b) {
     var t = document.createElement("template"); t.innerHTML = html;
     return t.content.textContent.replace(/\s+/g, " ").trim();
   }
+  function ersatzaufgabe(l, richtung) {
+    var L = LP(), klasse = L.klasse(), lernstand = L.lade().m, LM = window.__LERNMODELL;
+    var geuebt = new Set(ereignisse().filter(function (e) {
+      return e.s && (e.ok === 0 || e.ok === 1) && e.w !== "klausur" && e.w !== "kartentest" && e.w !== "diagnose";
+    }).map(function (e) { return e.s; }));
+    function kandidat(x) {
+      return { skill: x.skill, q: x.q, text: frageText(x.q.q), level: LM.aufgabenLevel(x.q) };
+    }
+    var fragen = stationenFuerTests().filter(function (s) {
+      return (klasse == null ? !istKind() : stationPasstZurKlasse(s, klasse))
+        && (geuebt.has(s.skill) || lernstand[s.skill]?.v?.length);
+    }).flatMap(function (s) {
+      return L.aufgabenVon(s.skill).map(function (q) { return kandidat({ skill: s.skill, q: q }); });
+    });
+    return testErsatzaufgabe(fragen, l.liste.concat(l.ausgetauscht || []).map(kandidat), kandidat(l.liste[l.i]), richtung);
+  }
   function kartenFuer(art, n, log) {
     if (!n || !window.__KARTEN) return [];
     var jetzt = Date.now(), tage = art === "woche" ? 7 : 31;
@@ -44118,27 +44353,30 @@ function gleicherWochenVersuch(a, b) {
     var minuten = t.lauf?.minuten || t.ergebnis?.minuten || t.minuten;
     return anzahl ? { anzahl: anzahl, minuten: minuten, erledigt: !!t.ergebnis && !t.lauf } : null;
   }
-  function testStarten(vorhersage, art, eigenId) {
-    var t = testDetails(art || "woche", eigenId), L = LP();
+  function testStarten(vorhersage, art, eigenId, auswerten) {
+    var t = testDetails(art || "woche", art === "eigen" ? eigenId : undefined), L = LP();
     if (!L || !t || (t.ergebnis && !t.lauf && t.art !== "eigen" && !wirdWiederholt(t))) return false;
     if (t.lauf) {
-      if (t.art === "woche" && !t.lauf.antworten.length && wochenVerbrauch(t.lauf) >= t.lauf.minuten * 60000) return false;
-      if (t.art === "woche") t.lauf.pruefung.profil = profil().id;
+      var abgelaufen = testRestzeit(t.lauf, Date.now()) <= 0;
+      if (auswerten ? !abgelaufen || !t.lauf.antworten.length : abgelaufen) {
+        neu();
+        return false;
+      }
+      t.lauf.pruefung.profil = profil().id;
       // Bei fortgesetzten Tests kommen korrigierte Fragetexte aus dem Bestand.
       // Reihenfolge, bereits abgegebene Antworten und Restzeit bleiben erhalten.
       t.lauf.liste.slice(t.lauf.i).forEach(function (x) {
         var aktuell = L.aufgabenVon(x.skill, true).find(function (q) { return q.id === x.q.id; });
         if (aktuell && aktuell.t === x.q.t) x.q.q = aktuell.q;
       });
-      L.starte({ typ: "klausur", lauf: t.lauf, ruecksprung: t.tab }); return true;
+      L.starte({ typ: "klausur", lauf: t.lauf, ruecksprung: t.tab, auswerten: auswerten }); return true;
     }
     var liste = testListe(t);
     if (!liste.length || (t.eigen && t.anzahl !== liste.filter(function (x) { return x.skill !== "karteikarten"; }).length)) return false;
     if (t.art === "woche" && (!Number.isInteger(vorhersage) || vorhersage < 0 || vorhersage > liste.length)) return false;
-    var pruefung = { art: t.art, zeitraum: t.zeitraum, vorhersage: vorhersage };
+    var pruefung = { art: t.art, zeitraum: t.zeitraum, vorhersage: vorhersage, profil: profil().id,
+      versuch: Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9) };
     if (t.art === "woche") {
-      pruefung.profil = profil().id;
-      pruefung.versuch = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
       wiederholung = null;
       window.__HEUTE?.wiederOffen("wochentest");
     }
@@ -44146,12 +44384,14 @@ function gleicherWochenVersuch(a, b) {
     return true;
   }
   function pruefungAktuell(l) {
-    return gleicherWochenVersuch(laden(l.pruefung.profil).aktiveTests?.[l.id], l);
+    var gespeichert = laden(l.pruefung.profil).aktiveTests?.[l.id];
+    return gleicherWochenVersuch(gespeichert, l) && (gespeichert.revision || 0) === (l.revision || 0);
   }
   document.addEventListener("lp:pruefung-stand", function (e) {
     var l = e.detail.lauf, pid = l.pruefung.profil, v = laden(pid);
     v.aktiveTests = v.aktiveTests || {};
-    if (l.pruefung.art === "woche" && !e.detail.neu && !gleicherWochenVersuch(v.aktiveTests[l.id], l)) return;
+    if (!e.detail.neu && !pruefungAktuell(l)) return;
+    l.revision = (l.revision || 0) + 1;
     v.aktiveTests[l.id] = l;
     speichern(v, pid);
   });
@@ -44186,17 +44426,22 @@ function gleicherWochenVersuch(a, b) {
   async function bestaetigen(titel, text, knopf) {
     var schutz = window.__PROFILSCHUTZ;
     if (!schutz?.hinweis) return window.confirm(titel + "\n\n" + text);
-    return await schutz.hinweis(titel, h(text), [["nein", "Abbrechen"], ["ja", knopf, true]]) === "ja";
+    return await schutz.hinweis(h(titel), h(text), [["nein", "Abbrechen"], ["ja", knopf, true]]) === "ja";
   }
-  async function neuStarten() {
-    var p = profil(), t = testDetails("woche");
-    if (!p || !t.lauf) return;
-    if (t.lauf.i && !await bestaetigen("Wochentest neu starten?", "Die abgegebenen Antworten aus diesem Versuch werden verworfen.", "Neu starten")) return;
+  async function neuStarten(art, eigenId) {
+    var p = profil(), t = testDetails(art, art === "eigen" ? eigenId : undefined);
+    if (!p || !t?.lauf) return;
+    if (t.lauf.i && !await bestaetigen(t.titel + " neu starten?", "Die abgegebenen Antworten aus diesem Versuch werden verworfen.", "Neu starten")) return;
     var v = laden(p.id);
-    if (p.id !== profil()?.id || !gleicherWochenVersuch(v.aktiveTests?.[t.id], t.lauf)) return;
+    if (p.id !== profil()?.id || !pruefungAktuell(t.lauf)) return;
     delete v.aktiveTests[t.id];
     speichern(v, p.id);
-    wiederholen(t);
+    if (art === "woche") wiederholen(t);
+    else {
+      kstate.lp = null;
+      testEntwurf = null;
+      neu();
+    }
   }
   function bewertungen() {
     var liste = (LP()?.klausuren().laeufe || []).filter(function (x) { return /^woche:/.test(x.id); })
@@ -44284,14 +44529,17 @@ function gleicherWochenVersuch(a, b) {
     var s = '<div class="hb wo-seite"><button class="back" data-wo="zurueck">' + window.__SYMBOL("links") + ' Fortschritt</button>';
     if (!t) return s + '<p>Dieser Test ist nicht verfügbar.</p></div>';
     s += '<h2 class="hb-titel">' + window.__SYMBOL(art === "monat" ? "plan" : "dokument") + " " + h(t.titel) + "</h2>";
-    if (art === "woche" && t.lauf) {
-      var rest = t.lauf.minuten * 60000 - wochenVerbrauch(t.lauf), sek = Math.ceil(rest / 1000);
-      var abgelaufen = !sek && !t.lauf.antworten.length;
-      s += '<p class="hb-sub">' + (abgelaufen ? "Die Zeit ist abgelaufen. Du hast keine Antwort abgegeben."
-        : "Du hast " + t.lauf.i + " von " + t.lauf.liste.length + " Aufgaben abgegeben. Die Zeit läuft weiter, sobald du den Test fortsetzt.") + '</p>';
-      if (!abgelaufen) s += '<p>Verbleibende Zeit <strong>' + Math.floor(sek / 60) + ':' + String(sek % 60).padStart(2, "0") + '</strong></p>';
-      return s + '<div class="wo-knoepfe">' + (abgelaufen ? "" : '<button type="button" class="btn btn-primary" data-wo="beginnen">Test fortsetzen</button>')
-        + '<button type="button" class="btn' + (abgelaufen ? ' btn-primary' : '') + '" data-wo="neu-starten">Neu starten</button></div></div>';
+    if (t.lauf) {
+      var sek = Math.ceil(testRestzeit(t.lauf, Date.now()) / 1000);
+      var pausiert = Number.isFinite(t.lauf.pausiert), abgelaufen = !sek;
+      s += '<p class="hb-sub">' + (abgelaufen ? "Die Testzeit ist abgelaufen. " : "")
+        + (abgelaufen && !t.lauf.i ? "Du hast keine Antwort abgegeben." : "Du hast " + t.lauf.i + " von " + t.lauf.liste.length + " Aufgaben abgegeben.") + '</p>';
+      if (pausiert) s += '<p>Test pausiert · Noch <strong>' + Math.floor(sek / 60) + ':' + String(sek % 60).padStart(2, "0") + '</strong></p>';
+      else if (!abgelaufen) s += '<p>Die Zeit läuft weiter.</p>';
+      return s + '<div class="wo-knoepfe">' + (abgelaufen
+        ? (t.lauf.i ? '<button type="button" class="btn btn-primary" data-wo="auswerten">Test auswerten</button>' : "")
+        : '<button type="button" class="btn btn-primary" data-wo="beginnen">' + (pausiert ? "Pausierten Test öffnen" : "Test fortsetzen") + '</button>')
+        + '<button type="button" class="btn' + (abgelaufen && !t.lauf.i ? ' btn-primary' : '') + '" data-wo="neu-starten">Neu starten</button></div></div>';
     }
     if (t.ergebnis && !wirdWiederholt(t)) {
       var e = t.ergebnis;
@@ -44306,7 +44554,6 @@ function gleicherWochenVersuch(a, b) {
       }
       if (art !== "eigen") return s + "</div>";
     }
-    if (t.lauf) return s + '<p class="hb-sub">Du hast ' + t.lauf.i + ' von ' + t.lauf.liste.length + ' Aufgaben abgegeben. Die Zeit läuft seit dem Start weiter.</p><button class="btn btn-primary" data-wo="beginnen">Test fortsetzen</button></div>';
     var liste = testListe(t), n = liste.length, karten = liste.filter(function (x) { return x.skill === "karteikarten"; }).length;
     if (!n && t.eigen && !t.anzahl && t.karten) return s + "<p>Für diesen Test sind momentan keine schwierigen Karteikarten verfügbar.</p></div>";
     if (!n || (t.eigen && n - karten !== t.anzahl)) return s + "<p>Für diesen Test fehlen Aufgaben aus der Auswahl.</p></div>";
@@ -44315,7 +44562,7 @@ function gleicherWochenVersuch(a, b) {
       + (karten ? " · davon " + karten + (karten === 1 ? " Karteikarte" : " Karteikarten") : "")
       + "</span><span>" + window.__SYMBOL("zeit") + " " + t.minuten + " Min.</span></div>"
       + "<p>Die Zeit beginnt beim Start. Deine Auswertung siehst du nach der letzten Aufgabe oder wenn die Zeit abläuft.</p>";
-    if (art === "woche") s += "<p>Außerhalb des Wochentests pausiert die Uhr. Ohne abgegebene Antwort bleibt der Versuch unbewertet.</p>";
+    s += "<p>Mit der Eltern-PIN kann der Test pausiert werden.</p>";
     if (art !== "woche") return s + '<button class="btn btn-primary" data-wo="beginnen">Test starten</button></div>';
     s += '<p class="wo-h4">' + (kind ? "Wie viele von " + n + " schaffst du?" : "Wie viele von " + n + " erwarten Sie?") + "</p>";
     if (n > 15) return s + '<form class="wo-schaetzen" data-wo-schaetzung><label>Geschätzte richtige Antworten <input name="schaetzung" type="number" required min="0" max="' + n + '"></label><button class="btn btn-primary">Test starten</button></form></div>';
@@ -44567,7 +44814,8 @@ function gleicherWochenVersuch(a, b) {
     else if (t.hasAttribute("data-wo-stimmung")) { if (entwurf) entwurf.stimmung = t.getAttribute("data-wo-stimmung"); }
     else if (was === "test") return testOeffnen();
     else if (was === "wiederholen") return wiederholen(testDetails("woche"));
-    else if (was === "neu-starten") return neuStarten();
+    else if (was === "neu-starten" && TEST_TABS[kstate.tab]) return neuStarten(TEST_TABS[kstate.tab], kstate.woEigen);
+    else if (was === "auswerten" && TEST_TABS[kstate.tab]) return testStarten(undefined, TEST_TABS[kstate.tab], kstate.woEigen, true);
     else if (was === "ergebnis-entfernen") return bewertungEntfernen(t.dataset.woWoche, Number(t.dataset.woZeit));
     else if (was === "monat") { testEntwurf = null; kstate.tab = "monatstest"; }
     else if (was === "rueckblick") { entwurf = null; kstate.tab = "rueckblick"; }
@@ -44588,7 +44836,7 @@ function gleicherWochenVersuch(a, b) {
   function testOeffnen() { testEntwurf = wiederholung = null; kstate.tab = "wochentest"; neu(); }
 
   window.__WOCHE = { html: html, htmlEltern: htmlEltern, prio: prio, themen: themen, themenObj: themenObj, testOffen: testOffen, rueckblickOffen: rueckblickOffen,
-    testOeffnen: testOeffnen, testUebersicht: testUebersicht, pruefungAktuell: pruefungAktuell, aktuelleWoche: heuteMo, wiederholenKnopf: wiederholenKnopf, verwaltung: verwaltung, fokusHeute: function (tag) { return wochenthemaFuerHeute(themen(), tag); }, testStarten: testStarten, laden: laden, fehlerwoerter: fehlerwoerter };
+    testOeffnen: testOeffnen, testUebersicht: testUebersicht, pruefungAktuell: pruefungAktuell, ersatzaufgabe: ersatzaufgabe, aktuelleWoche: heuteMo, wiederholenKnopf: wiederholenKnopf, verwaltung: verwaltung, fokusHeute: function (tag) { return wochenthemaFuerHeute(themen(), tag); }, testStarten: testStarten, laden: laden, fehlerwoerter: fehlerwoerter };
 })();
 
 /* =====================================================================
@@ -51202,7 +51450,6 @@ function nachOben(alt, neu) { return alt !== null && alt !== neu; }
   /* ---------- Hülle um render ---------- */
   var renderVorher = render;
   var renderNeu = function () {
-    window.__LERNPFAD?.wochenUhrSchalten?.(false);
     try { if (window.__OBERFLAECHE && window.__OBERFLAECHE.vorZeichnen) window.__OBERFLAECHE.vorZeichnen(); } catch (e) {}   /* M66 */
     var r = renderVorher.apply(this, arguments);
     try {
@@ -51828,7 +52075,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · <b>v3.2.1</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 3.2.1 · Stand 27.11.2026 18:09")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 3.2.1 · Stand 27.11.2026 18:48")}}catch(e){}
 })();
 
 </script>
