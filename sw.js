@@ -11,14 +11,12 @@
 
    Symbole und Manifest ändern sich selten und kommen aus dem Speicher.
    Der Cache-Name wird beim Bauen gesetzt; ein neuer räumt den alten weg. */
-const CACHE = "lernplattform-v3.2.1-20261127-1732";
+const CACHE = "lernplattform-v3.2.1-20261127-1809";
+const ICON_VERSION = "f95b813c3124";
 const DATEIEN = [
   "index.html",
-  "manifest.webmanifest",
-  "icon-192.png",
-  "icon-512.png",
-  "icon-512-maskable.png",
-  "apple-touch-icon.png"
+  ...["manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-512-maskable.png",
+    "apple-touch-icon.png"].map(datei => datei + "?v=" + ICON_VERSION)
 ];
 
 self.addEventListener("install", e => {

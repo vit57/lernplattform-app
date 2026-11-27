@@ -3176,6 +3176,13 @@ html[data-theme="dunkel"] .natur {
   .natur-paar { gap: 7px; }
   .natur-paar .natur-art figcaption { padding-inline: 8px; }
 }
+
+.wo-bewertungen { margin-block: 12px; }
+.wo-bewertungen summary { cursor: pointer; min-height: 44px; padding-block: 9px; color: var(--ink2); }
+.wo-bewertungen ul { display: grid; gap: 8px; list-style: none; padding: 0; margin: 6px 0; }
+.wo-bewertungen li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.wo-bewertungen small { display: block; color: var(--ink2); }
+.wo-bewertungen .btn, .wo-seite .wo-knoepfe .btn { min-height: 44px; }
 </style>
 <script>
 /* Läuft im <head>, vor der ganzen App: Änderungsstempel für den
@@ -3470,9 +3477,10 @@ function abgleichen(lokal, fremd) {
   setTimeout(frei, 8000);   /* nie dauerhaft verdeckt, auch wenn ein Skript scheitert */
 })();
 </script>
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest?v=f95b813c3124">
 <meta name="theme-color" content="#5b4bd6">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png?v=f95b813c3124">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=f95b813c3124">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
@@ -33182,6 +33190,20 @@ function verstehenTeile(themen) {
 }
 
 
+  /** Dauer der sichtbar bearbeiteten Prüfung. Alte Läufe mit absoluter
+ * Frist übernehmen die bereits gemessene Bearbeitungszeit ihrer Antworten. */
+function wochenVerbrauch(lauf, seitLetzterMessung = 0) {
+  const gespeichert = Number.isFinite(lauf.ende)
+    ? (lauf.antworten || []).reduce((ms, a) => ms + Math.max(0, Number(a.ereignis?.dauer) || 0), 0)
+    : Math.max(0, Number(lauf.verbraucht) || 0);
+  return Math.min(lauf.minuten * 60000, gespeichert + Math.max(0, seitLetzterMessung));
+}
+
+function gleicherWochenVersuch(a, b) {
+  return !!(a && b && a.start === b.start && a.pruefung?.versuch === b.pruefung?.versuch);
+}
+
+
   if (typeof kstate === "undefined" || typeof render !== "function" || typeof PROFILES === "undefined") return;
   var INHALT = window.__INHALT_DATEN;
   if (!INHALT || !INHALT.skills) return;
@@ -33962,7 +33984,14 @@ function verstehenTeile(themen) {
   function klausurKey() { var p = profil(); return "egl-klausur-" + (p ? p.id : "anon"); }
   function klausurenLaden() { try { var v = JSON.parse(localStorage.getItem(klausurKey()) || "{}") || {}; v.laeufe = v.laeufe || []; return v; } catch (e) { return { laeufe: [] }; } }
   function klausurStarten(ziel) {
-    if (ziel.lauf) { kstate.lp = ziel.lauf; return; }
+    if (ziel.lauf) {
+      kstate.lp = ziel.lauf;
+      if (istWochentest(ziel.lauf) && Number.isFinite(ziel.lauf.ende)) {
+        ziel.lauf.verbraucht = wochenVerbrauch(ziel.lauf);
+        delete ziel.lauf.ende;
+      }
+      return;
+    }
     var skills = (ziel.skills || []).filter(function (sk) { return SKILLS[sk] && spielbar(sk); });
     var grenze = Date.now() - 14 * 86400000, gesehen = [];
     try { (window.__ELTERN ? window.__ELTERN.ereignisse() : []).forEach(function (e) { if (e.a && e.t > grenze) gesehen.push(e.a); }); } catch (e) {}
@@ -33974,15 +34003,49 @@ function verstehenTeile(themen) {
     if (ziel.pruefung) {
       var l = kstate.lp;
       l.pruefung = ziel.pruefung;
-      l.ende = l.start + l.minuten * 60000;
-      melde("lp:pruefung-stand", l);
+      if (!istWochentest(l)) l.ende = l.start + l.minuten * 60000;
+      melde("lp:pruefung-stand", { lauf: l, neu: true });
     }
   }
-  /* M50: Zeitlimit */
-  function restKl(l) { return Math.max(0, l.ende ? Math.ceil((l.ende - Date.now()) / 1000) : Math.round(l.minuten * 60 - (l.verbraucht || 0) / 1000)); }
+  /* Sichtbare Bearbeitungszeit für den Wochentest. */
+  var wochenUhr = null;
+  function istWochentest(l) { return l?.pruefung?.art === "woche"; }
+  function wochenZeit(l, jetzt) {
+    return wochenVerbrauch(l, wochenUhr?.lauf === l ? jetzt - wochenUhr.seit : 0);
+  }
+  function pruefungsStand(l) {
+    if (istWochentest(l) && wochenUhr?.lauf === l) {
+      var jetzt = Date.now();
+      l.verbraucht = wochenZeit(l, jetzt);
+      wochenUhr.seit = jetzt;
+    }
+    melde("lp:pruefung-stand", { lauf: l });
+  }
+  function wochenUhrSchalten(pause) {
+    if (!wochenUhr && !istWochentest(kstate.lp)) return;
+    var p = profil(), l = !pause && p && kstate.tab === "lernpfad"
+      && document.visibilityState !== "hidden" && !(typeof showProfiles !== "undefined" && showProfiles) ? kstate.lp : null;
+    if (!istWochentest(l) || l.ergebnis || l.pruefung.profil !== p?.id) l = null;
+    if (wochenUhr?.lauf === l) return;
+    if (wochenUhr && !wochenUhr.lauf.ergebnis) pruefungsStand(wochenUhr.lauf);
+    wochenUhr = l ? { lauf: l, seit: Date.now() } : null;
+  }
+  document.addEventListener("visibilitychange", function () { wochenUhrSchalten(false); });
+  window.addEventListener?.("pagehide", function () { wochenUhrSchalten(true); });
+  window.addEventListener?.("pageshow", function () { wochenUhrSchalten(false); });
+  function restKl(l) {
+    if (istWochentest(l)) return Math.ceil((l.minuten * 60000 - wochenZeit(l, Date.now())) / 1000);
+    return Math.max(0, l.ende ? Math.ceil((l.ende - Date.now()) / 1000) : Math.round(l.minuten * 60 - (l.verbraucht || 0) / 1000));
+  }
   function uhrKl(l) { var r = restKl(l), m = Math.floor(r / 60), s = r % 60; return m + ":" + (s < 10 ? "0" : "") + s; }
   function klausurZeitPruefen(l) {
     if (!l || l.art !== "klausur" || !l.minuten || l.ergebnis || restKl(l) > 0) return false;
+    if (istWochentest(l) && !l.antworten.length) {
+      pruefungsStand(l);
+      kstate.lp = null;
+      kstate.tab = l.ruecksprung;
+      return true;
+    }
     for (; l.i < l.liste.length; l.i++) l.antworten.push({ skill: l.liste[l.i].skill, ok: false, q: l.liste[l.i].q, gegeben: "— (keine Zeit mehr)" });
     l.zeitAus = true; l.auswahl = []; l.fb = null; l.eingabe = "";
     klausurAbschliessen(l);
@@ -33990,10 +34053,14 @@ function verstehenTeile(themen) {
   }
   setInterval(function () {
     try {
+      wochenUhrSchalten(false);
       var l = kstate.lp;
       if (!l || l.art !== "klausur" || !l.minuten || l.ergebnis || kstate.tab !== "lernpfad" || l.i >= l.liste.length) return;
       if (!l.ende && typeof document.visibilityState === "string" && document.visibilityState !== "visible") return;
-      if (!l.ende) l.verbraucht = (l.verbraucht || 0) + 1000;
+      if (istWochentest(l)) {
+        if (wochenUhr?.lauf !== l) return;
+        if (Date.now() - wochenUhr.seit >= 10000) pruefungsStand(l);
+      } else if (!l.ende) l.verbraucht = (l.verbraucht || 0) + 1000;
       var u = document.querySelector("[data-kl-uhr]");
       if (u) { u.textContent = uhrKl(l); u.parentElement.classList.toggle("knapp", restKl(l) <= 60); }
       if (klausurZeitPruefen(l)) rerenderLp();
@@ -34001,15 +34068,22 @@ function verstehenTeile(themen) {
   }, 1000);
   function klausurAbschliessen(l) {
     if (l.ergebnis) return;
+    if (istWochentest(l) && !window.__WOCHE?.pruefungAktuell(l)) {
+      kstate.lp = null;
+      kstate.tab = l.ruecksprung;
+      return;
+    }
     var a = auswertung(l.antworten, function (sk) { return sk === "eigene-aufgaben" ? "Eigene Aufgaben" : sk === "karteikarten" ? "Karteikarten" : (SKILLS[sk] || {}).titel || sk; });
-    l.ergebnis = a; l.dauer = (l.ende ? Math.min(Date.now(), l.ende) : Date.now()) - l.start;
+    l.ergebnis = a;
+    l.dauer = istWochentest(l) ? wochenZeit(l, Date.now()) : (l.ende ? Math.min(Date.now(), l.ende) : Date.now()) - l.start;
     if (l.pruefung) l.antworten.forEach(function (x) { if (x.ereignis && x.skill !== "eigene-aufgaben") melde("lp:antwort", x.ereignis); });
     var v = klausurenLaden();
-    v.laeufe.push({ id: l.id, titel: l.titel, t: Date.now(), n: a.n, richtig: a.richtig, note: a.note, dauer: l.dauer,
+    var beendet = Date.now();
+    v.laeufe.push({ id: l.id, titel: l.titel, t: beendet, versuch: l.pruefung?.versuch, n: a.n, richtig: a.richtig, note: a.note, dauer: l.dauer,
       jeStation: a.jeStation.map(function (x) { return { skill: x.skill, n: x.n, richtig: x.richtig }; }) });
     if (v.laeufe.length > 60) v.laeufe = v.laeufe.slice(-60);
     try { localStorage.setItem(klausurKey(), JSON.stringify(v)); } catch (e) {}
-    melde("lp:klausur-fertig", { id: l.id, titel: l.titel, note: a.note, prozent: a.prozent, pruefung: l.pruefung,
+    melde("lp:klausur-fertig", { id: l.id, titel: l.titel, note: a.note, prozent: a.prozent, pruefung: l.pruefung, beendet: beendet,
       n: a.n, richtig: a.richtig, karten: a.jeStation.find(function (x) { return x.skill === "karteikarten"; }), fehlerSkills: Array.from(new Set(l.antworten.filter(function (x) { return !x.ok && SKILLS[x.skill]; }).map(function (x) { return x.skill; }))) });
   }
   function htmlKlausur(l) {
@@ -34021,7 +34095,7 @@ function verstehenTeile(themen) {
         + (l.minuten ? ' <span class="kl-uhr">' + window.__SYMBOL("zeit") + ' <span data-kl-uhr data-testid="kl-uhr" role="timer" aria-label="Restzeit">' + uhrKl(l) + "</span></span>" : "") + "</p>"
         + '<div class="kl-balken" aria-hidden="true"><span style="width:' + Math.round(100 * l.i / l.liste.length) + '%"></span></div>' + frageHtml(q);
     }
-    var a = l.ergebnis, min = Math.max(1, Math.round(((l.ende || !l.minuten ? l.dauer : l.verbraucht) || 0) / 60000));
+    var a = l.ergebnis, min = Math.max(1, Math.round(((istWochentest(l) || l.ende || !l.minuten ? l.dauer : l.verbraucht) || 0) / 60000));
     if (l.zeitAus) s += '<div class="lp-box kl-zeit" role="status" data-testid="kl-zeit-aus">⏰ Die Zeit war um. Nicht bearbeitete Aufgaben zählen als falsch — wie in der echten Arbeit.</div>';
     s += '<div class="kl-ergebnis" role="status" data-testid="kl-ergebnis"><div class="kl-note n' + a.note + '"><span>Note</span><b>' + a.note + "</b><small>" + h(a.notenwort) + "</small></div>"
       + '<div class="kl-zahlen"><b>' + a.richtig + " von " + a.n + "</b> richtig (" + a.prozent + " %) · " + min + " Min.</div></div>";
@@ -34037,7 +34111,7 @@ function verstehenTeile(themen) {
     if (falsch.length) s += '<details class="kl-fehler"><summary>❌ ' + falsch.length + (falsch.length === 1 ? " Fehler" : " Fehler") + " ansehen</summary><ol>" + falsch.map(function (x) {
       return "<li><div>" + (x.q.anweisung ? h(x.q.anweisung) + " " : "") + x.q.q + '</div><div class="kl-dein">Deine Antwort: ' + h(x.gegeben || "—") + '</div><div class="kl-richtig">Richtig: <b>' + h(loesungText(x.q)) + "</b></div>" + (x.q.why ? '<div class="kl-why">' + h(x.q.why) + "</div>" : "") + "</li>";
     }).join("") + "</ol></details>";
-    return s + '<div class="lp-knoepfe">' + (l.pruefung ? "" : '<button class="btn btn-primary" data-lp="klausur-nochmal" data-testid="kl-nochmal">🔁 Noch einmal — neue Aufgaben</button>') + '<button class="btn" data-lp="zurueck">Zur Übersicht</button></div>';
+    return s + '<div class="lp-knoepfe">' + (l.pruefung ? (istWochentest(l) && l.pruefung.zeitraum === window.__WOCHE?.aktuelleWoche() ? window.__WOCHE.wiederholenKnopf() : "") : '<button class="btn btn-primary" data-lp="klausur-nochmal" data-testid="kl-nochmal">🔁 Noch einmal — neue Aufgaben</button>') + '<button class="btn" data-lp="zurueck">Zur Übersicht</button></div>';
   }
 
   /* ---------- Klasse ändern (Eltern) ---------- */
@@ -34164,7 +34238,7 @@ function verstehenTeile(themen) {
       l.antworten.push({ skill: l.liste[l.i].skill, ok: ok, q: q, gegeben: gg, ereignis: l.pruefung ? ereignis : undefined });
       l.i++; l.auswahl = []; l.fb = null; l.eingabe = "";
       if (l.i >= l.liste.length) klausurAbschliessen(l);
-      else if (l.pruefung) melde("lp:pruefung-stand", l);
+      else if (l.pruefung) pruefungsStand(l);
       return rerenderLp();
     }
     if (istDiagnose) {
@@ -34359,14 +34433,25 @@ function verstehenTeile(themen) {
       if (LM && LM.starteWiederholung(ziel.anzahl || 8, ziel.ruecksprung || null)) return;
       ziel = { typ: "runde", titel: "🔁 Aufwärmen", skills: ziel.skills || [], anzahl: 5, ruecksprung: ziel.ruecksprung };
     }
-    if (ziel.typ === "klausur") { klausurStarten(ziel); if (ziel.lauf) klausurZeitPruefen(kstate.lp); }
+    if (ziel.typ === "klausur") { klausurStarten(ziel); if (ziel.lauf && !istWochentest(ziel.lauf)) klausurZeitPruefen(kstate.lp); }
     else if (ziel.typ === "runde" && Array.isArray(ziel.liste)) kstate.lp = { art: "runde", titel: ziel.titel || "🔁 Runde", liste: ohneAussortierte(ziel.liste, aussortiertStand(), Date.now()).map(mischeAntworten), i: 0, auswahl: [], fb: null, stufe: 4, richtig: 0, hinweise: 0 };   /* M51: feste Aufgabenliste (Rechtschreibtrainer) */
     else if (ziel.typ === "runde") rundeStarten(ziel.titel || "🔁 Aufwärmen", ziel.skills || [], ziel.anzahl || 5);
     else lektionStarten(ziel.skill, ziel.stufe || 1);
     kstate.lp.ruecksprung = ziel.ruecksprung || null;
     kstate.tab = "lernpfad";
+    wochenUhrSchalten(false);
     rerenderLp();
   }
+  function wochenErgebnisEntfernen(id, ergebnis) {
+    var v = klausurenLaden();
+    var index = v.laeufe.findIndex(function (x) {
+      return x.id === id && (ergebnis.versuch ? x.versuch === ergebnis.versuch : !x.versuch && x.t === ergebnis.t);
+    });
+    if (index < 0) return;
+    v.laeufe.splice(index, 1);
+    localStorage.setItem(klausurKey(), JSON.stringify(v));
+  }
+
   /* M16: Fächer für den Tagesplan — Kinder: Deutsch, Englisch, Mathe (Fokus);
      Erwachsene: Englisch und Studium. */
   /* M43 (Notion „Version 2.0.0“: „Das Wochenthema und Klassenarbeit ist nur für
@@ -34399,7 +34484,7 @@ function verstehenTeile(themen) {
       liste: function () { return aussortierteListe(aussortiertStand(), Date.now()); }, zurueck: function (id) { try { if (window.__RUECK) window.__RUECK.merken("Aufgabe zurückgeholt", [aussortiertKey()]); } catch (x) {} aussortiertSpeichern(zurueckholen(aussortiertStand(), id)); },
       /* M68: Elternbereich — art „eltern“ */
       setzen: function (id, art) { try { if (window.__RUECK) window.__RUECK.merken("Aufgabe aus der Wiederholung genommen", [aussortiertKey()]); } catch (x) {} aussortiertSpeichern(aussortieren(aussortiertStand(), id, art, Date.now())); }, ist: function (id) { return istAussortiert(aussortiertStand(), id, Date.now()); } },
-    checkAktion: checkAktion, mathKlasse: function () { try { return defGrade(); } catch (e) { return null; } }, pfad: pfad, aufgabenVon: aufgabenVon, mischeAntworten: mischeAntworten, bewerte: bewerte, lade: lade, stand: stand, starte: starte, klausuren: klausurenLaden, spielbar: spielbar,
+    checkAktion: checkAktion, mathKlasse: function () { try { return defGrade(); } catch (e) { return null; } }, pfad: pfad, aufgabenVon: aufgabenVon, mischeAntworten: mischeAntworten, bewerte: bewerte, lade: lade, stand: stand, starte: starte, klausuren: klausurenLaden, wochenErgebnisEntfernen: wochenErgebnisEntfernen, wochenUhrSchalten: wochenUhrSchalten, spielbar: spielbar,
     FACH: FACH, klasse: klasse, SKILLS: SKILLS, teileHtml: function (thema, checks, attr) { return teileHtml(verstehenTeile([thema]), checks, attr); }, klasseAendern: klasseAendern, themenVon: themenVon,
     pfadFuer: pfadFuer, faecherHeute: faecherHeute, faecherThemen: faecherThemen, hatPfad: hatPfad, PFADE: PFADE, fachJetzt: fachJetzt,
     fokusUmziehen: function (f) { return fokusUmziehen(f, SKILLS); } };
@@ -34667,6 +34752,13 @@ function wochenblock(test) {
     st.erledigt = st.erledigt || {};
     if (st.erledigt[id]) return;
     st.erledigt[id] = true;
+    speichere(st);
+  }
+
+  function wiederOffen(id) {
+    var st = lade();
+    if (st.datum !== heute() || !st.erledigt?.[id]) return;
+    delete st.erledigt[id];
     speichere(st);
   }
 
@@ -34986,7 +35078,7 @@ function wochenblock(test) {
     if (a === "rueckblick") { kstate.tab = "rueckblick"; return rerender(); }
   }, true);
 
-  window.__HEUTE = { lade: lade, planFuerHeute: planFuerHeute, abhaken: abhaken, zielAendern: zielAendern, fokusAendern: fokusAendern };
+  window.__HEUTE = { lade: lade, planFuerHeute: planFuerHeute, abhaken: abhaken, wiederOffen: wiederOffen, zielAendern: zielAendern, fokusAendern: fokusAendern };
 })();
 
 /* =====================================================================
@@ -43847,6 +43939,20 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
 }
 
 
+  /** Dauer der sichtbar bearbeiteten Prüfung. Alte Läufe mit absoluter
+ * Frist übernehmen die bereits gemessene Bearbeitungszeit ihrer Antworten. */
+function wochenVerbrauch(lauf, seitLetzterMessung = 0) {
+  const gespeichert = Number.isFinite(lauf.ende)
+    ? (lauf.antworten || []).reduce((ms, a) => ms + Math.max(0, Number(a.ereignis?.dauer) || 0), 0)
+    : Math.max(0, Number(lauf.verbraucht) || 0);
+  return Math.min(lauf.minuten * 60000, gespeichert + Math.max(0, seitLetzterMessung));
+}
+
+function gleicherWochenVersuch(a, b) {
+  return !!(a && b && a.start === b.start && a.pruefung?.versuch === b.pruefung?.versuch);
+}
+
+
   if (typeof kstate === "undefined" || typeof render !== "function") return;
   var STIMMUNG = [["super", "😄"], ["gut", "🙂"], ["geht so", "😐"], ["schwer", "😟"], ["zu viel", "😵"]];
   var FRAGEN_KIND = ["Was hat mir diese Woche gefallen?", "Was hat mir nicht gefallen?", "Was habe ich diese Woche gelernt?",
@@ -43857,9 +43963,9 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
   function h(s) { return typeof esc === "function" ? esc(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function LP() { return window.__LERNPFAD || null; }
   function ereignisse() { try { return window.__ELTERN ? window.__ELTERN.ereignisse() : []; } catch (e) { return []; } }
-  function schluessel() { var p = profil(); return "egl-woche-" + (p ? p.id : "anon"); }
-  function laden() { try { var v = JSON.parse(localStorage.getItem(schluessel()) || "{}") || {}; v.wochen = v.wochen || {}; return v; } catch (e) { return { wochen: {} }; } }
-  function speichern(v) { try { localStorage.setItem(schluessel(), JSON.stringify(v)); } catch (e) {} }
+  function schluessel(pid) { return "egl-woche-" + (pid || profil()?.id || "anon"); }
+  function laden(pid) { try { var v = JSON.parse(localStorage.getItem(schluessel(pid)) || "{}") || {}; v.wochen = v.wochen || {}; return v; } catch (e) { return { wochen: {} }; } }
+  function speichern(v, pid) { try { localStorage.setItem(schluessel(pid), JSON.stringify(v)); } catch (e) {} }
   function wocheStand(mo) { var v = laden(); return v.wochen[mo] || {}; }
   function setzeWoche(mo, feld, wert) { var v = laden(); v.wochen[mo] = v.wochen[mo] || {}; v.wochen[mo][feld] = wert; speichern(v); }
   function heuteMo() { return montag(Date.now()); }
@@ -43983,7 +44089,8 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
       return q && { skill: x.skill, q: q };
     }).filter(Boolean);
   }
-  var testEntwurf;
+  var testEntwurf, wiederholung;
+  function wirdWiederholt(t) { return t.art === "woche" && wiederholung === (profil()?.id + "|" + t.id); }
   function testDetails(art, eigenId) {
     var v = laden(), zeitraum = art === "woche" ? heuteMo() : art === "monat" ? monatJetzt() : eigenId;
     var id = art + ":" + zeitraum, eigen = (v.eigeneTests || []).find(function (t) { return t.id === eigenId; });
@@ -44009,12 +44116,14 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
     if (!(t.lauf || t.ergebnis || testOffen())) return null;
     var anzahl = t.lauf ? t.lauf.liste.length : t.ergebnis ? t.ergebnis.n : testListe(t).length;
     var minuten = t.lauf?.minuten || t.ergebnis?.minuten || t.minuten;
-    return anzahl ? { anzahl: anzahl, minuten: minuten, erledigt: !!t.ergebnis } : null;
+    return anzahl ? { anzahl: anzahl, minuten: minuten, erledigt: !!t.ergebnis && !t.lauf } : null;
   }
   function testStarten(vorhersage, art, eigenId) {
     var t = testDetails(art || "woche", eigenId), L = LP();
-    if (!L || !t || (t.ergebnis && t.art !== "eigen")) return false;
+    if (!L || !t || (t.ergebnis && !t.lauf && t.art !== "eigen" && !wirdWiederholt(t))) return false;
     if (t.lauf) {
+      if (t.art === "woche" && !t.lauf.antworten.length && wochenVerbrauch(t.lauf) >= t.lauf.minuten * 60000) return false;
+      if (t.art === "woche") t.lauf.pruefung.profil = profil().id;
       // Bei fortgesetzten Tests kommen korrigierte Fragetexte aus dem Bestand.
       // Reihenfolge, bereits abgegebene Antworten und Restzeit bleiben erhalten.
       t.lauf.liste.slice(t.lauf.i).forEach(function (x) {
@@ -44026,20 +44135,31 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
     var liste = testListe(t);
     if (!liste.length || (t.eigen && t.anzahl !== liste.filter(function (x) { return x.skill !== "karteikarten"; }).length)) return false;
     if (t.art === "woche" && (!Number.isInteger(vorhersage) || vorhersage < 0 || vorhersage > liste.length)) return false;
-    L.starte({ typ: "klausur", id: t.id, titel: t.titel, minuten: t.minuten, anzahl: liste.length, liste: liste, ruecksprung: t.tab,
-      pruefung: { art: t.art, zeitraum: t.zeitraum, vorhersage: vorhersage } });
+    var pruefung = { art: t.art, zeitraum: t.zeitraum, vorhersage: vorhersage };
+    if (t.art === "woche") {
+      pruefung.profil = profil().id;
+      pruefung.versuch = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
+      wiederholung = null;
+      window.__HEUTE?.wiederOffen("wochentest");
+    }
+    L.starte({ typ: "klausur", id: t.id, titel: t.titel, minuten: t.minuten, anzahl: liste.length, liste: liste, ruecksprung: t.tab, pruefung: pruefung });
     return true;
   }
+  function pruefungAktuell(l) {
+    return gleicherWochenVersuch(laden(l.pruefung.profil).aktiveTests?.[l.id], l);
+  }
   document.addEventListener("lp:pruefung-stand", function (e) {
-    var l = e.detail, v = laden();
+    var l = e.detail.lauf, pid = l.pruefung.profil, v = laden(pid);
     v.aktiveTests = v.aktiveTests || {};
+    if (l.pruefung.art === "woche" && !e.detail.neu && !gleicherWochenVersuch(v.aktiveTests[l.id], l)) return;
     v.aktiveTests[l.id] = l;
-    speichern(v);
+    speichern(v, pid);
   });
   document.addEventListener("lp:klausur-fertig", function (e) {
     var d = e.detail, p = d.pruefung;
     if (!p) return;
-    var v = laden(), t = { vorhersage: p.vorhersage, n: d.n, ergebnis: d.richtig, quote: d.richtig / d.n, fehlerSkills: d.fehlerSkills, karten: d.karten, minuten: kstate.lp?.minuten, am: Date.now() };
+    var v = laden(), t = { vorhersage: p.vorhersage, n: d.n, ergebnis: d.richtig, quote: d.richtig / d.n, fehlerSkills: d.fehlerSkills,
+      karten: d.karten, minuten: kstate.lp?.minuten, am: d.beendet, note: d.note, versuch: p.versuch };
     if (v.aktiveTests) delete v.aktiveTests[d.id];
     if (p.art === "woche") {
       v.wochen[p.zeitraum] = v.wochen[p.zeitraum] || {};
@@ -44052,6 +44172,75 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
     speichern(v);
     if (p.art === "woche" && p.zeitraum === heuteMo() && window.__HEUTE) window.__HEUTE.abhaken("wochentest");
   });
+
+  function wiederholenKnopf() {
+    return '<button type="button" class="btn btn-primary" data-wo="wiederholen">' + window.__SYMBOL("wiederholen") + ' Wochentest wiederholen</button>';
+  }
+  function wiederholen(t) {
+    wiederholung = profil().id + "|" + t.id;
+    kstate.lp = null;
+    kstate.tab = "wochentest";
+    testEntwurf = null;
+    neu();
+  }
+  async function bestaetigen(titel, text, knopf) {
+    var schutz = window.__PROFILSCHUTZ;
+    if (!schutz?.hinweis) return window.confirm(titel + "\n\n" + text);
+    return await schutz.hinweis(titel, h(text), [["nein", "Abbrechen"], ["ja", knopf, true]]) === "ja";
+  }
+  async function neuStarten() {
+    var p = profil(), t = testDetails("woche");
+    if (!p || !t.lauf) return;
+    if (t.lauf.i && !await bestaetigen("Wochentest neu starten?", "Die abgegebenen Antworten aus diesem Versuch werden verworfen.", "Neu starten")) return;
+    var v = laden(p.id);
+    if (p.id !== profil()?.id || !gleicherWochenVersuch(v.aktiveTests?.[t.id], t.lauf)) return;
+    delete v.aktiveTests[t.id];
+    speichern(v, p.id);
+    wiederholen(t);
+  }
+  function bewertungen() {
+    var liste = (LP()?.klausuren().laeufe || []).filter(function (x) { return /^woche:/.test(x.id); })
+      .map(function (x) { return { ...x, woche: x.id.slice(6) }; });
+    Object.entries(laden().wochen).forEach(function ([mo, stand]) {
+      var e = stand.test;
+      if (!e) return;
+      var x = liste.find(function (b) { return b.woche === mo && (e.versuch ? b.versuch === e.versuch : !b.versuch); });
+      if (x) x.aktuell = true;
+      else liste.push({ id: "woche:" + mo, woche: mo, t: e.am || 0, versuch: e.versuch, n: e.n, richtig: e.ergebnis, note: e.note, aktuell: true });
+    });
+    return liste.sort(function (a, b) { return b.t - a.t; });
+  }
+  function entfernenKnopf(x) {
+    return '<button type="button" class="btn" data-wo="ergebnis-entfernen" data-wo-woche="' + h(x.woche) + '" data-wo-zeit="' + h(x.t) + '">'
+      + window.__SYMBOL("muell") + ' Bewertung entfernen</button>';
+  }
+  async function bewertungEntfernen(mo, zeit) {
+    var p = profil(), vorher = bewertungen().find(function (x) { return x.woche === mo && x.t === zeit; });
+    if (!p || !vorher) return;
+    if (p.type === "kid" && window.__PROFILSCHUTZ && !await window.__PROFILSCHUTZ.elternOk("Bewertungen entfernen die Eltern.")) return;
+    if (p.id !== profil()?.id || !await bestaetigen("Bewertung entfernen?", "Das Ergebnis dieses Versuchs wird aus der Wochenübersicht und aus den Testergebnissen entfernt.", "Bewertung entfernen")) return;
+    if (p.id !== profil()?.id) return;
+    var x = bewertungen().find(function (b) { return b.woche === mo && b.t === zeit && b.versuch === vorher.versuch; });
+    if (!x) return;
+    LP().wochenErgebnisEntfernen(x.id, x);
+    if (x.aktuell) {
+      var v = laden();
+      delete v.wochen[mo].test;
+      speichern(v);
+      if (mo === heuteMo()) window.__HEUTE?.wiederOffen("wochentest");
+    }
+    testEntwurf = null;
+    neu();
+  }
+  function bewertungenHtml() {
+    var liste = bewertungen();
+    if (!liste.length) return "";
+    return '<details class="wo-bewertungen"><summary>Wochentest-Bewertungen verwalten</summary><ul>' + liste.map(function (x) {
+      return '<li><span>Woche ab ' + h(new Date(x.woche + "T12:00:00").toLocaleDateString("de-DE"))
+        + '<small>' + (x.note ? "Note " + h(x.note) + " · " : "") + h(x.richtig) + ' von ' + h(x.n) + ' richtig</small></span>'
+        + entfernenKnopf(x) + '</li>';
+    }).join("") + '</ul></details>';
+  }
 
   /* ---------- Anzeige: Meine Woche (Fortschritt) ---------- */
   var TAGNAME = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
@@ -44075,7 +44264,8 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
     if (th.length) s += '<p class="wo-themen" data-testid="wo-themen"><b>Wochenthema:</b> ' + th.map(function (t) { return h((t.titel || titelVon(t.skills[0])) + (t.datum ? " (Arbeit am " + t.datum.split("-").reverse().join(".") + ")" : "")); }).join(" · ") + "</p>";
     if (z.staerken.length) s += '<p class="wo-gut">🌟 <b>Super gemacht:</b> ' + z.staerken.slice(0, 3).map(function (x) { return h(titelVon(x.skill)); }).join(", ") + "</p>";
     s += '<div class="wo-knoepfe">';
-    if (w.test) s += '<button class="btn wo-test" data-wo="test" data-testid="wo-test">' + window.__SYMBOL("dokument") + " Wochentest · geschätzt " + w.test.vorhersage + " · geschafft " + w.test.ergebnis + " von " + w.test.n + "</button>";
+    if (laden().aktiveTests?.["woche:" + z.montag]) s += '<button class="btn btn-primary wo-test" data-wo="test" data-testid="wo-test-fortsetzen">' + window.__SYMBOL("dokument") + " Wochentest fortsetzen</button>";
+    else if (w.test) s += '<button class="btn wo-test" data-wo="test" data-testid="wo-test">' + window.__SYMBOL("dokument") + " Wochentest · geschätzt " + w.test.vorhersage + " · geschafft " + w.test.ergebnis + " von " + w.test.n + "</button>";
     else s += '<button class="btn' + (testOffen() ? " btn-primary" : "") + '" data-wo="test" data-testid="wo-test-start">' + window.__SYMBOL("dokument") + " Wochentest" + (testOffen() ? " · jetzt dran" : "") + "</button>";
     var v = laden(), m = (v.monate || {})[monatJetzt()];
     s += '<button class="btn" data-wo="monat">' + window.__SYMBOL("plan") + " Monatstest" + (m ? " · " + m.ergebnis + " von " + m.n + " richtig" : "") + "</button>";
@@ -44094,12 +44284,26 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
     var s = '<div class="hb wo-seite"><button class="back" data-wo="zurueck">' + window.__SYMBOL("links") + ' Fortschritt</button>';
     if (!t) return s + '<p>Dieser Test ist nicht verfügbar.</p></div>';
     s += '<h2 class="hb-titel">' + window.__SYMBOL(art === "monat" ? "plan" : "dokument") + " " + h(t.titel) + "</h2>";
-    if (t.ergebnis) {
+    if (art === "woche" && t.lauf) {
+      var rest = t.lauf.minuten * 60000 - wochenVerbrauch(t.lauf), sek = Math.ceil(rest / 1000);
+      var abgelaufen = !sek && !t.lauf.antworten.length;
+      s += '<p class="hb-sub">' + (abgelaufen ? "Die Zeit ist abgelaufen. Du hast keine Antwort abgegeben."
+        : "Du hast " + t.lauf.i + " von " + t.lauf.liste.length + " Aufgaben abgegeben. Die Zeit läuft weiter, sobald du den Test fortsetzt.") + '</p>';
+      if (!abgelaufen) s += '<p>Verbleibende Zeit <strong>' + Math.floor(sek / 60) + ':' + String(sek % 60).padStart(2, "0") + '</strong></p>';
+      return s + '<div class="wo-knoepfe">' + (abgelaufen ? "" : '<button type="button" class="btn btn-primary" data-wo="beginnen">Test fortsetzen</button>')
+        + '<button type="button" class="btn' + (abgelaufen ? ' btn-primary' : '') + '" data-wo="neu-starten">Neu starten</button></div></div>';
+    }
+    if (t.ergebnis && !wirdWiederholt(t)) {
       var e = t.ergebnis;
+      var x = art === "woche" ? bewertungen().find(function (b) { return b.woche === t.zeitraum && b.aktuell; }) : null;
       s += '<div class="lp-box" role="status" data-testid="wo-ergebnis"><p>' + (art === "woche" ? "Geschätzt " + e.vorhersage + " · geschafft " : "Zuletzt richtig: ")
         + "<b>" + e.ergebnis + " von " + e.n + "</b></p>"
+        + (x?.note ? "<p>Note " + h(x.note) + "</p>" : "")
         + (e.karten ? "<p>Karteikarten: " + e.karten.richtig + " von " + e.karten.n + " richtig</p>" : "")
         + (e.fehlerSkills.length ? "<p><b>Zum Wiederholen:</b> " + e.fehlerSkills.map(function (sk) { return h(titelVon(sk)); }).join(", ") + "</p>" : (e.ergebnis === e.n ? "<p>Alles richtig!</p>" : "")) + "</div>";
+      if (art === "woche") {
+        return s + '<div class="wo-knoepfe">' + wiederholenKnopf() + (x ? entfernenKnopf(x) : "") + '</div></div>';
+      }
       if (art !== "eigen") return s + "</div>";
     }
     if (t.lauf) return s + '<p class="hb-sub">Du hast ' + t.lauf.i + ' von ' + t.lauf.liste.length + ' Aufgaben abgegeben. Die Zeit läuft seit dem Start weiter.</p><button class="btn btn-primary" data-wo="beginnen">Test fortsetzen</button></div>';
@@ -44111,6 +44315,7 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
       + (karten ? " · davon " + karten + (karten === 1 ? " Karteikarte" : " Karteikarten") : "")
       + "</span><span>" + window.__SYMBOL("zeit") + " " + t.minuten + " Min.</span></div>"
       + "<p>Die Zeit beginnt beim Start. Deine Auswertung siehst du nach der letzten Aufgabe oder wenn die Zeit abläuft.</p>";
+    if (art === "woche") s += "<p>Außerhalb des Wochentests pausiert die Uhr. Ohne abgegebene Antwort bleibt der Versuch unbewertet.</p>";
     if (art !== "woche") return s + '<button class="btn btn-primary" data-wo="beginnen">Test starten</button></div>';
     s += '<p class="wo-h4">' + (kind ? "Wie viele von " + n + " schaffst du?" : "Wie viele von " + n + " erwarten Sie?") + "</p>";
     if (n > 15) return s + '<form class="wo-schaetzen" data-wo-schaetzung><label>Geschätzte richtige Antworten <input name="schaetzung" type="number" required min="0" max="' + n + '"></label><button class="btn btn-primary">Test starten</button></form></div>';
@@ -44145,6 +44350,7 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
       + ' <button class="btn" data-eltern="fokus">Wochenthema festlegen</button></p>';
     var t = w.test || vw.test;
     s += "<p><b>Wochentest:</b> " + (t ? "geschätzt " + t.vorhersage + ", geschafft " + t.ergebnis + " von " + t.n + (t.fehlerSkills.length ? " · unsicher: " + t.fehlerSkills.map(function (sk) { return h(titelVon(sk)); }).join(", ") : "") : "diese Woche noch nicht (ab Freitag in „Heute“)") + "</p>";
+    s += bewertungenHtml();
     var m = (laden().monate || {})[monatJetzt()];
     s += "<p><b>Monatstest:</b> " + (m ? m.ergebnis + " von " + m.n + " richtig" : "diesen Monat noch nicht") + "</p>";
     if (an.abstand.length > 1) s += "<p><b>Selbsteinschätzung</b> (Vorhersage minus Ergebnis, ältere zuerst): " + an.abstand.join(" · ") + " — nähert sich das der 0, kennt sich das Kind besser.</p>";
@@ -44360,6 +44566,9 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
     else if (t.hasAttribute("data-wo-eigen")) { testEntwurf = null; kstate.woEigen = t.getAttribute("data-wo-eigen"); kstate.tab = "eigener-test"; }
     else if (t.hasAttribute("data-wo-stimmung")) { if (entwurf) entwurf.stimmung = t.getAttribute("data-wo-stimmung"); }
     else if (was === "test") return testOeffnen();
+    else if (was === "wiederholen") return wiederholen(testDetails("woche"));
+    else if (was === "neu-starten") return neuStarten();
+    else if (was === "ergebnis-entfernen") return bewertungEntfernen(t.dataset.woWoche, Number(t.dataset.woZeit));
     else if (was === "monat") { testEntwurf = null; kstate.tab = "monatstest"; }
     else if (was === "rueckblick") { entwurf = null; kstate.tab = "rueckblick"; }
     else if (was === "zurueck") kstate.tab = "hub-fortschritt";
@@ -44376,10 +44585,10 @@ function testKarten(kandidaten, ereignisse, jetzt, tage, anzahl) {
     e.preventDefault();
     testStarten(e.target.elements.schaetzung.valueAsNumber);
   }, true);
-  function testOeffnen() { testEntwurf = null; kstate.tab = "wochentest"; neu(); }
+  function testOeffnen() { testEntwurf = wiederholung = null; kstate.tab = "wochentest"; neu(); }
 
   window.__WOCHE = { html: html, htmlEltern: htmlEltern, prio: prio, themen: themen, themenObj: themenObj, testOffen: testOffen, rueckblickOffen: rueckblickOffen,
-    testOeffnen: testOeffnen, testUebersicht: testUebersicht, verwaltung: verwaltung, fokusHeute: function (tag) { return wochenthemaFuerHeute(themen(), tag); }, testStarten: testStarten, laden: laden, fehlerwoerter: fehlerwoerter };
+    testOeffnen: testOeffnen, testUebersicht: testUebersicht, pruefungAktuell: pruefungAktuell, aktuelleWoche: heuteMo, wiederholenKnopf: wiederholenKnopf, verwaltung: verwaltung, fokusHeute: function (tag) { return wochenthemaFuerHeute(themen(), tag); }, testStarten: testStarten, laden: laden, fehlerwoerter: fehlerwoerter };
 })();
 
 /* =====================================================================
@@ -50993,6 +51202,7 @@ function nachOben(alt, neu) { return alt !== null && alt !== neu; }
   /* ---------- Hülle um render ---------- */
   var renderVorher = render;
   var renderNeu = function () {
+    window.__LERNPFAD?.wochenUhrSchalten?.(false);
     try { if (window.__OBERFLAECHE && window.__OBERFLAECHE.vorZeichnen) window.__OBERFLAECHE.vorZeichnen(); } catch (e) {}   /* M66 */
     var r = renderVorher.apply(this, arguments);
     try {
@@ -51618,7 +51828,7 @@ try{if(typeof render==="function")render()}catch(e){}
 try{var hp=document.querySelector("header p");
     if(hp&&hp.innerHTML.indexOf("Mathematik")<0){hp.innerHTML=hp.innerHTML.replace(/<b>v[0-9.]+<\/b>/,"").replace(/\s·\s*$/,"")+' · Lernen · Üben · Prüfen · <b>v3.2.1</b>'}
     var fw=document.querySelector("footer .wrap");
-    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 3.2.1 · Stand 27.11.2026 17:32")}}catch(e){}
+    if(fw&&fw.innerHTML.indexOf("1.36")<0){fw.innerHTML=fw.innerHTML.replace(/Version [0-9.]+/g,"Version 3.2.1 · Stand 27.11.2026 18:09")}}catch(e){}
 })();
 
 </script>
